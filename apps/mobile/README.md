@@ -27,4 +27,4 @@ flutter test
 flutter build apk --debug
 ```
 
-Mimari ve ekranlar: [../../docs/architecture.md](../../docs/architecture.md), [../../docs/ui/screen-map.md](../../docs/ui/screen-map.md).
+Mobil mimari ve kurallar: [ARCHITECTURE.md](ARCHITECTURE.md). Genel mimari ve ekranlar: [../../docs/architecture.md](../../docs/architecture.md), [../../docs/ui/screen-map.md](../../docs/ui/screen-map.md).
