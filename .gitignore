@@ -1,0 +1,56 @@
+# ===== Gizli değerler =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+key.properties
+service-account*.json
+*-credentials.json
+google-services.json
+GoogleService-Info.plist
+
+# ===== İşletim sistemi / IDE =====
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# ===== Flutter / Dart =====
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+*.g.dart.tmp
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+
+# ===== Go =====
+/backend/bin/
+*.exe
+*.test
+*.out
+coverage.txt
+go.work.sum
+
+# ===== Loglar / geçici =====
+*.log
+tmp/
