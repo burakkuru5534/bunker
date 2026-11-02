@@ -62,22 +62,24 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 |---|---|---|---|
 | UI-001 | Marka ve görsel dil ([ui/brand.md](ui/brand.md)) | P1 | Done |
 | UI-002 | Ekran haritası ([ui/screen-map.md](ui/screen-map.md)) | P0 | Done |
-| UI-003 | Tasarım sistemi ([ui/design-system.md](ui/design-system.md)) | P1 | Awaiting User Approval |
-| UI-004 | Ana ekran | P0 | Ready |
-| UI-005 | Oda oluşturma | P0 | Backlog |
-| UI-006 | Odaya katılma | P0 | Backlog |
-| UI-007 | Lobi | P0 | Backlog |
-| UI-008 | Karakter kartları | P0 | Backlog |
-| UI-009 | Tartışma ekranı | P0 | Backlog |
-| UI-010 | Oylama ekranı | P0 | Backlog |
-| UI-011 | Sonuç ekranı | P0 | Backlog |
-| UI-012 | Hata ve bağlantı durumları | P0 | Backlog |
+| UI-003 | Tasarım sistemi ([ui/design-system.md](ui/design-system.md)) | P1 | Done |
+| UI-004 | Ana ekran | P0 | Awaiting User Approval |
+| UI-005 | Oda oluşturma | P0 | Awaiting User Approval |
+| UI-006 | Odaya katılma | P0 | Awaiting User Approval |
+| UI-007 | Lobi | P0 | Awaiting User Approval |
+| UI-008 | Karakter kartları | P0 | Awaiting User Approval |
+| UI-009 | Tartışma ekranı | P0 | Awaiting User Approval |
+| UI-010 | Oylama ekranı | P0 | Awaiting User Approval |
+| UI-011 | Sonuç ekranı | P0 | Awaiting User Approval |
+| UI-012 | Hata ve bağlantı durumları | P0 | Awaiting User Approval |
+
+> UI-004…012 tek bir görsel mockup setinde hazırlandı (13 telefon ekranı, Claude Design kanvası "Sığınak Ekran Mockupları"). Kaynak: [ui/screen-map.md](ui/screen-map.md), [ui/design-system.md](ui/design-system.md).
 
 ## Faz 2 — Flutter temeli
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| MOB-001 | Flutter yapılandırması (Android derlemesi doğrulama dahil) | P0 | Backlog |
+| MOB-001 | Flutter yapılandırması (Android derlemesi doğrulama dahil) | P0 | Ready |
 | MOB-002 | Ortam konfigürasyonları | P0 | Backlog |
 | MOB-003 | Feature-first mimari | P0 | Backlog |
 | MOB-004 | Riverpod | P0 | Backlog |
