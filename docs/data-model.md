@@ -12,10 +12,10 @@
 
 | Tablo | Amaç | Önemli alanlar / kısıtlar | Erişim | Saklama |
 |---|---|---|---|---|
-| `users` | Misafir kullanıcı | `id`, `nickname`, `created_at`, `last_seen_at` | Sahibi; takma ad oda üyelerine görünür | Hesap silinene kadar (SAFE-009) |
+| `users` | Misafir kullanıcı | `id`, `nickname`, `created_at`, `last_seen_at`, `deleted_at` (silinince takma ad "Silinmiş oyuncu" olarak anonimleştirilir) | Sahibi; takma ad oda üyelerine görünür | Hesap silinene kadar (SAFE-009) |
 | `sessions` | Oturumlar | `user_id`, `token_hash`, `expires_at`, `revoked_at` | Yalnızca sunucu | Süresi dolunca temizlenir (AUTH-001) |
-| `rooms` | Oda | `invite_code` (aktif odalarda tekil), `host_user_id`, `capacity` ∈ {1,2}, `status`, `current_game_id` | Oda üyeleri | Kapanınca temizlik (ROOM-010) |
-| `room_members` | Üyelik | PK `(room_id, user_id)`; `role` (player/spectator), `is_ready`, `joined_at`, `left_at` | Oda üyeleri | Oda ile |
+| `rooms` | Oda | `invite_code` (aktif odalarda tekil), `host_user_id`, `capacity` ∈ {1,2}, `status` (lobby/in_game/finished/closed), `current_game_id`; kullanıcı aynı anda tek aktif odada | Oda üyeleri | Kapanınca temizlik (ROOM-010) |
+| `room_members` | Üyelik | PK `(room_id, user_id)`; `role` (player/spectator), `is_ready`, `joined_at`, `left_at`, `kicked_at` (atılan tekrar katılamaz) | Oda üyeleri | Oda ile |
 | `card_definitions` | Kart kataloğu | `category`, `text`, `balance` (+/0/−), `active` | Yalnızca sunucu (metin açılınca gönderilir) | Kalıcı; migration ile yüklenir |
 | `scenarios` | Senaryolar | başlık, felaket, süre, sığınak, dış dünya | Herkese (oyun başlayınca) | Kalıcı |
 | `games` | Oyun durumu | `room_id`, `scenario_id`, `status`, `phase`, `round`, `phase_deadline_at`, `state_version`, `turn_index`, `capacity`, `started_at`, `finished_at` | Katılımcılar | Kalıcı (sonuç) |
