@@ -83,7 +83,24 @@ Paket: `flutter_riverpod` **3.4.3** (Dart `^3.12.0`). Kod üretici (riverpod_gen
 | Test | `ProviderScope(overrides: ...)` veya `ProviderContainer`; ortak yardımcı `test/helpers/pump_app.dart` |
 | Zorunlu override | Yalnızca çalışma zamanında belli olan değerler (`appConfigProvider`) override edilmeden okunursa hata verir |
 
-## 5. Adlandırma
+## 5. Yönlendirme (go_router)
+
+Paket: `go_router` `^18.1.0` (Dart `^3.12.0`, Flutter `>=3.44.0`). Rotalar [docs/ui/screen-map.md](../../docs/ui/screen-map.md) §2 ile birebir aynıdır.
+
+| Dosya | Görev |
+|---|---|
+| `app/router/app_routes.dart` | Rota yolları ve `room(id)` yardımcısı, oda kimliği (UUID) doğrulaması |
+| `app/router/app_redirect.dart` | **Saf** yönlendirme fonksiyonu: güncelleme → oturum → aktif oda kuralları (birim testli) |
+| `app/router/app_router.dart` | Tek `GoRouter` (`appRouterProvider`); oturum veya güncelleme durumu değişince `refreshListenable` ile yönlendirme yeniden değerlendirilir |
+
+Kurallar:
+- **Ekranlar rota yollarını bilmez.** Başka bir ekrana geçiş, ekrana geri çağrı (`onJoin`, `onOpenSettings` …) olarak verilir ve `app_router.dart` içinde bağlanır. Böylece feature'lar `app/`'e bağımlı olmaz.
+- Oturum / güncelleme gibi **durum kaynaklı geçişler** doğrudan `context.go` ile değil, ilgili provider'ın durumu değiştirilerek yapılır; router `redirect` ile doğru ekrana götürür.
+- Oda ekranı tek rotadır (`/room/:roomId`); lobi/oyun/sonuç görünümleri sunucu durumuna göre ekranın içinde seçilir.
+- Geçersiz oda kimliği ve bilinmeyen adresler `NotFoundScreen` gösterir.
+- Feature'ın dışarıya açtıkları `features/<ad>/<ad>.dart` dosyasından içe aktarılır (ör. `features/session/session.dart`).
+
+## 6. Adlandırma
 
 | Öğe | Kural | Örnek |
 |---|---|---|
@@ -94,13 +111,13 @@ Paket: `flutter_riverpod` **3.4.3** (Dart `^3.12.0`). Kod üretici (riverpod_gen
 | Repository | `<Ad>Repository` | `RoomRepository` |
 | DTO | `<Ad>Dto` | `RoomViewDto` |
 
-## 6. Testler
+## 7. Testler
 
 - `test/` klasörü `lib/` yapısını aynen yansıtır: `lib/features/home/presentation/home_screen.dart` → `test/features/home/presentation/home_screen_test.dart`.
 - `test/architecture/` bağımlılık kurallarını denetler.
 - `test/helpers/` test yardımcılarıdır (ör. `pumpWithProviders`).
 - Her görevde: `dart format --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
 
-## 7. Statik analiz
+## 8. Statik analiz
 
 `analysis_options.yaml`: `strict-casts`, `strict-inference`, `strict-raw-types` açık. `always_use_package_imports`, `avoid_print`, `unawaited_futures` **hata** seviyesindedir. Loglama için `print` yerine `debugPrint` / ileride log yardımcısı kullanılır.

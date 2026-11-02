@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:siginak/features/home/presentation/home_screen.dart';
+import 'package:siginak/app/router/app_router.dart';
 
-/// Uygulamanın kök widget'ı: tema, yönlendirme ve bağımlılıkların bağlandığı yer.
+/// Uygulamanın kök widget'ı: tema ve yönlendirmenin bağlandığı yer.
 ///
 /// Bir `ProviderScope` altında çalışır (bkz. `main.dart`).
-/// Tema (MOB-008) ve yönlendirme (MOB-005) sonraki görevlerde eklenecektir.
-class SiginakApp extends StatelessWidget {
+/// Tema token'ları MOB-008'de eklenecektir.
+class SiginakApp extends ConsumerWidget {
   const SiginakApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MaterialApp.router(
       title: 'Sığınak',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -23,7 +24,7 @@ class SiginakApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFF0F1115),
       ),
-      home: const HomeScreen(),
+      routerConfig: ref.watch(appRouterProvider),
     );
   }
 }

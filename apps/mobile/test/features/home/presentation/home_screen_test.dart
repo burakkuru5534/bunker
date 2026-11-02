@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:siginak/core/config/app_config.dart';
@@ -6,8 +7,15 @@ import 'package:siginak/features/home/presentation/home_screen.dart';
 import '../../../helpers/pump_app.dart';
 
 void main() {
+  Widget screen({VoidCallback? onJoin, VoidCallback? onOpenSettings}) {
+    return HomeScreen(
+      onJoin: onJoin ?? () {},
+      onOpenSettings: onOpenSettings ?? () {},
+    );
+  }
+
   testWidgets('Başlık ve local ortam etiketi görünür', (tester) async {
-    await pumpWithProviders(tester, const HomeScreen());
+    await pumpWithProviders(tester, screen());
 
     expect(find.text('SIĞINAK'), findsOneWidget);
     expect(find.text('Son Kalanlar'), findsOneWidget);
@@ -20,8 +28,23 @@ void main() {
       apiBaseUrl: 'https://api.example.com',
       wsBaseUrl: 'wss://api.example.com',
     );
-    await pumpWithProviders(tester, const HomeScreen(), config: prod);
+    await pumpWithProviders(tester, screen(), config: prod);
 
     expect(find.textContaining('Ortam:'), findsNothing);
+  });
+
+  testWidgets('Düğmeler geri çağrıları tetikler', (tester) async {
+    var joined = 0;
+    var settings = 0;
+    await pumpWithProviders(
+      tester,
+      screen(onJoin: () => joined++, onOpenSettings: () => settings++),
+    );
+
+    await tester.tap(find.text('Koda katıl'));
+    await tester.tap(find.byTooltip('Ayarlar'));
+
+    expect(joined, 1);
+    expect(settings, 1);
   });
 }

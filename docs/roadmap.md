@@ -83,7 +83,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | MOB-002 | Ortam konfigürasyonları | P0 | Awaiting User Approval |
 | MOB-003 | Feature-first mimari ([apps/mobile/ARCHITECTURE.md](../apps/mobile/ARCHITECTURE.md)) | P0 | Awaiting User Approval |
 | MOB-004 | Riverpod | P0 | Awaiting User Approval |
-| MOB-005 | go_router | P0 | Backlog |
+| MOB-005 | go_router | P0 | Awaiting User Approval |
 | MOB-006 | Dio | P0 | Backlog |
 | MOB-007 | WebSocket istemcisi | P0 | Backlog |
 | MOB-008 | Tasarım sistemi bileşenleri | P1 | Backlog |
@@ -96,6 +96,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **MOB-002:** `--dart-define-from-file` ile `local`/`test`/`prod` yapılandırması (`apps/mobile/config/`), `AppConfig` doğrulaması (test/prod'da https/wss zorunlu), düz http yalnızca debug derlemede, release manifest'e `INTERNET` izni. `local.json` git dışı. 10 test geçti. `test.json`/`prod.json` adresleri Cloud Run kurulunca güncellenecek.
 - **MOB-003:** `lib/app`, `lib/core`, `lib/features` yapısı; `SiginakApp` → `app/app.dart`, geçici ekran → `features/home/presentation/home_screen.dart`. Bağımlılık kuralları `test/architecture/import_rules_test.dart` ile otomatik denetleniyor. `analysis_options.yaml` sıkılaştırıldı (strict modlar; package import, print, unawaited futures = hata). 14 test geçti.
 - **MOB-004:** `flutter_riverpod` 3.4.3 (en güncel, Dart ^3.12.0), kod üretici yok. `ProviderScope` + `appConfigProvider` (override zorunlu). `HomeScreen` → `ConsumerWidget`. Test yardımcısı `test/helpers/pump_app.dart`. Riverpod kuralları ARCHITECTURE.md §4. 16 test geçti.
+- **MOB-005:** `go_router` ^18.1.0 (kilit: 18.1.2). 8 rota (ekran haritası §2) geçici ekranlarla; saf `appRedirect` (güncelleme → oturum → aktif oda), `refreshListenable` ile Riverpod bağlantısı, geçersiz oda kimliği/bilinmeyen adres → `NotFoundScreen`. Ekranlar gezinmeyi geri çağrıyla alır. Oturum şimdilik bellek içi iskelet ("Başla (geçici)"); gerçek oturum MOB-010/AUTH-002. 32 test geçti.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
