@@ -9,5 +9,6 @@
 | [0005](0005-persistent-deadlines.md) | Kalıcı deadline'larla zamanlayıcı kurtarma | Kabul edildi | 2026-11-02 |
 | [0006](0006-snapshot-on-reconnect.md) | Yeniden bağlanmada tam durum görüntüsü | Kabul edildi | 2026-11-02 |
 | [0007](0007-rest-commands-ws-push.md) | Komutlar REST ile, WebSocket yalnızca sunucu → istemci | Kabul edildi | 2026-11-02 |
+| [0008](0008-opaque-session-tokens.md) | Opak, sunucu tarafında doğrulanan misafir oturum token'ları | Kabul edildi | 2026-11-02 |
 
 Şablon: Bağlam → Karar → Alternatifler → Sonuçlar.

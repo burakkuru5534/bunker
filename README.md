@@ -36,6 +36,8 @@ bunker/
 - [Oyun tasarımı](docs/game-design.md)
 - [Sistem mimarisi](docs/architecture.md)
 - [Veri modeli (taslak)](docs/data-model.md)
+- [Güvenlik](docs/security.md)
+- [Maliyet modeli](docs/cost-model.md)
 - [Mimari kararlar (ADR)](docs/decisions/README.md)
 - [Yol haritası ve görevler](docs/roadmap.md)
 
