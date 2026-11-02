@@ -84,7 +84,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | MOB-003 | Feature-first mimari ([apps/mobile/ARCHITECTURE.md](../apps/mobile/ARCHITECTURE.md)) | P0 | Awaiting User Approval |
 | MOB-004 | Riverpod | P0 | Awaiting User Approval |
 | MOB-005 | go_router | P0 | Awaiting User Approval |
-| MOB-006 | Dio | P0 | Backlog |
+| MOB-006 | Dio | P0 | Awaiting User Approval |
 | MOB-007 | WebSocket istemcisi | P0 | Backlog |
 | MOB-008 | Tasarım sistemi bileşenleri | P1 | Backlog |
 | MOB-009 | Hata yönetimi | P0 | Backlog |
@@ -97,6 +97,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **MOB-003:** `lib/app`, `lib/core`, `lib/features` yapısı; `SiginakApp` → `app/app.dart`, geçici ekran → `features/home/presentation/home_screen.dart`. Bağımlılık kuralları `test/architecture/import_rules_test.dart` ile otomatik denetleniyor. `analysis_options.yaml` sıkılaştırıldı (strict modlar; package import, print, unawaited futures = hata). 14 test geçti.
 - **MOB-004:** `flutter_riverpod` 3.4.3 (en güncel, Dart ^3.12.0), kod üretici yok. `ProviderScope` + `appConfigProvider` (override zorunlu). `HomeScreen` → `ConsumerWidget`. Test yardımcısı `test/helpers/pump_app.dart`. Riverpod kuralları ARCHITECTURE.md §4. 16 test geçti.
 - **MOB-005:** `go_router` ^18.1.0 (kilit: 18.1.2). 8 rota (ekran haritası §2) geçici ekranlarla; saf `appRedirect` (güncelleme → oturum → aktif oda), `refreshListenable` ile Riverpod bağlantısı, geçersiz oda kimliği/bilinmeyen adres → `NotFoundScreen`. Ekranlar gezinmeyi geri çağrıyla alır. Oturum şimdilik bellek içi iskelet ("Başla (geçici)"); gerçek oturum MOB-010/AUTH-002. 32 test geçti.
+- **MOB-006:** `dio` ^5.11.1. `ApiClient` (taban adres, `X-App-Version`, Bearer token, zaman aşımları 10/10/15 sn), `ApiException` + hata eşleme (timeout, network, 401, 426 → `/update`, 429 + Retry-After, standart hata gövdesi, alan hataları). Token/gövde loglanmaz, otomatik yeniden deneme yok. `kAppVersion` pubspec ile testle eşleniyor. 46 test geçti.
 
 ## Faz 3 — Go backend ve PostgreSQL
 

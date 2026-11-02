@@ -100,7 +100,28 @@ Kurallar:
 - Geçersiz oda kimliği ve bilinmeyen adresler `NotFoundScreen` gösterir.
 - Feature'ın dışarıya açtıkları `features/<ad>/<ad>.dart` dosyasından içe aktarılır (ör. `features/session/session.dart`).
 
-## 6. Adlandırma
+## 6. Ağ (REST — Dio)
+
+Paket: `dio` `^5.11.1`. Sözleşme: [docs/api.md](../../docs/api.md).
+
+| Dosya | Görev |
+|---|---|
+| `core/network/api_client.dart` | `ApiClient`: `get/post/patch/delete`; taban adres, `X-App-Version`, varsa `Authorization: Bearer`; zaman aşımları (bağlantı 10 sn, gönderme 10 sn, alma 15 sn) |
+| `core/network/api_exception.dart` | `ApiException` (`kind`, `statusCode`, `code`, `requestId`, `retryAfter`, `fieldErrors`) |
+| `core/network/api_error_mapper.dart` | `DioException` → `ApiException` (zaman aşımı, ağ, 401, 426, 429, standart hata gövdesi) |
+| `core/network/api_client_provider.dart` | Uygulama boyu tek istemci (`apiClientProvider`) |
+| `core/network/auth_token_provider.dart` | Token okuyucu ve 401 işleyicisi — MOB-010 / AUTH-002 override eder |
+| `core/config/app_version.dart` | `kAppVersion` — `pubspec.yaml` ile eşitliği testle denetlenir |
+
+Kurallar:
+- Repository'ler yalnızca `ApiClient` kullanır; `Dio`'yu doğrudan kullanmaz.
+- Tüm hatalar `ApiException`'dır; UI metni `code`/`kind`'a göre l10n'dan seçilir (MOB-009). `debugMessage` kullanıcıya gösterilmez.
+- **426** → `updateRequiredProvider` işaretlenir → router `/update`'e kilitler. **401** → `unauthorizedHandlerProvider` çağrılır.
+- Otomatik yeniden deneme **yok**: oyun eylemleri `action_id` ile idempotent olsa da tekrar kararı çağıran katmandadır.
+- Loglama yalnızca debug derlemede ve yalnızca `yöntem yol → durum (süre)`; **başlık, token ve gövde loglanmaz.**
+- Testlerde ağa çıkılmaz: `test/helpers/fake_http_adapter.dart`.
+
+## 7. Adlandırma
 
 | Öğe | Kural | Örnek |
 |---|---|---|
@@ -111,13 +132,13 @@ Kurallar:
 | Repository | `<Ad>Repository` | `RoomRepository` |
 | DTO | `<Ad>Dto` | `RoomViewDto` |
 
-## 7. Testler
+## 8. Testler
 
 - `test/` klasörü `lib/` yapısını aynen yansıtır: `lib/features/home/presentation/home_screen.dart` → `test/features/home/presentation/home_screen_test.dart`.
 - `test/architecture/` bağımlılık kurallarını denetler.
 - `test/helpers/` test yardımcılarıdır (ör. `pumpWithProviders`).
 - Her görevde: `dart format --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
 
-## 8. Statik analiz
+## 9. Statik analiz
 
 `analysis_options.yaml`: `strict-casts`, `strict-inference`, `strict-raw-types` açık. `always_use_package_imports`, `avoid_print`, `unawaited_futures` **hata** seviyesindedir. Loglama için `print` yerine `debugPrint` / ileride log yardımcısı kullanılır.
