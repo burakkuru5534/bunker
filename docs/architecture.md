@@ -130,10 +130,11 @@ apps/mobile/lib/
 | Ortam | Backend | Veritabanı |
 |---|---|---|
 | Yerel | Go, Windows'ta doğrudan | Docker Desktop'ta PostgreSQL konteyneri |
-| Test | Cloud Run `bunker-api-test` (min 0, max 1) | Ayrı Supabase projesi |
-| Production | Cloud Run `bunker-api` (max 1) | Ayrı Supabase projesi |
+| Test | Cloud Run `bunker-api-test` (min 0, max 1) | Supabase, şema `bunker_test`, rol `bunker_test_app` |
+| Production | Cloud Run `bunker-api` (min 0, max 1) | Aynı Supabase projesi, şema `bunker_prod`, rol `bunker_prod_app` |
 
-- Bölge hedefi: Frankfurt (Supabase `eu-central-1`, Cloud Run `europe-west3`) — kesin karar ARCH-005.
+- Tek Supabase projesi, test/prod şema + rol izolasyonuyla ayrılır ([ADR-0009](decisions/0009-single-supabase-schema-isolation.md)). Supabase planı: Free (Pro'ya geçiş ileride, onayla).
+- Bölgeler: Cloud Run `europe-west1` (Belçika, Tier 1 fiyat), Supabase `eu-central-1` (Frankfurt). Bağlantı ayrıntıları ARCH-005.
 - Testler bulut çalışma alanında da aynı sürümlerle çalıştırılır (Go 1.27.0, Flutter 3.47.1, PostgreSQL).
 - Bulut kaynakları ve ücretli değişiklikler ayrıca kullanıcı onayı gerektirir.
 

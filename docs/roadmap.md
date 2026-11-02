@@ -26,7 +26,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | DOC-001 | Doküman iskeleti ve kararların kaydı | P0 | GAME-006 | Done |
 | ARCH-001 | Sistem mimarisi | P0 | DOC-001 | Done |
 | ARCH-002 | WebSocket ve PostgreSQL veri akışı | P0 | ARCH-001 | Done |
-| ARCH-003 | Güvenlik ve maliyet kararları | P0 | ARCH-001 | Awaiting User Approval |
+| ARCH-003 | Güvenlik ve maliyet kararları | P0 | ARCH-001 | Done |
 | ARCH-004 | API sözleşmeleri | P0 | ARCH-002 | Ready |
 | ARCH-005 | Cloud Run ve Supabase bağlantı modeli | P0 | ARCH-001 | Backlog |
 
@@ -39,7 +39,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **DOC-001:** README, .gitignore, ürün gereksinimleri, oyun tasarımı ve yol haritası oluşturuldu.
 - **ARCH-001:** [architecture.md](architecture.md) ve ADR-0001…0006 yazıldı. Kararlar: modül yapısı (4 sapma onaylı), satır kilidi + sürüm + action_id, ayrı test/prod ortamları, yerelde Docker Desktop ile PostgreSQL.
 - **ARCH-002:** Komutlar REST, WS yalnızca sunucu → istemci ([ADR-0007](decisions/0007-rest-commands-ws-push.md)). Veri akışı [architecture.md §10](architecture.md), tablo taslağı [data-model.md](data-model.md).
-- **ARCH-003:** [security.md](security.md), [cost-model.md](cost-model.md), [ADR-0008](decisions/0008-opaque-session-tokens.md). Açık maliyet kararları cost-model.md §6'da.
+- **ARCH-003:** [security.md](security.md), [cost-model.md](cost-model.md), [ADR-0008](decisions/0008-opaque-session-tokens.md). Maliyet kararları: Supabase Free + tek proje (test/prod şema izolasyonu, [ADR-0009](decisions/0009-single-supabase-schema-isolation.md)); Cloud Run `europe-west1`, Supabase `eu-central-1`.
 
 ### DOC-001 — Doküman iskeleti
 

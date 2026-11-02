@@ -22,10 +22,10 @@ Ayrıntı: [ADR-0008](decisions/0008-opaque-session-tokens.md).
 
 Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgREST) üzerinden dışarı açabilir. Uygulamamız bu API'yi kullanmaz.
 
-- Tüm tablolar **`app` şemasında** tutulur; bu şema Data API'ye açılmaz.
+- Tek Supabase projesinde iki şema: **`bunker_test`** ve **`bunker_prod`** ([ADR-0009](decisions/0009-single-supabase-schema-isolation.md)). Bu şemalar Data API'ye açılmaz.
 - Tüm tablolarda **RLS etkin, politika yok** (varsayılan reddet) — ikinci savunma hattı.
 - Supabase panelinde Data API kapatılır veya yalnızca boş bir şemaya bakar (MANUAL — DB-001).
-- Backend, yalnızca `app` şemasında yetkili **ayrı bir veritabanı rolü** ile bağlanır; `postgres`/service-role kullanılmaz.
+- Her ortam yalnızca kendi şemasında yetkili **ayrı bir veritabanı rolü** ile bağlanır (`bunker_test_app`, `bunker_prod_app`); roller birbirinin şemasına erişemez. `postgres`/service-role kullanılmaz.
 - Supabase `anon` / `service_role` anahtarları mobil uygulamaya **asla** konmaz; backend'in de bunlara ihtiyacı yoktur.
 - Tüm sorgular parametreli (pgx/sqlc) → SQL injection yok.
 

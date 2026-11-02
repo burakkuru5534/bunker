@@ -40,8 +40,10 @@
 
 | Senaryo | Varsayım | Cloud Run | Supabase | Toplam / ay |
 |---|---|---|---|---|
-| Geliştirme | Aylık ~20 saat aktif bağlantı | $0 (ücretsiz kota içinde) | Free (test + prod) | **$0** |
+| Geliştirme | Aylık ~20 saat aktif bağlantı | $0 (ücretsiz kota içinde) | Free (tek proje, test + prod şemaları) | **$0** |
 | Kapalı beta | Aylık ~200 saat aktif, ~1 milyon istek | ≈ $9 (CPU; bellek ve istek ücretsiz kota içinde) | Free | **≈ $9** |
+
+> Not: Free projede test ve prod aynı kaynakları paylaşır; proje 1 hafta hareketsiz kalırsa duraklar (kapalı beta sırasında risk).
 | Tavan | Instance 7/24 aktif (720 saat) | ≈ $44 (CPU ≈ $42 + bellek ≈ $2) | Pro: $25 | **≈ $69** |
 
 Hesap (tavan, CPU): `720 × 3.600 = 2.592.000 vCPU-sn − 240.000 ücretsiz = 2.352.000 × $0.000018 ≈ $42`.
@@ -63,6 +65,6 @@ Hesap (tavan, CPU): `720 × 3.600 = 2.592.000 vCPU-sn − 240.000 ücretsiz = 2.
 
 | Karar | Ne zaman | Durum |
 |---|---|---|
-| Supabase prod'un Pro'ya geçişi ($25/ay) | Herkese açık yayından önce (Free projeler 1 hafta hareketsizlikte duraklar) | Bekliyor — kullanıcı onayı |
-| Cloud Run bölgesi (Tier 1 vs Tier 2) | ARCH-005 | Bekliyor |
+| Supabase planı | Şimdilik **Free**, tek proje (test + prod şemaları, ADR-0009). Pro'ya geçiş yayından önce yeniden değerlendirilecek. | Karar verildi (2026-11-02) |
+| Cloud Run bölgesi | **europe-west1** (Tier 1); Supabase **eu-central-1** | Karar verildi (2026-11-02) |
 | GCP bütçe uyarısı | Bulut kaynakları oluşturulmadan önce | Bekliyor — kullanıcı işlemi |
