@@ -23,9 +23,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | GAME-004 | Kart kategorileri ve gizlilik kuralları | P0 | GAME-003 | Done |
 | GAME-005 | İlk felaket senaryoları | P0 | GAME-004 | Done |
 | GAME-006 | Süreler, oylama ve beraberlik kuralları | P0 | GAME-003 | Done |
-| DOC-001 | Doküman iskeleti ve kararların kaydı | P0 | GAME-006 | Awaiting User Approval |
-| ARCH-001 | Sistem mimarisi | P0 | DOC-001 | Ready |
-| ARCH-002 | WebSocket ve PostgreSQL veri akışı | P0 | ARCH-001 | Backlog |
+| DOC-001 | Doküman iskeleti ve kararların kaydı | P0 | GAME-006 | Done |
+| ARCH-001 | Sistem mimarisi | P0 | DOC-001 | Awaiting User Approval |
+| ARCH-002 | WebSocket ve PostgreSQL veri akışı | P0 | ARCH-001 | Ready |
 | ARCH-003 | Güvenlik ve maliyet kararları | P0 | ARCH-001 | Backlog |
 | ARCH-004 | API sözleşmeleri | P0 | ARCH-002 | Backlog |
 | ARCH-005 | Cloud Run ve Supabase bağlantı modeli | P0 | ARCH-001 | Backlog |
@@ -36,6 +36,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **INIT-002:** Flutter 3.47.1, Dart 3.13.1, Go 1.27.0, Android SDK 36.0.0 doğrulandı. Android lisans adımı yeni Android CLI ile gereksiz; gerçek derleme MOB-001'de doğrulanacak. Testler bulut çalışma alanında aynı sürümlerle (Go 1.27.0, Flutter 3.47.1, yerel PostgreSQL) çalıştırılacak — kullanıcı onaylı.
 - **INIT-003:** İncelenecek bağımlılık/konfigürasyon yok.
 - **GAME-001…006:** Kararlar [product-requirements.md](product-requirements.md) ve [game-design.md](game-design.md) içinde.
+- **DOC-001:** README, .gitignore, ürün gereksinimleri, oyun tasarımı ve yol haritası oluşturuldu.
+- **ARCH-001:** [architecture.md](architecture.md) ve ADR-0001…0006 yazıldı. Kararlar: modül yapısı (4 sapma onaylı), satır kilidi + sürüm + action_id, ayrı test/prod ortamları, yerelde Docker Desktop ile PostgreSQL.
 
 ### DOC-001 — Doküman iskeleti
 

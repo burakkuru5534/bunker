@@ -34,6 +34,8 @@ bunker/
 
 - [Ürün gereksinimleri](docs/product-requirements.md)
 - [Oyun tasarımı](docs/game-design.md)
+- [Sistem mimarisi](docs/architecture.md)
+- [Mimari kararlar (ADR)](docs/decisions/README.md)
 - [Yol haritası ve görevler](docs/roadmap.md)
 
 ## Geliştirme ortamı
