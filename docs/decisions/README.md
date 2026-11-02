@@ -8,5 +8,6 @@
 | [0004](0004-db-authoritative-state.md) | Veritabanı otoriteli durum: satır kilidi, sürüm, idempotency | Kabul edildi | 2026-11-02 |
 | [0005](0005-persistent-deadlines.md) | Kalıcı deadline'larla zamanlayıcı kurtarma | Kabul edildi | 2026-11-02 |
 | [0006](0006-snapshot-on-reconnect.md) | Yeniden bağlanmada tam durum görüntüsü | Kabul edildi | 2026-11-02 |
+| [0007](0007-rest-commands-ws-push.md) | Komutlar REST ile, WebSocket yalnızca sunucu → istemci | Kabul edildi | 2026-11-02 |
 
 Şablon: Bağlam → Karar → Alternatifler → Sonuçlar.

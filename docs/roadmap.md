@@ -24,9 +24,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | GAME-005 | İlk felaket senaryoları | P0 | GAME-004 | Done |
 | GAME-006 | Süreler, oylama ve beraberlik kuralları | P0 | GAME-003 | Done |
 | DOC-001 | Doküman iskeleti ve kararların kaydı | P0 | GAME-006 | Done |
-| ARCH-001 | Sistem mimarisi | P0 | DOC-001 | Awaiting User Approval |
-| ARCH-002 | WebSocket ve PostgreSQL veri akışı | P0 | ARCH-001 | Ready |
-| ARCH-003 | Güvenlik ve maliyet kararları | P0 | ARCH-001 | Backlog |
+| ARCH-001 | Sistem mimarisi | P0 | DOC-001 | Done |
+| ARCH-002 | WebSocket ve PostgreSQL veri akışı | P0 | ARCH-001 | Awaiting User Approval |
+| ARCH-003 | Güvenlik ve maliyet kararları | P0 | ARCH-001 | Ready |
 | ARCH-004 | API sözleşmeleri | P0 | ARCH-002 | Backlog |
 | ARCH-005 | Cloud Run ve Supabase bağlantı modeli | P0 | ARCH-001 | Backlog |
 
@@ -38,6 +38,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **GAME-001…006:** Kararlar [product-requirements.md](product-requirements.md) ve [game-design.md](game-design.md) içinde.
 - **DOC-001:** README, .gitignore, ürün gereksinimleri, oyun tasarımı ve yol haritası oluşturuldu.
 - **ARCH-001:** [architecture.md](architecture.md) ve ADR-0001…0006 yazıldı. Kararlar: modül yapısı (4 sapma onaylı), satır kilidi + sürüm + action_id, ayrı test/prod ortamları, yerelde Docker Desktop ile PostgreSQL.
+- **ARCH-002:** Komutlar REST, WS yalnızca sunucu → istemci ([ADR-0007](decisions/0007-rest-commands-ws-push.md)). Veri akışı [architecture.md §10](architecture.md), tablo taslağı [data-model.md](data-model.md).
 
 ### DOC-001 — Doküman iskeleti
 

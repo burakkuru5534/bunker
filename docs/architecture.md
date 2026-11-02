@@ -142,3 +142,81 @@ apps/mobile/lib/
 - Her deploy ve instance değişiminde **tüm WebSocket bağlantıları kopar**; istemci otomatik yeniden bağlanıp tam durumu alır.
 - Tek instance kapasitesi RT-011'de ölçülecek. Aşılırsa çoklu instance için yeni ADR gerekir (ör. PostgreSQL LISTEN/NOTIFY ile olay dağıtımı).
 - Cloud Run istek zaman aşımı (en fazla 60 dk) WebSocket ömrünü sınırlar; istemci periyodik yeniden bağlanmayı sorunsuz yönetmelidir.
+
+## 10. Veri akışı (ARCH-002)
+
+### Komut ve olay kanalları
+
+- **Tüm komutlar REST** ile gönderilir (kart açma, hazırım, oy, sohbet mesajı, oda işlemleri).
+- **WebSocket yalnızca sunucu → istemci** olay ve durum taşır. İstemciden yalnızca `sync` (tam durum isteği) gelir; canlılık için WS ping/pong.
+- İstemci ekranını HTTP yanıtına göre değil, WS olaylarına göre günceller (tek durum kaynağı).
+- Gerekçe: [ADR-0007](decisions/0007-rest-commands-ws-push.md).
+
+### a) Oyun eylemi
+
+```
+POST /v1/games/{id}/actions {action_id, type, payload}   Authorization: Bearer <token>
+  1. Token doğrulama → user_id
+  2. Katılımcı mı, eylem için uygun durumda mı (ör. hayatta)?
+  3. BEGIN
+     SELECT * FROM games WHERE id=$1 FOR UPDATE
+     game_actions'ta (game_id, actor_id, action_id) var mı? → varsa kayıtlı sonucu döndür
+     engine.Apply(durum, eylem, now, rng) → yeni durum + olaylar | kural hatası
+     INSERT votes / UPDATE player_cards / UPDATE games (phase, deadline, state_version+1)
+     INSERT game_actions
+     COMMIT
+  4. Commit sonrası: hub.Broadcast(oda, genel olaylar); hub.SendPrivate(oyuncu, özel olaylar);
+     timers.Reschedule(oyun, deadline)
+  5. HTTP 200 {state_version}
+```
+
+### b) Süre dolması
+
+Zamanlayıcı → sistem eylemi `phase_timeout{expected_version}` → (a) ile aynı yol. Sürüm uyuşmazsa işlem yapılmaz.
+
+### c) Sohbet mesajı
+
+```
+POST /v1/rooms/{id}/messages {client_msg_id, text}
+  → üyelik (yalnızca hayattaki oyuncular / lobidekiler yazabilir)
+  → sıklık sınırı (bellek içi, kullanıcı başına) → 200 karakter + küfür filtresi
+  → INSERT chat_messages (oyun kilidi alınmaz)
+  → hub.Broadcast(oda, chat.message) — engelleyen alıcılara gönderilmez
+```
+
+### d) Bağlanma / yeniden bağlanma
+
+```
+WSS /v1/ws?room_id=...   Authorization: Bearer <token>   (token URL'de değil → loglara düşmez)
+  → token + oda üyeliği doğrulanır → bağlantı hub'a eklenir
+  → session.snapshot (oyuncuya özel tam durum + son 50 mesaj)
+  → sonraki olaylar state_version ile; sürüm atlaması → istemci {"type":"sync"} → yeni snapshot
+```
+
+### WebSocket olayları (sunucu → istemci)
+
+Zarf: `{"v":1,"type":"...","room_id":"...","state_version":42,"ts":"...","payload":{...}}`
+
+| Olay | Kime | İçerik |
+|---|---|---|
+| `session.snapshot` | Özel | Tam oda/oyun durumu, kendi kartları, son 50 mesaj |
+| `room.member_joined` / `room.member_left` / `room.member_kicked` | Oda | Üye |
+| `room.ready_changed` | Oda | Kullanıcı, hazır |
+| `room.settings_changed` | Oda | Kapasite |
+| `room.host_changed` | Oda | Yeni oda sahibi |
+| `game.started` | Oda | Senaryo, katılımcılar, açıklama sırası |
+| `game.your_cards` | Özel | Oyuncunun 5 kartı |
+| `game.phase_changed` | Oda | Aşama, tur, deadline, sıradaki oyuncu |
+| `game.card_revealed` | Oda | Oyuncu, kategori, kart metni |
+| `game.discussion_ready` | Oda | "Hazırım" sayacı |
+| `game.vote_progress` | Oda | x/y oy (hedef yok) |
+| `game.tiebreak_started` | Oda | Eşit adaylar |
+| `game.player_eliminated` | Oda | Elenen, yöntem, oy sayıları, tüm kartları |
+| `game.player_connection` | Oda | Koptu / döndü / ayrıldı |
+| `game.finished` | Oda | Kazananlar, herkesin tüm kartları |
+| `room.returned_to_lobby` | Oda | Tekrar oyna |
+| `chat.message` | Oda (engelleme filtresi) | Gönderen, metin, zaman |
+
+Nihai payload şemaları ARCH-004'te ([api.md](api.md)) kesinleşir.
+
+**Gizlilik kuralı:** Genel olaylarda açılmamış kart asla bulunmaz; özel olaylar yalnızca ilgili oyuncunun bağlantılarına gider (ENG-015, SAFE-004 ile test edilir).
