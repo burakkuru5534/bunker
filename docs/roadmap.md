@@ -61,9 +61,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
 | UI-001 | Marka ve görsel dil ([ui/brand.md](ui/brand.md)) | P1 | Done |
-| UI-002 | Ekran haritası ([ui/screen-map.md](ui/screen-map.md)) | P0 | Awaiting User Approval |
-| UI-003 | Tasarım sistemi | P1 | Ready |
-| UI-004 | Ana ekran | P0 | Backlog |
+| UI-002 | Ekran haritası ([ui/screen-map.md](ui/screen-map.md)) | P0 | Done |
+| UI-003 | Tasarım sistemi ([ui/design-system.md](ui/design-system.md)) | P1 | Awaiting User Approval |
+| UI-004 | Ana ekran | P0 | Ready |
 | UI-005 | Oda oluşturma | P0 | Backlog |
 | UI-006 | Odaya katılma | P0 | Backlog |
 | UI-007 | Lobi | P0 | Backlog |

@@ -42,6 +42,7 @@ bunker/
 - [Mimari kararlar (ADR)](docs/decisions/README.md)
 - [Marka ve görsel dil](docs/ui/brand.md)
 - [Ekran haritası](docs/ui/screen-map.md)
+- [Tasarım sistemi](docs/ui/design-system.md)
 - [Yol haritası ve görevler](docs/roadmap.md)
 
 ## Geliştirme ortamı
