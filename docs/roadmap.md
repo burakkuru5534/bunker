@@ -63,15 +63,15 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | UI-001 | Marka ve görsel dil ([ui/brand.md](ui/brand.md)) | P1 | Done |
 | UI-002 | Ekran haritası ([ui/screen-map.md](ui/screen-map.md)) | P0 | Done |
 | UI-003 | Tasarım sistemi ([ui/design-system.md](ui/design-system.md)) | P1 | Done |
-| UI-004 | Ana ekran | P0 | Awaiting User Approval |
-| UI-005 | Oda oluşturma | P0 | Awaiting User Approval |
-| UI-006 | Odaya katılma | P0 | Awaiting User Approval |
-| UI-007 | Lobi | P0 | Awaiting User Approval |
-| UI-008 | Karakter kartları | P0 | Awaiting User Approval |
-| UI-009 | Tartışma ekranı | P0 | Awaiting User Approval |
-| UI-010 | Oylama ekranı | P0 | Awaiting User Approval |
-| UI-011 | Sonuç ekranı | P0 | Awaiting User Approval |
-| UI-012 | Hata ve bağlantı durumları | P0 | Awaiting User Approval |
+| UI-004 | Ana ekran | P0 | Done |
+| UI-005 | Oda oluşturma | P0 | Done |
+| UI-006 | Odaya katılma | P0 | Done |
+| UI-007 | Lobi | P0 | Done |
+| UI-008 | Karakter kartları | P0 | Done |
+| UI-009 | Tartışma ekranı | P0 | Done |
+| UI-010 | Oylama ekranı | P0 | Done |
+| UI-011 | Sonuç ekranı | P0 | Done |
+| UI-012 | Hata ve bağlantı durumları | P0 | Done |
 
 > UI-004…012 tek bir görsel mockup setinde hazırlandı (13 telefon ekranı, Claude Design kanvası "Sığınak Ekran Mockupları"). Kaynak: [ui/screen-map.md](ui/screen-map.md), [ui/design-system.md](ui/design-system.md).
 
@@ -79,7 +79,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| MOB-001 | Flutter yapılandırması (Android derlemesi doğrulama dahil) | P0 | Ready |
+| MOB-001 | Flutter yapılandırması (Android derlemesi doğrulama dahil) | P0 | Awaiting User Approval |
 | MOB-002 | Ortam konfigürasyonları | P0 | Backlog |
 | MOB-003 | Feature-first mimari | P0 | Backlog |
 | MOB-004 | Riverpod | P0 | Backlog |
@@ -91,6 +91,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | MOB-010 | Güvenli oturum depolama | P0 | Backlog |
 | MOB-011 | Widget testleri | P0 | Backlog |
 | MOB-012 | CI doğrulaması | P1 | Backlog |
+
+- **MOB-001:** `apps/mobile` oluşturuldu (Flutter 3.47.1). Dart paketi `siginak`, **applicationId `com.bunker.app`** (kullanıcı kararı, kalıcı), uygulama adı "Sığınak", yalnızca dikey, sürüm 0.1.0+1. `dart format`, `flutter analyze`, `flutter test` bulut çalışma alanında geçti. Android derlemesi kullanıcı cihazında doğrulanacak.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
