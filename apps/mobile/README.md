@@ -12,8 +12,11 @@
 ```bash
 cd apps/mobile
 flutter pub get
-flutter run            # bağlı cihaz veya emülatör
+cp config/local.example.json config/local.json   # ilk kez; gerekirse IP'yi düzenle
+flutter run --dart-define-from-file=config/local.json
 ```
+
+Ortamlar (`local`, `test`, `prod`) ve adres kuralları: [config/README.md](config/README.md).
 
 ## Kontroller
 

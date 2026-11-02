@@ -1,0 +1,5 @@
+{
+  "APP_ENV": "test",
+  "API_BASE_URL": "https://bunker-api-test.example.invalid",
+  "WS_BASE_URL": "wss://bunker-api-test.example.invalid"
+}
