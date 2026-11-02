@@ -28,7 +28,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ARCH-002 | WebSocket ve PostgreSQL veri akışı | P0 | ARCH-001 | Done |
 | ARCH-003 | Güvenlik ve maliyet kararları | P0 | ARCH-001 | Done |
 | ARCH-004 | API sözleşmeleri | P0 | ARCH-002 | Done |
-| ARCH-005 | Cloud Run ve Supabase bağlantı modeli | P0 | ARCH-001 | Awaiting User Approval |
+| ARCH-005 | Cloud Run ve Supabase bağlantı modeli | P0 | ARCH-001 | Done |
 
 ### Tamamlanma notları
 
@@ -60,8 +60,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| UI-001 | Marka ve görsel dil | P1 | Ready |
-| UI-002 | Ekran haritası | P0 | Backlog |
+| UI-001 | Marka ve görsel dil ([ui/brand.md](ui/brand.md)) | P1 | Awaiting User Approval |
+| UI-002 | Ekran haritası | P0 | Ready |
 | UI-003 | Tasarım sistemi | P1 | Backlog |
 | UI-004 | Ana ekran | P0 | Backlog |
 | UI-005 | Oda oluşturma | P0 | Backlog |

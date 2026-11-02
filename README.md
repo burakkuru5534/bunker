@@ -40,6 +40,7 @@ bunker/
 - [Güvenlik](docs/security.md)
 - [Maliyet modeli](docs/cost-model.md)
 - [Mimari kararlar (ADR)](docs/decisions/README.md)
+- [Marka ve görsel dil](docs/ui/brand.md)
 - [Yol haritası ve görevler](docs/roadmap.md)
 
 ## Geliştirme ortamı
