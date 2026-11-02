@@ -11,5 +11,7 @@
 | [0007](0007-rest-commands-ws-push.md) | Komutlar REST ile, WebSocket yalnızca sunucu → istemci | Kabul edildi | 2026-11-02 |
 | [0008](0008-opaque-session-tokens.md) | Opak, sunucu tarafında doğrulanan misafir oturum token'ları | Kabul edildi | 2026-11-02 |
 | [0009](0009-single-supabase-schema-isolation.md) | Tek Supabase projesi, test/prod şema + rol izolasyonu | Kabul edildi | 2026-11-02 |
+| [0010](0010-supavisor-session-mode.md) | Supabase'e Supavisor session mode ile bağlanma | Kabul edildi | 2026-11-02 |
+| [0011](0011-cloud-run-configuration.md) | Cloud Run yapılandırması: instance-based, min 0 / max 1, europe-west1 | Kabul edildi | 2026-11-02 |
 
 Şablon: Bağlam → Karar → Alternatifler → Sonuçlar.

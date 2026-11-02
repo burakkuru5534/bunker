@@ -221,3 +221,64 @@ Zarf: `{"v":1,"type":"...","room_id":"...","state_version":42,"ts":"...","payloa
 Nihai payload şemaları ARCH-004'te ([api.md](api.md)) kesinleşir.
 
 **Gizlilik kuralı:** Genel olaylarda açılmamış kart asla bulunmaz; özel olaylar yalnızca ilgili oyuncunun bağlantılarına gider (ENG-015, SAFE-004 ile test edilir).
+
+## 11. Cloud Run ve Supabase bağlantı modeli (ARCH-005)
+
+### Veritabanı bağlantısı
+
+Ayrıntı: [ADR-0010](decisions/0010-supavisor-session-mode.md).
+
+| Konu | Karar |
+|---|---|
+| Bağlantı yolu | **Supavisor paylaşımlı pooler, session mode, port 5432** (IPv4, tüm planlarda) |
+| Neden doğrudan bağlantı değil | Doğrudan bağlantı Free/Pro'da yalnızca IPv6; Cloud Run varsayılan çıkışı IPv4. IPv4 eklentisi ücretli |
+| Neden transaction mode değil | Prepared statement desteklemiyor; uzun ömürlü sunucu için session mode öneriliyor |
+| Kullanıcı adı | `<rol>.<proje-ref>` (ör. `bunker_prod_app.<ref>`); host Supabase panelindeki Connect ekranından alınır |
+| TLS | Zorunlu. Hedef `sslmode=verify-full` (Supabase CA sertifikası imaja eklenir); DB-001'de doğrulanır |
+| Sürücü | `pgx/v5` + `pgxpool`; prepared statement açık |
+
+### Bağlantı havuzu (pgxpool)
+
+| Ayar | Prod | Test | Gerekçe |
+|---|---|---|---|
+| `MaxConns` | 5 | 3 | Tek instance; kısa transaction'lar. Toplam ≤ 8 + migration 1 |
+| `MinConns` | 0 | 0 | Boşta bağlantı tutma |
+| `MaxConnIdleTime` | 5 dk | 5 dk | |
+| `MaxConnLifetime` | 30 dk | 30 dk | Pooler yeniden dengelemesi |
+| `HealthCheckPeriod` | 1 dk | 1 dk | |
+| Havuz bekleme | İstek bağlamının zaman aşımı (≤ 3 sn) | | Havuz doluysa hızlı hata |
+
+Rol düzeyinde sınırlar (migration ile):
+- `statement_timeout = 5s`
+- `idle_in_transaction_session_timeout = 10s`
+- `lock_timeout = 3s`
+
+Limitler (Nano/Micro): en fazla 60 doğrudan bağlantı, 200 pooler istemci bağlantısı; pooler arka uç havuz boyutu panelden okunur ve DB-005'te doğrulanır. Diğer Supabase projeniz ayrı projede olduğu için bu limitleri paylaşmaz.
+
+**Migration'lar:** Yerelden veya CI'dan aynı session pooler üzerinden, ilgili rolün sahibi olan ayrı bir migration rolüyle uygulanır (DB-002).
+
+### Cloud Run yapılandırması
+
+Ayrıntı: [ADR-0011](decisions/0011-cloud-run-configuration.md).
+
+| Ayar | Değer | Gerekçe |
+|---|---|---|
+| Bölge | `europe-west1` | Tier 1 fiyat |
+| Servisler | `bunker-api-test`, `bunker-api` | Ayrı servis hesapları ve secret'lar |
+| Faturalama | **Instance-based** (CPU her zaman tahsisli) | Açık WS olan instance zaten instance-based faturalanır; zamanlayıcı goroutine'leri istek dışında da çalışmalı |
+| min / max instance | 0 / 1 | Boşta ücret yok; maliyet tavanı; bellek içi hub (ADR-0003) |
+| CPU / bellek | 1 vCPU / 512 MiB | Go + ≤1.000 WS için yeterli; RT-011'de ölçülür |
+| Eşzamanlılık | 1000 | Cloud Run üst sınırı; WS bağlantıları sayılır |
+| İstek zaman aşımı | 3600 sn | WS ömrü üst sınırı |
+| Session affinity | Açık | Tek instance'ta etkisiz ama zararsız; ileride yardımcı |
+| Port | 8080 | |
+| Startup probe | `GET /health` | |
+| Erişim | Herkese açık (`allUsers` invoker) | Kimlik uygulama katmanında (Bearer token) |
+| Secret | `DATABASE_URL` → Secret Manager, ortam değişkeni olarak | |
+| İmaj | Çok aşamalı Docker build → distroless, Artifact Registry `europe-west1` | Küçük imaj, hızlı soğuk başlatma |
+
+### Yaşam döngüsü
+
+- **Soğuk başlatma:** İlk istek ~1–2 sn bekleyebilir (min 0). Açılışta aktif oyunlar ve deadline'lar yüklenir (ADR-0005).
+- **Kapanış (SIGTERM, ~10 sn):** Yeni istek kabul edilmez → tüm WS bağlantıları `1012` ile kapatılır → bekleyen transaction'lar biter → havuz kapanır. Oyun durumu zaten veritabanındadır.
+- **Boşta instance:** Bağlantı kalmayınca Cloud Run instance'ı bir süre sonra kapatır; bu sürede instance-based faturalama devam eder (kısa ve düşük maliyet).

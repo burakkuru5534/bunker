@@ -67,4 +67,6 @@ Hesap (tavan, CPU): `720 × 3.600 = 2.592.000 vCPU-sn − 240.000 ücretsiz = 2.
 |---|---|---|
 | Supabase planı | Şimdilik **Free**, tek proje (test + prod şemaları, ADR-0009). Pro'ya geçiş yayından önce yeniden değerlendirilecek. | Karar verildi (2026-11-02) |
 | Cloud Run bölgesi | **europe-west1** (Tier 1); Supabase **eu-central-1** | Karar verildi (2026-11-02) |
+| Supabase bağlantı yolu | Supavisor session mode (IPv4) — ücretli IPv4 eklentisine gerek yok (ADR-0010) | Karar verildi (2026-11-02) |
+| Cloud Run faturalama | Instance-based, min 0 / max 1 (ADR-0011) | Karar verildi (2026-11-02) |
 | GCP bütçe uyarısı | Bulut kaynakları oluşturulmadan önce | Bekliyor — kullanıcı işlemi |

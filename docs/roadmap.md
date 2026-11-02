@@ -27,8 +27,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ARCH-001 | Sistem mimarisi | P0 | DOC-001 | Done |
 | ARCH-002 | WebSocket ve PostgreSQL veri akışı | P0 | ARCH-001 | Done |
 | ARCH-003 | Güvenlik ve maliyet kararları | P0 | ARCH-001 | Done |
-| ARCH-004 | API sözleşmeleri | P0 | ARCH-002 | Awaiting User Approval |
-| ARCH-005 | Cloud Run ve Supabase bağlantı modeli | P0 | ARCH-001 | Ready |
+| ARCH-004 | API sözleşmeleri | P0 | ARCH-002 | Done |
+| ARCH-005 | Cloud Run ve Supabase bağlantı modeli | P0 | ARCH-001 | Awaiting User Approval |
 
 ### Tamamlanma notları
 
@@ -41,6 +41,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **ARCH-002:** Komutlar REST, WS yalnızca sunucu → istemci ([ADR-0007](decisions/0007-rest-commands-ws-push.md)). Veri akışı [architecture.md §10](architecture.md), tablo taslağı [data-model.md](data-model.md).
 - **ARCH-003:** [security.md](security.md), [cost-model.md](cost-model.md), [ADR-0008](decisions/0008-opaque-session-tokens.md). Maliyet kararları: Supabase Free + tek proje (test/prod şema izolasyonu, [ADR-0009](decisions/0009-single-supabase-schema-isolation.md)); Cloud Run `europe-west1`, Supabase `eu-central-1`.
 - **ARCH-004:** [api.md](api.md) — REST uç noktaları, hata kodları, doğrulama kuralları, WS bağlantı/kapanış kodları, olay payload'ları. `/votes` → `/actions` içine birleştirildi; `PATCH/DELETE /v1/me`, `kick`, `rematch`, `settings`, `messages`, `reports`, `blocks` eklendi.
+- **ARCH-005:** [architecture.md §11](architecture.md), [ADR-0010](decisions/0010-supavisor-session-mode.md) (Supavisor session mode, IPv4, pgxpool prod 5 / test 3), [ADR-0011](decisions/0011-cloud-run-configuration.md) (instance-based, min 0 / max 1, 1 vCPU / 512 MiB, timeout 3600 sn, europe-west1).
 
 ### DOC-001 — Doküman iskeleti
 
@@ -59,7 +60,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| UI-001 | Marka ve görsel dil | P1 | Backlog |
+| UI-001 | Marka ve görsel dil | P1 | Ready |
 | UI-002 | Ekran haritası | P0 | Backlog |
 | UI-003 | Tasarım sistemi | P1 | Backlog |
 | UI-004 | Ana ekran | P0 | Backlog |
