@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'package:siginak/core/config/app_config.dart';
 import 'package:siginak/features/home/presentation/home_screen.dart';
 
 /// Uygulamanın kök widget'ı: tema, yönlendirme ve bağımlılıkların bağlandığı yer.
 ///
-/// Tema (MOB-008), yönlendirme (MOB-005) ve durum yönetimi (MOB-004)
-/// sonraki görevlerde buraya eklenecektir.
+/// Bir `ProviderScope` altında çalışır (bkz. `main.dart`).
+/// Tema (MOB-008) ve yönlendirme (MOB-005) sonraki görevlerde eklenecektir.
 class SiginakApp extends StatelessWidget {
-  const SiginakApp({required this.config, super.key});
-
-  final AppConfig config;
+  const SiginakApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +23,7 @@ class SiginakApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFF0F1115),
       ),
-      home: HomeScreen(config: config),
+      home: const HomeScreen(),
     );
   }
 }

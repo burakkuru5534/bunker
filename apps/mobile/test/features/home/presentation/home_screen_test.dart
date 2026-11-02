@@ -1,16 +1,13 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:siginak/core/config/app_config.dart';
 import 'package:siginak/features/home/presentation/home_screen.dart';
 
-void main() {
-  Future<void> pump(WidgetTester tester, AppConfig config) {
-    return tester.pumpWidget(MaterialApp(home: HomeScreen(config: config)));
-  }
+import '../../../helpers/pump_app.dart';
 
+void main() {
   testWidgets('Başlık ve local ortam etiketi görünür', (tester) async {
-    await pump(tester, AppConfig.fromEnvironment());
+    await pumpWithProviders(tester, const HomeScreen());
 
     expect(find.text('SIĞINAK'), findsOneWidget);
     expect(find.text('Son Kalanlar'), findsOneWidget);
@@ -23,7 +20,7 @@ void main() {
       apiBaseUrl: 'https://api.example.com',
       wsBaseUrl: 'wss://api.example.com',
     );
-    await pump(tester, prod);
+    await pumpWithProviders(tester, const HomeScreen(), config: prod);
 
     expect(find.textContaining('Ortam:'), findsNothing);
   });

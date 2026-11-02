@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:siginak/core/config/app_config.dart';
+import 'package:siginak/core/config/app_config_provider.dart';
 
 /// Ana ekran (geçici içerik). Gerçek içerik UI-004 mockup'ına göre
 /// ROOM-011 / PLAY görevlerinde oluşturulacaktır.
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({required this.config, super.key});
-
-  final AppConfig config;
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider);
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       body: Center(
