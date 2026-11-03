@@ -35,6 +35,64 @@ func (h *HTTP) Register(mux *http.ServeMux) {
 	mux.Handle("POST /v1/rooms/join", h.require(httpapi.Handle(h.join)))
 	mux.Handle("GET /v1/rooms/{roomId}", h.require(httpapi.Handle(h.get)))
 	mux.Handle("POST /v1/rooms/{roomId}/leave", h.require(httpapi.Handle(h.leave)))
+	mux.Handle("POST /v1/rooms/{roomId}/ready", h.require(httpapi.Handle(h.ready)))
+	mux.Handle("PATCH /v1/rooms/{roomId}/settings", h.require(httpapi.Handle(h.settings)))
+	mux.Handle("POST /v1/rooms/{roomId}/kick", h.require(httpapi.Handle(h.kick)))
+}
+
+// POST /v1/rooms/{roomId}/ready {"ready": true} → 204
+func (h *HTTP) ready(w http.ResponseWriter, r *http.Request) error {
+	var req struct {
+		Ready *bool `json:"ready"`
+	}
+	if err := httpapi.DecodeJSON(r, &req); err != nil {
+		return err
+	}
+	if req.Ready == nil {
+		return apperr.Field("ready", apperr.FieldRequired)
+	}
+	p, _ := auth.PrincipalFrom(r.Context())
+	if err := h.svc.SetReady(r.Context(), p, r.PathValue("roomId"), *req.Ready); err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+// PATCH /v1/rooms/{roomId}/settings {"capacity": 1} → 200 RoomView
+func (h *HTTP) settings(w http.ResponseWriter, r *http.Request) error {
+	var req struct {
+		Capacity *int `json:"capacity"`
+	}
+	if err := httpapi.DecodeJSON(r, &req); err != nil {
+		return err
+	}
+	if req.Capacity == nil {
+		return apperr.Field("capacity", apperr.FieldRequired)
+	}
+	p, _ := auth.PrincipalFrom(r.Context())
+	view, err := h.svc.ChangeCapacity(r.Context(), p, r.PathValue("roomId"), *req.Capacity)
+	if err != nil {
+		return err
+	}
+	httpapi.WriteJSON(w, http.StatusOK, view)
+	return nil
+}
+
+// POST /v1/rooms/{roomId}/kick {"user_id": "uuid"} → 204
+func (h *HTTP) kick(w http.ResponseWriter, r *http.Request) error {
+	var req struct {
+		UserID string `json:"user_id"`
+	}
+	if err := httpapi.DecodeJSON(r, &req); err != nil {
+		return err
+	}
+	p, _ := auth.PrincipalFrom(r.Context())
+	if err := h.svc.Kick(r.Context(), p, r.PathValue("roomId"), req.UserID); err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // POST /v1/rooms/{roomId}/leave → 204 (idempotent)

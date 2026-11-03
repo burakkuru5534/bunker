@@ -131,6 +131,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **ROOM-003:** `POST /v1/rooms` (kapasite ops., varsayılan 2; bilinmeyen alan reddi) → `201 RoomView` (+ `version`). Oda + sahibin oyuncu üyeliği tek transaction; `ALREADY_IN_ROOM` veritabanının 'tek aktif oda' kısıtından (yarışsız; 5 eşzamanlı istekte 1 oda) ve `details.room_id` ile; davet kodu çakışmasında en fazla 5 deneme. `room.Service`, `loadForUpdate` (satır kilidiyle oda + üyeler, sonraki işlemler için), `View`/`Presence` (connected RT gelene kadar false), `persistence.UniqueViolation`. Kapsama %95,8.
 - **ROOM-004:** `POST /v1/rooms/join` (kullanıcı başına 10/dk, sınır kod denetiminden önce; kod büyük/küçük harf, boşluk, tire duyarsız) ve `GET /v1/rooms/{id}` (yalnız aktif üye; üye olmayan / olmayan / bozuk kimlik aynı 404). Katılma: açık oda kodla bulunup satır kilidiyle okunur → saf `room.Join` kararı → üyelik upsert (ayrılmış üye yeniden açılır) → sürüm +1 → commit sonrası `room.member_joined` (Publisher; RT gelene kadar yok sayılır). Yarış koruması: 14 eşzamanlı katılmada tam 9 kişi girer (10 oyuncu), sürüm ve olay sayısı tutarlı; takma ad / tek aktif oda yarışları DB kısıtından doğru hataya çevrilir. Oyun sürerken eski katılımcı izleyici olarak döner, yabancı GAME_IN_PROGRESS. Kapsama %94,2.
 - **ROOM-005 + ROOM-009:** `POST /v1/rooms/{id}/leave` → 204, idempotent (üye olmayan / zaten ayrılmış / olmayan oda / bozuk kimlik: değişiklik yok, varlık sızmaz). Lobide satır silinir, oyunda `left_at` (eski katılımcı izleyici dönebilir; oyundaki 'ayrıldı' durumu GAME modülünde). Sahip ayrılırsa sahiplik en eski aktif oyuncuya; `room.member_left` + `room.host_changed` aynı sürümde, commit sonrası. Son üye → oda kapanır (kod yeniden kullanılabilir, olay yok). 5 üyenin eşzamanlı ayrılmasında oda tek kez, tutarlı kapanır. Kapsama %93,1.
+- **ROOM-007 / ROOM-008 / SAFE-007:** Ortak `Service.mutate` yolu (kilitle → aktif üye değilse NOT_FOUND → saf karar → yaz → değişiklik varsa sürüm +1 → commit sonrası olay). `POST …/ready` (204; aynı değer değişiklik/olay yok; izleyici FORBIDDEN; lobi dışı INVALID_PHASE), `PATCH …/settings` (yalnız sahip; 200 RoomView; settings_changed), `POST …/kick` (yalnız sahip, lobide; atılan geri dönemez, odayı göremez, başka oda kurabilir; member_kicked olayı — atılanın WS'i RT'de 4003 ile kapanacak). Zorunlu alanlar eksikse alan hatası. Kapsama %92,6.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -180,11 +181,11 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ROOM-002 | Davet kodu üretimi | P0 | Done |
 | ROOM-003 | Oda oluşturma API'si | P0 | Done |
 | ROOM-004 | Odaya katılma API'si | P0 | Done |
-| ROOM-005 | Odadan ayrılma | P0 | Awaiting User Approval |
+| ROOM-005 | Odadan ayrılma | P0 | Done |
 | ROOM-006 | Oda üyeliği ve yetkilendirme | P0 | Backlog |
-| ROOM-007 | Hazır ol mekanizması | P0 | Backlog |
-| ROOM-008 | Oda ayarlarının senkronizasyonu (kapasite 1/2) | P0 | Backlog |
-| ROOM-009 | Oda sahibi ayrıldığında yetki devri | P0 | Awaiting User Approval (ROOM-005 ile) |
+| ROOM-007 | Hazır ol mekanizması | P0 | Awaiting User Approval |
+| ROOM-008 | Oda ayarlarının senkronizasyonu (kapasite 1/2) | P0 | Awaiting User Approval |
+| ROOM-009 | Oda sahibi ayrıldığında yetki devri | P0 | Done |
 | ROOM-010 | Boş oda temizliği | P1 | Backlog |
 | ROOM-011 | Flutter oda akışları | P0 | Backlog |
 | ROOM-012 | Çoklu oyuncu testleri | P0 | Backlog |
@@ -254,7 +255,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | SAFE-004 | Gizli kart erişim testleri | P0 | Backlog |
 | SAFE-005 | Oyuncu raporlama | P0 | Backlog |
 | SAFE-006 | Oyuncu engelleme | P0 | Backlog |
-| SAFE-007 | Oda sahibi moderasyonu (lobiden atma) | P0 | Backlog |
+| SAFE-007 | Oda sahibi moderasyonu (lobiden atma) | P0 | Awaiting User Approval |
 | SAFE-008 | Gizlilik politikası ve kullanım koşulları | P0 | Backlog |
 | SAFE-009 | Veri saklama ve silme (sohbet 30 gün) | P0 | Backlog |
 | SAFE-010 | Secret yönetimi | P0 | Backlog |

@@ -269,3 +269,120 @@ func (s *Service) Leave(ctx context.Context, p auth.Principal, roomID string) er
 	}
 	return nil
 }
+
+// change, bir oda değişikliğinin sonucudur: yayınlanacak olaylar (sürüm
+// mutate tarafından doldurulur). Olay yoksa değişiklik yapılmamıştır.
+type change struct {
+	events []Event
+}
+
+// mutate, lobi işlemlerinin ortak yoludur (ADR-0004): odayı kilitler,
+// çağıranın aktif üye olduğunu doğrular (değilse NOT_FOUND; varlık
+// sızdırılmaz), fn'nin kararını yazar; olay varsa sürümü bir artırır ve
+// commit sonrası olayları yayınlar. Odanın son halini döndürür.
+func (s *Service) mutate(ctx context.Context, p auth.Principal, roomID string,
+	fn func(tx pgx.Tx, r *Room) (change, error)) (Room, error) {
+	notFound := apperr.New(apperr.NotFound, "oda bulunamadı")
+	if !validUUID(roomID) {
+		return Room{}, notFound
+	}
+	var (
+		r  Room
+		ch change
+	)
+	err := s.db.Tx(ctx, func(tx pgx.Tx) error {
+		var err error
+		r, err = loadForUpdate(ctx, tx, roomID)
+		if errors.Is(err, errRoomNotFound) {
+			return notFound
+		}
+		if err != nil {
+			return err
+		}
+		if !r.isActiveMember(p.UserID) {
+			return notFound
+		}
+		if ch, err = fn(tx, &r); err != nil || len(ch.events) == 0 {
+			return err
+		}
+		if r.Version, err = bumpVersion(ctx, tx, r.ID); err != nil {
+			return err
+		}
+		for i := range ch.events {
+			ch.events[i].RoomID, ch.events[i].Version = r.ID, r.Version
+		}
+		return nil
+	})
+	if err != nil {
+		return Room{}, err
+	}
+	for _, e := range ch.events {
+		s.publisher.Publish(e)
+	}
+	return r, nil
+}
+
+func (r *Room) update(userID string, fn func(*Member)) {
+	for i := range r.Members {
+		if r.Members[i].UserID == userID {
+			fn(&r.Members[i])
+		}
+	}
+}
+
+// SetReady, oyuncunun hazır durumunu değiştirir (ROOM-007). Aynı değer
+// tekrar gelirse değişiklik ve olay yoktur.
+func (s *Service) SetReady(ctx context.Context, p auth.Principal, roomID string, ready bool) error {
+	_, err := s.mutate(ctx, p, roomID, func(tx pgx.Tx, r *Room) (change, error) {
+		changed, err := SetReady(*r, p.UserID, ready)
+		if err != nil || !changed {
+			return change{}, err
+		}
+		if err := setReady(ctx, tx, r.ID, p.UserID, ready); err != nil {
+			return change{}, err
+		}
+		r.update(p.UserID, func(m *Member) { m.Ready = ready })
+		return change{events: []Event{{Type: EventReadyChanged,
+			Payload: map[string]any{"user_id": p.UserID, "is_ready": ready}}}}, nil
+	})
+	return err
+}
+
+// ChangeCapacity, oda sahibinin kapasiteyi değiştirmesidir (ROOM-008).
+func (s *Service) ChangeCapacity(ctx context.Context, p auth.Principal, roomID string, capacity int) (View, error) {
+	r, err := s.mutate(ctx, p, roomID, func(tx pgx.Tx, r *Room) (change, error) {
+		changed, err := ChangeCapacity(*r, p.UserID, capacity)
+		if err != nil || !changed {
+			return change{}, err
+		}
+		if err := setCapacity(ctx, tx, r.ID, capacity); err != nil {
+			return change{}, err
+		}
+		r.Capacity = capacity
+		return change{events: []Event{{Type: EventSettingsChanged, Payload: map[string]any{"capacity": capacity}}}}, nil
+	})
+	if err != nil {
+		return View{}, err
+	}
+	return NewView(r, s.presence), nil
+}
+
+// Kick, oda sahibinin bir üyeyi lobiden atmasıdır (SAFE-007). Atılanın
+// WebSocket bağlantıları RT katmanında room.member_kicked olayıyla 4003
+// koduyla kapatılır.
+func (s *Service) Kick(ctx context.Context, p auth.Principal, roomID, targetID string) error {
+	if !validUUID(targetID) {
+		return apperr.Field("user_id", apperr.FieldInvalid)
+	}
+	_, err := s.mutate(ctx, p, roomID, func(tx pgx.Tx, r *Room) (change, error) {
+		if err := Kick(*r, p.UserID, targetID); err != nil {
+			return change{}, err
+		}
+		if err := kickMember(ctx, tx, r.ID, targetID); err != nil {
+			return change{}, err
+		}
+		s.logger.Info("üye atıldı", "room_id", r.ID, "target_user_id", targetID)
+		return change{events: []Event{{Type: EventMemberKicked, Payload: map[string]any{"user_id": targetID}}}}, nil
+	})
+	return err
+}

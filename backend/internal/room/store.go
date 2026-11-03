@@ -158,3 +158,20 @@ func closeRoom(ctx context.Context, tx pgx.Tx, roomID string) error {
 	_, err := tx.Exec(ctx, `update rooms set status = 'closed', closed_at = now(), updated_at = now() where id = $1`, roomID)
 	return err
 }
+
+func setReady(ctx context.Context, tx pgx.Tx, roomID, userID string, ready bool) error {
+	_, err := tx.Exec(ctx, `update room_members set is_ready = $3 where room_id = $1 and user_id = $2`, roomID, userID, ready)
+	return err
+}
+
+func setCapacity(ctx context.Context, tx pgx.Tx, roomID string, capacity int) error {
+	_, err := tx.Exec(ctx, `update rooms set capacity = $2 where id = $1`, roomID, capacity)
+	return err
+}
+
+// kickMember, üyeyi atar: satır kalır (atılan tekrar katılamaz, SAFE-007).
+func kickMember(ctx context.Context, tx pgx.Tx, roomID, userID string) error {
+	_, err := tx.Exec(ctx, `update room_members set left_at = now(), kicked_at = now(), is_ready = false
+		 where room_id = $1 and user_id = $2`, roomID, userID)
+	return err
+}
