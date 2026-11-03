@@ -13,5 +13,6 @@
 | [0009](0009-single-supabase-schema-isolation.md) | Tek Supabase projesi, test/prod şema + rol izolasyonu | Kabul edildi | 2026-11-02 |
 | [0010](0010-supavisor-session-mode.md) | Supabase'e Supavisor session mode ile bağlanma | Kabul edildi | 2026-11-02 |
 | [0011](0011-cloud-run-configuration.md) | Cloud Run yapılandırması: instance-based, min 0 / max 1, europe-west1 | Kabul edildi | 2026-11-02 |
+| [0012](0012-migration-role-and-rls-policy.md) | Migration rolü, yetki eşitleme ve RLS politikası | Kabul edildi | 2026-11-03 |
 
 Şablon: Bağlam → Karar → Alternatifler → Sonuçlar.

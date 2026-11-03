@@ -23,7 +23,7 @@ Ayrıntı: [ADR-0008](decisions/0008-opaque-session-tokens.md).
 Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgREST) üzerinden dışarı açabilir. Uygulamamız bu API'yi kullanmaz.
 
 - Tek Supabase projesinde iki şema: **`bunker_test`** ve **`bunker_prod`** ([ADR-0009](decisions/0009-single-supabase-schema-isolation.md)). Bu şemalar Data API'ye açılmaz.
-- Tüm tablolarda **RLS etkin, politika yok** (varsayılan reddet) — ikinci savunma hattı.
+- Tüm tablolarda **RLS etkin**; tek politika `app_access` yalnızca uygulama rolüne izin verir. `anon` / `authenticated` / `service_role` / `PUBLIC` için yetki ve politika yok (varsayılan reddet) — ikinci savunma hattı ([ADR-0012](decisions/0012-migration-role-and-rls-policy.md)). Tabloların sahibi ayrı migration rolüdür; uygulama rolü DDL yapamaz.
 - Supabase panelinde Data API kapatılır (**Integrations → Data API → Enable Data API** kapalı) veya en azından "Exposed schemas" listesinde `bunker_*` yoktur (MANUAL — DB-001b). Ayrıca şemalarda `anon`, `authenticated`, `service_role` ve `PUBLIC` yetkisi kaldırılır; `dbsetup check` bunu doğrular.
 - **Database Settings → SSL Configuration → Enforce SSL on incoming connections** açıktır (MANUAL — DB-001b). Backend test/prod'da `sslmode=verify-full` + Supabase CA (`backend/certs/supabase-ca.crt`) olmadan başlamaz.
 - Rol şifresi Supabase'e düz metin gitmez: `cmd/dbsetup` şifreyi yerelde üretir, `.env`'e yazar, SQL'e yalnızca **SCRAM-SHA-256 doğrulayıcısı** koyar. Rol: yalnızca `LOGIN`, bağlantı sınırı 10, `statement_timeout 5s`, `lock_timeout 3s`, `idle_in_transaction_session_timeout 10s`; şemada `CREATE` yetkisi yoktur (DDL migration rolünde, DB-002).

@@ -28,7 +28,7 @@ type Result struct {
 
 // Check, bağlanmış (ve persistence.Open ile kimliği doğrulanmış) havuz
 // üzerinde rol ayarlarını ve yetki sınırlarını denetler.
-func Check(ctx context.Context, pool *pgxpool.Pool, schema string) []Result {
+func Check(ctx context.Context, pool *pgxpool.Pool, schema string, spec RoleSpec) []Result {
 	var out []Result
 	add := func(st Status, name, format string, args ...any) {
 		out = append(out, Result{st, name, fmt.Sprintf(format, args...)})
@@ -44,9 +44,9 @@ func Check(ctx context.Context, pool *pgxpool.Pool, schema string) []Result {
 
 	// Rol düzeyi sınırlar.
 	for _, s := range []struct{ name, want string }{
-		{"statement_timeout", StatementTimeout},
-		{"lock_timeout", LockTimeout},
-		{"idle_in_transaction_session_timeout", IdleInTxSessionTimeout},
+		{"statement_timeout", spec.StatementTimeout},
+		{"lock_timeout", spec.LockTimeout},
+		{"idle_in_transaction_session_timeout", spec.IdleInTxTimeout},
 	} {
 		var got string
 		if err := pool.QueryRow(ctx, "select current_setting($1)", s.name).Scan(&got); err != nil {
@@ -60,7 +60,8 @@ func Check(ctx context.Context, pool *pgxpool.Pool, schema string) []Result {
 		}
 	}
 
-	// Şema yetkileri: kullanır ama nesne oluşturamaz (DDL migration rolünde).
+	// Şema yetkileri: uygulama rolü kullanır ama nesne oluşturamaz; migration
+	// rolü nesne oluşturur (DDL yalnızca onda).
 	var usage, create, dbCreate bool
 	if err := pool.QueryRow(ctx, `select has_schema_privilege($1, 'USAGE'), has_schema_privilege($1, 'CREATE'),
 		has_database_privilege(current_database(), 'CREATE')`, schema).Scan(&usage, &create, &dbCreate); err != nil {
@@ -75,7 +76,11 @@ func Check(ctx context.Context, pool *pgxpool.Pool, schema string) []Result {
 		}
 	}
 	addBool(usage, Fail, "şema kullanımı", schema+" kullanılabiliyor", schema+" kullanılamıyor (grant usage eksik)")
-	addBool(!create, Fail, "şemada DDL", "uygulama rolü tablo oluşturamaz", "uygulama rolü şemada nesne oluşturabiliyor (CREATE kaldırılmalı)")
+	if spec.CanCreate() {
+		addBool(create, Fail, "şemada DDL", "migration rolü tablo oluşturabilir", "migration rolü şemada nesne oluşturamıyor (grant create eksik)")
+	} else {
+		addBool(!create, Fail, "şemada DDL", "uygulama rolü tablo oluşturamaz", "uygulama rolü şemada nesne oluşturabiliyor (CREATE kaldırılmalı)")
+	}
 	addBool(!dbCreate, Warn, "veritabanında DDL", "şema oluşturamaz", "veritabanında şema oluşturabiliyor")
 
 	// Diğer ortamın şeması ve beklenmeyen şemalar.

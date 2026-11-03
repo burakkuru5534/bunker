@@ -1,8 +1,11 @@
 // Command dbsetup, bir ortamın Supabase şemasını ve uygulama rolünü kurmaya
 // ve doğrulamaya yardım eder (DB-001b). Ayrıntı: backend/README.md.
 //
-//	go run ./cmd/dbsetup init  -env test -ref <proje-ref> -host <pooler-host>
-//	go run ./cmd/dbsetup check
+//	go run ./cmd/dbsetup init  -env test [-role app|migrator] -ref <proje-ref> -host <pooler-host>
+//	go run ./cmd/dbsetup check [-role app|migrator]
+//
+// Roller (ADR-0009, DB-002): app (sunucu; DATABASE_URL) ve migrator
+// (migration; MIGRATION_DATABASE_URL). İkisi de aynı .env'e yazılır.
 //
 // init: güçlü bir şifre üretir, DATABASE_URL'i .env'e yazar (şifre ekrana
 // basılmaz) ve Supabase SQL editöründe çalıştırılacak kurulum SQL'ini stdout'a
@@ -38,8 +41,8 @@ func main() {
 }
 
 const usage = `kullanım:
-  dbsetup init  -env test -ref <proje-ref> -host <pooler-host> [-cert certs/supabase-ca.crt] [-force]
-  dbsetup check [-env test] [-env-file .env] [-strict=true]`
+  dbsetup init  -env test [-role app|migrator] -ref <proje-ref> -host <pooler-host> [-cert certs/supabase-ca.crt] [-force]
+  dbsetup check [-env test] [-role app|migrator] [-env-file .env] [-strict=true]`
 
 func run(args []string, getenv func(string) string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
@@ -59,6 +62,7 @@ func runInit(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	envName := fs.String("env", "test", "ortam: test | prod")
+	roleName := fs.String("role", "app", "rol: app | migrator")
 	ref := fs.String("ref", "", "Supabase proje kimliği (20 küçük harf)")
 	host := fs.String("host", "", "Session pooler sunucusu (ör. aws-0-eu-central-1.pooler.supabase.com)")
 	port := fs.Int("port", 5432, "port (session mode: 5432)")
@@ -73,18 +77,18 @@ func runInit(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if *envFile == "" {
-		*envFile = ".env"
-		if env == dbsetup.EnvProd {
-			*envFile = ".env.prod"
-		}
+	kind, err := dbsetup.ParseKind(*roleName)
+	if err != nil {
+		return err
 	}
+	spec := env.Spec(kind)
+	*envFile = defaultEnvFile(*envFile, env)
 
 	password, err := dbsetup.NewPassword(32)
 	if err != nil {
 		return err
 	}
-	p := dbsetup.ConnParams{Role: env.Role(), Password: password, ProjectRef: *ref, Host: *host,
+	p := dbsetup.ConnParams{Role: spec.Name, Password: password, ProjectRef: *ref, Host: *host,
 		Port: *port, SSLMode: *sslmode, CertFile: *cert}
 	if err := p.Validate(); err != nil {
 		return err
@@ -104,16 +108,16 @@ func runInit(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	sql, err := dbsetup.SetupSQL(env, verifier)
+	sql, err := dbsetup.SetupSQL(env, kind, verifier)
 	if err != nil {
 		return err
 	}
-	if err := dbsetup.UpsertEnvVar(*envFile, "DATABASE_URL", p.URL(), *force); err != nil {
-		return err
+	if err := dbsetup.UpsertEnvVar(*envFile, spec.EnvKey, p.URL(), *force); err != nil {
+		return fmt.Errorf("%s: %w", spec.EnvKey, err)
 	}
-	fmt.Fprintf(stderr, "DATABASE_URL %s dosyasına yazıldı (şifre gösterilmez).\n", *envFile)
+	fmt.Fprintf(stderr, "%s %s dosyasına yazıldı (şifre gösterilmez).\n", spec.EnvKey, *envFile)
 	fmt.Fprintln(stderr, "Aşağıdaki SQL'i Supabase > SQL Editor'de çalıştırın; snippet olarak kaydetmeyin.")
-	fmt.Fprintln(stderr, "Sonra: go run ./cmd/dbsetup check")
+	fmt.Fprintf(stderr, "Sonra: go run ./cmd/dbsetup check -role %s\n", kind)
 	_, err = io.WriteString(stdout, sql)
 	return err
 }
@@ -122,7 +126,8 @@ func runCheck(args []string, getenv func(string) string, stdout, stderr io.Write
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	envName := fs.String("env", "test", "ortam: test | prod")
-	envFile := fs.String("env-file", "", "DATABASE_URL'in okunacağı dosya (varsayılan: test → .env, prod → .env.prod)")
+	roleName := fs.String("role", "app", "rol: app | migrator")
+	envFile := fs.String("env-file", "", "adresin okunacağı dosya (varsayılan: test → .env, prod → .env.prod)")
 	strict := fs.Bool("strict", true, "verify-full TLS ve rol denetimleri (yalnızca yerel testte false)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -131,19 +136,19 @@ func runCheck(args []string, getenv func(string) string, stdout, stderr io.Write
 	if err != nil {
 		return err
 	}
-	if *envFile == "" {
-		*envFile = ".env"
-		if env == dbsetup.EnvProd {
-			*envFile = ".env.prod"
-		}
+	kind, err := dbsetup.ParseKind(*roleName)
+	if err != nil {
+		return err
 	}
+	spec := env.Spec(kind)
+	*envFile = defaultEnvFile(*envFile, env)
 	values, err := config.ReadDotEnv(*envFile)
 	if err != nil {
 		return err
 	}
-	dbURL := config.Secret(config.WithFallback(getenv, values)("DATABASE_URL"))
+	dbURL := config.Secret(config.WithFallback(getenv, values)(spec.EnvKey))
 	if !dbURL.IsSet() {
-		return fmt.Errorf("DATABASE_URL bulunamadı (%s veya ortam değişkeni)", *envFile)
+		return fmt.Errorf("%s bulunamadı (%s veya ortam değişkeni)", spec.EnvKey, *envFile)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -163,7 +168,12 @@ func runCheck(args []string, getenv func(string) string, stdout, stderr io.Write
 	}
 	fmt.Fprintf(stdout, "✓ bağlantı: TLS %s, rol ve şema doğrulandı\n", tls)
 
-	results := dbsetup.Check(ctx, pool, env.Schema())
+	var user string
+	if err := pool.QueryRow(ctx, "select current_user::text").Scan(&user); err != nil || user != spec.Name {
+		fmt.Fprintf(stdout, "✗ rol: bağlanılan rol %q, beklenen %q (%s yanlış rolü gösteriyor)\n", user, spec.Name, spec.EnvKey)
+		return errors.New("denetim başarısız")
+	}
+	results := dbsetup.Check(ctx, pool, env.Schema(), spec)
 	for _, r := range results {
 		fmt.Fprintf(stdout, "%s %s: %s\n", r.Status.Symbol(), r.Name, r.Detail)
 	}
@@ -172,4 +182,15 @@ func runCheck(args []string, getenv func(string) string, stdout, stderr io.Write
 	}
 	fmt.Fprintln(stdout, "Tüm denetimler geçti.")
 	return nil
+}
+
+// defaultEnvFile: test → .env, prod → .env.prod (ikisi de git'e girmez).
+func defaultEnvFile(given string, env dbsetup.Env) string {
+	if given != "" {
+		return given
+	}
+	if env == dbsetup.EnvProd {
+		return ".env.prod"
+	}
+	return ".env"
 }

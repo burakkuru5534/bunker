@@ -15,12 +15,16 @@ Mimari: [../docs/architecture.md](../docs/architecture.md), API: [../docs/api.md
 ```
 backend/
   cmd/server/          main: yapılandırma, HTTP sunucusu, graceful shutdown
+  cmd/dbsetup/         ortam rolü kurulumu ve denetimi (init, check)
+  cmd/migrate/         migration'lar (status, up, new, lint)
   internal/
     apperr/            uygulama hata türü ve makine kodları (HTTP bilmez)
     config/            ortam değişkenleri ve doğrulama
     httpapi/           yönlendirici, middleware, standart JSON yanıt/hata biçimi, erişim logu
     observability/     slog tabanlı yapılandırılmış log, maskeleme, Cloud Trace kimliği
     persistence/       pgx bağlantı havuzu ve açılış güvenlik denetimleri
+    dbsetup/           Supabase rol kurulumu (SCRAM şifre, SQL, denetim)
+    migrate/           migration yükleme, kurallar, uygulama, yetki eşitleme
     (auth, room, game, cards, chat, moderation, realtime — sonraki görevlerde)
 ```
 
@@ -155,6 +159,25 @@ go run ./cmd/dbsetup check
 ```
 
 `check` yalnızca durum yazdırır (✓ / ! / ✗); adres veya şifre yazdırmaz. Herhangi bir ✗ varsa çıkış kodu 1'dir.
+
+### Migration'lar (`cmd/migrate`, DB-002)
+
+Dosyalar ve kurallar: [../migrations/postgres/README.md](../migrations/postgres/README.md). Tabloları ayrı **migration rolü** (`bunker_<ortam>_migrator`) kurar ve sahibi olur; uygulama rolü yalnızca veri okur/yazar ([ADR-0012](../docs/decisions/0012-migration-role-and-rls-policy.md)).
+
+```powershell
+# Bir kez: migration rolünü kur (MIGRATION_DATABASE_URL .env'e yazılır)
+go run ./cmd/dbsetup init -env test -role migrator -ref <proje-ref> -host <session-pooler-host> | Set-Clipboard
+# Supabase > SQL Editor'de çalıştırın, sonra:
+go run ./cmd/dbsetup check -role migrator
+
+go run ./cmd/migrate new create_users     # sıradaki dosya
+go run ./cmd/migrate lint                 # kurallar (DB gerekmez)
+go run ./cmd/migrate up -dry-run          # ne uygulanacak
+go run ./cmd/migrate up                   # uygula + yetki/RLS eşitle
+go run ./cmd/migrate status
+```
+
+Sunucu migration çalıştırmaz; migration her zaman ayrı ve bilinçli bir adımdır.
 
 ### Entegrasyon testleri
 

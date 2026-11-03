@@ -69,7 +69,7 @@ func TestNewPassword(t *testing.T) {
 
 func TestSetupSQL(t *testing.T) {
 	v, _ := NewScramVerifier("pencil")
-	sql, err := SetupSQL(EnvTest, v)
+	sql, err := SetupSQL(EnvTest, KindApp, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,16 +96,16 @@ func TestSetupSQL(t *testing.T) {
 			t.Errorf("SQL'de %q olmamalı", bad)
 		}
 	}
-	prod, _ := SetupSQL(EnvProd, v)
+	prod, _ := SetupSQL(EnvProd, KindApp, v)
 	if !strings.Contains(prod, "bunker_prod_app") || strings.Contains(prod, "bunker_test") {
 		t.Fatal("prod SQL yalnızca prod adlarını içermeli")
 	}
 	for _, bad := range []string{"pencil", "SCRAM-SHA-256$1:x'; drop role x; --$a:b"} {
-		if _, err := SetupSQL(EnvTest, bad); err == nil {
+		if _, err := SetupSQL(EnvTest, KindApp, bad); err == nil {
 			t.Errorf("geçersiz doğrulayıcı reddedilmeli: %q", bad)
 		}
 	}
-	if _, err := setupSQL("Bad;", "r", v); err == nil {
+	if _, err := setupSQL("Bad;", EnvTest.Spec(KindApp), v); err == nil {
 		t.Fatal("geçersiz ad reddedilmeli")
 	}
 	if _, err := ParseEnv("staging"); err == nil {
@@ -113,6 +113,33 @@ func TestSetupSQL(t *testing.T) {
 	}
 	if e, _ := ParseEnv("prod"); e.Schema() != "bunker_prod" || e.Role() != "bunker_prod_app" {
 		t.Fatal("prod adları yanlış")
+	}
+
+	// Migration rolü: CREATE yetkisi, daha uzun sorgu süresi, ayrı .env anahtarı.
+	mig, err := SetupSQL(EnvTest, KindMigrator, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"create role bunker_test_migrator nologin", "grant usage, create on schema bunker_test to bunker_test_migrator",
+		"statement_timeout = '1min'", "lock_timeout = '5s'", "connection limit 2",
+	} {
+		if !strings.Contains(mig, want) {
+			t.Errorf("migrator SQL'de %q yok", want)
+		}
+	}
+	if strings.Contains(mig, "bunker_test_app") {
+		t.Error("migrator SQL uygulama rolüne dokunmamalı")
+	}
+	ms := EnvProd.Spec(KindMigrator)
+	if ms.Name != "bunker_prod_migrator" || ms.EnvKey != "MIGRATION_DATABASE_URL" || !ms.CanCreate() || EnvProd.Spec(KindApp).CanCreate() {
+		t.Fatalf("migrator spec yanlış: %+v", ms)
+	}
+	if _, err := ParseKind("admin"); err == nil {
+		t.Fatal("bilinmeyen rol türü reddedilmeli")
+	}
+	if k, _ := ParseKind("migrator"); k != KindMigrator {
+		t.Fatal("migrator ayrıştırılmalı")
 	}
 }
 

@@ -16,7 +16,7 @@ const (
 
 // Schema ve Role, ortamın şema ve uygulama rolü adlarıdır (ADR-0009).
 func (e Env) Schema() string { return "bunker_" + string(e) }
-func (e Env) Role() string   { return "bunker_" + string(e) + "_app" }
+func (e Env) Role() string   { return e.Spec(KindApp).Name }
 
 // ParseEnv, test veya prod kabul eder.
 func ParseEnv(s string) (Env, error) {
@@ -27,7 +27,43 @@ func ParseEnv(s string) (Env, error) {
 	return "", fmt.Errorf("ortam test veya prod olmalı: %q", s)
 }
 
-// Rol düzeyi sınırları (ADR-0010, architecture.md §11).
+// Kind, rol türüdür.
+type Kind string
+
+const (
+	// KindApp: sunucunun kullandığı rol. Yalnızca veri okur/yazar (DML).
+	KindApp Kind = "app"
+	// KindMigrator: migration rolü. Şemada tablo oluşturur ve sahibidir (DDL);
+	// uygulama rolüne yetkileri cmd/migrate verir (DB-002).
+	KindMigrator Kind = "migrator"
+)
+
+// ParseKind, app veya migrator kabul eder.
+func ParseKind(s string) (Kind, error) {
+	switch Kind(s) {
+	case KindApp, KindMigrator:
+		return Kind(s), nil
+	}
+	return "", fmt.Errorf("rol türü app veya migrator olmalı: %q", s)
+}
+
+// RoleSpec, bir rolün adı, bağlantı adresinin yazıldığı anahtar ve rol düzeyi
+// sınırlarıdır (ADR-0010, architecture.md §11).
+type RoleSpec struct {
+	Kind             Kind
+	Name             string
+	EnvKey           string // .env anahtarı
+	StatementTimeout string
+	LockTimeout      string
+	IdleInTxTimeout  string
+	ConnectionLimit  int
+	SchemaPrivileges string // "usage" | "usage, create"
+}
+
+// CanCreate, rol şemada nesne oluşturabilir mi?
+func (r RoleSpec) CanCreate() bool { return r.Kind == KindMigrator }
+
+// Uygulama rolünün sınırları.
 const (
 	StatementTimeout       = "5s"
 	LockTimeout            = "3s"
@@ -35,40 +71,60 @@ const (
 	ConnectionLimit        = 10
 )
 
+// Spec, ortamın verilen türdeki rolünü döndürür.
+func (e Env) Spec(k Kind) RoleSpec {
+	if k == KindMigrator {
+		return RoleSpec{
+			Kind: k, Name: "bunker_" + string(e) + "_migrator", EnvKey: "MIGRATION_DATABASE_URL",
+			// Migration'lar daha uzun sürebilir (1min = 60 sn; PostgreSQL bu biçimde
+			// gösterir ve check birebir karşılaştırır). Kilit beklemesi kısa tutulur
+			// ki canlı trafiği uzun süre bloklamasın.
+			StatementTimeout: "1min", LockTimeout: "5s", IdleInTxTimeout: "1min",
+			ConnectionLimit: 2, SchemaPrivileges: "usage, create",
+		}
+	}
+	return RoleSpec{
+		Kind: KindApp, Name: "bunker_" + string(e) + "_app", EnvKey: "DATABASE_URL",
+		StatementTimeout: StatementTimeout, LockTimeout: LockTimeout, IdleInTxTimeout: IdleInTxSessionTimeout,
+		ConnectionLimit: ConnectionLimit, SchemaPrivileges: "usage",
+	}
+}
+
 var verifierRe = regexp.MustCompile(`^SCRAM-SHA-256\$[0-9]+:[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$`)
 
-// SetupSQL, ortamın şemasını ve uygulama rolünü kuran, tekrar
-// çalıştırılabilir SQL'i üretir (Supabase SQL editöründe postgres rolüyle).
-// verifier, ScramVerifier çıktısıdır; düz şifre değildir.
-func SetupSQL(env Env, verifier string) (string, error) {
-	return setupSQL(env.Schema(), env.Role(), verifier)
+// SetupSQL, ortamın şemasını ve verilen rolü kuran, tekrar çalıştırılabilir
+// SQL'i üretir (Supabase SQL editöründe postgres rolüyle). verifier,
+// ScramVerifier çıktısıdır; düz şifre değildir.
+func SetupSQL(env Env, kind Kind, verifier string) (string, error) {
+	return setupSQL(env.Schema(), env.Spec(kind), verifier)
 }
 
 var identRe = regexp.MustCompile(`^[a-z_][a-z0-9_]{0,62}$`)
 
-func setupSQL(schema, role, verifier string) (string, error) {
+func setupSQL(schema string, spec RoleSpec, verifier string) (string, error) {
 	if !verifierRe.MatchString(verifier) {
 		return "", fmt.Errorf("geçersiz SCRAM doğrulayıcısı")
 	}
-	if !identRe.MatchString(schema) || !identRe.MatchString(role) {
+	if !identRe.MatchString(schema) || !identRe.MatchString(spec.Name) {
 		return "", fmt.Errorf("geçersiz şema veya rol adı")
 	}
 	r := strings.NewReplacer(
 		"{{schema}}", schema,
-		"{{role}}", role,
+		"{{role}}", spec.Name,
 		"{{verifier}}", verifier,
-		"{{stmt}}", StatementTimeout,
-		"{{lock}}", LockTimeout,
-		"{{idle}}", IdleInTxSessionTimeout,
-		"{{connlimit}}", fmt.Sprint(ConnectionLimit),
+		"{{stmt}}", spec.StatementTimeout,
+		"{{lock}}", spec.LockTimeout,
+		"{{idle}}", spec.IdleInTxTimeout,
+		"{{connlimit}}", fmt.Sprint(spec.ConnectionLimit),
+		"{{privs}}", spec.SchemaPrivileges,
 	)
 	return r.Replace(setupTemplate), nil
 }
 
 // setupTemplate: şifre yalnızca SCRAM doğrulayıcısı olarak verilir.
-// Uygulama rolü şemada nesne oluşturamaz (CREATE yok); tabloları migration
-// rolü kurar (DB-002).
-const setupTemplate = `-- Sığınak: {{schema}} şeması ve {{role}} rolü (DB-001b).
+// Uygulama rolü şemada nesne oluşturamaz (yalnızca USAGE); tabloları migration
+// rolü (USAGE, CREATE) kurar (DB-002).
+const setupTemplate = `-- Sığınak: {{schema}} şeması ve {{role}} rolü (DB-001b, DB-002).
 -- Supabase > SQL Editor'de çalıştırın. Tekrar çalıştırmak güvenlidir (şifreyi yeniler).
 -- Bu metin düz şifre içermez; yine de snippet olarak KAYDETMEYİN.
 begin;
@@ -108,7 +164,7 @@ begin
 end
 $$;
 
-grant usage on schema {{schema}} to {{role}};
+grant {{privs}} on schema {{schema}} to {{role}};
 
 commit;
 

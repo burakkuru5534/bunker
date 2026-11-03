@@ -1,5 +1,6 @@
 # Backend CI — BE-001, DB-001a (PostgreSQL entegrasyon + govulncheck)
-# backend/ veya docs/api.md değişince format, vet ve yarış dedektörlü testleri çalıştırır.
+# backend/, migrations/ veya docs/api.md değişince format, vet ve yarış dedektörlü testleri çalıştırır.
+# (migrations/postgres dosyaları kurallar ve boş PostgreSQL'e uygulanabilirlik için test edilir.)
 # (Hata kodu tablosu testi docs/api.md'yi okur.)
 name: backend
 
@@ -8,11 +9,13 @@ on:
     branches: [main]
     paths:
       - "backend/**"
+      - "migrations/**"
       - "docs/api.md"
       - ".github/workflows/backend.yml"
   pull_request:
     paths:
       - "backend/**"
+      - "migrations/**"
       - "docs/api.md"
       - ".github/workflows/backend.yml"
   workflow_dispatch:

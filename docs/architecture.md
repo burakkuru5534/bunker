@@ -256,7 +256,7 @@ Rol düzeyinde sınırlar (migration ile):
 
 Limitler (Nano/Micro): en fazla 60 doğrudan bağlantı, 200 pooler istemci bağlantısı; pooler arka uç havuz boyutu panelden okunur ve DB-005'te doğrulanır. Diğer Supabase projeniz ayrı projede olduğu için bu limitleri paylaşmaz.
 
-**Migration'lar:** Yerelden veya CI'dan aynı session pooler üzerinden, ilgili rolün sahibi olan ayrı bir migration rolüyle uygulanır (DB-002).
+**Migration'lar:** `backend/cmd/migrate` ile, yerelden aynı session pooler üzerinden ayrı migration rolüyle (`bunker_<ortam>_migrator`, `MIGRATION_DATABASE_URL`) uygulanır; önce test, sonra prod (`-yes-prod`). Yalnızca ileri yönlü; sürüm tablosu `schema_migrations`, şemaya özgü advisory lock, dosya başına transaction, sağlama denetimi. Her `up` sonunda uygulama rolünün yetkileri ve RLS politikası eşitlenir ([ADR-0012](decisions/0012-migration-role-and-rls-policy.md)). Kurallar: `migrations/postgres/README.md` (DB-002).
 
 ### Cloud Run yapılandırması
 

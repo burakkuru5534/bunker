@@ -73,7 +73,9 @@ func TestIntegrationSetupAndCheck(t *testing.T) {
 
 	password, _ := NewPassword(32)
 	verifier, _ := NewScramVerifier(password)
-	sql, err := setupSQL(schema, role, verifier)
+	appSpec := EnvTest.Spec(KindApp)
+	appSpec.Name = role
+	sql, err := setupSQL(schema, appSpec, verifier)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +95,7 @@ func TestIntegrationSetupAndCheck(t *testing.T) {
 		t.Fatalf("katı kimlik denetimi: %v", err)
 	}
 
-	results := Check(ctx, pool, schema)
+	results := Check(ctx, pool, schema, appSpec)
 	if Failed(results) {
 		t.Fatalf("denetimler geçmeli: %+v", results)
 	}
@@ -109,13 +111,44 @@ func TestIntegrationSetupAndCheck(t *testing.T) {
 		}
 	}
 
+	// Migration rolü: aynı şemada CREATE yetkisiyle kurulur ve denetimden geçer.
+	migSpec := EnvTest.Spec(KindMigrator)
+	migSpec.Name = role + "_mig"
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = admin.Exec(c, "drop owned by "+migSpec.Name)
+		_, _ = admin.Exec(c, "drop role if exists "+migSpec.Name)
+	})
+	migPass, _ := NewPassword(32)
+	migVer, _ := NewScramVerifier(migPass)
+	migSQL, err := setupSQL(schema, migSpec, migVer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(supaConn, migSQL)
+	migURL, _ := url.Parse(adminURL)
+	migURL.User = url.UserPassword(migSpec.Name, migPass)
+	migPool, err := persistence.Open(ctx, persistence.Options{URL: migURL.String(), MaxConns: 1, Schema: schema},
+		slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	if err != nil {
+		t.Fatalf("migration rolüyle bağlanılmalı: %v", err)
+	}
+	defer migPool.Close()
+	if rs := Check(ctx, migPool, schema, migSpec); Failed(rs) {
+		t.Fatalf("migration rolü denetimleri geçmeli: %+v", rs)
+	}
+	// Uygulama rolü denetimi hâlâ geçer (migrator kurulumu ona dokunmaz).
+	if rs := Check(ctx, pool, schema, appSpec); Failed(rs) {
+		t.Fatalf("uygulama rolü denetimleri bozulmamalı: %+v", rs)
+	}
+
 	// Bozulmalar yakalanır: diğer ortamın şemasına erişim ve anon erişimi.
 	exec(admin, fmt.Sprintf("grant usage on schema %s to %s", other, role))
 	exec(admin, fmt.Sprintf("grant usage on schema %s to anon", schema))
 	exec(admin, fmt.Sprintf("alter role %s set statement_timeout = '0'", role))
 	pool.Reset() // yeni oturum: rol ayarları yeniden okunur
 	got := map[string]Status{}
-	for _, r := range Check(ctx, pool, schema) {
+	for _, r := range Check(ctx, pool, schema, appSpec) {
 		got[r.Name] = r.Status
 	}
 	if got["ortam yalıtımı"] != Fail || got["Data API: anon"] != Fail || got["statement_timeout"] != Fail {
