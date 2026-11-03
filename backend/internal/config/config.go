@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -37,7 +38,18 @@ type Config struct {
 	MinAppVersion string
 	// RequestTimeout: REST istekleri için üst süre (REQUEST_TIMEOUT, varsayılan 10s).
 	RequestTimeout time.Duration
+	// LogLevel: debug | info | warn | error (LOG_LEVEL, varsayılan info).
+	LogLevel string
+	// GCPProjectID: Cloud Logging izleme alanı için proje kimliği
+	// (GCP_PROJECT_ID, opsiyonel; boşsa izleme alanı yazılmaz).
+	GCPProjectID string
 }
+
+// LogJSON, loglar JSON mı yazılsın? Yerelde okunabilir metin, bulutta JSON.
+func (c Config) LogJSON() bool { return c.Env != EnvLocal }
+
+// projectID, GCP proje kimliği biçimi (6-30 karakter, küçük harf/rakam/tire).
+var projectID = regexp.MustCompile(`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`)
 
 var semver = regexp.MustCompile(`^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})$`)
 
@@ -56,6 +68,7 @@ func Load(getenv func(string) string) (Config, error) {
 		ShutdownTimeout: 8 * time.Second,
 		MinAppVersion:   "0.1.0",
 		RequestTimeout:  10 * time.Second,
+		LogLevel:        "info",
 	}
 	var errs []error
 
@@ -100,6 +113,23 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("REQUEST_TIMEOUT geçersiz: %q (ör. 10s; 0 < süre ≤ 1m)", v))
 		} else {
 			cfg.RequestTimeout = d
+		}
+	}
+
+	if v := getenv("LOG_LEVEL"); v != "" {
+		switch strings.ToLower(v) {
+		case "debug", "info", "warn", "error":
+			cfg.LogLevel = strings.ToLower(v)
+		default:
+			errs = append(errs, fmt.Errorf("LOG_LEVEL geçersiz: %q (debug|info|warn|error)", v))
+		}
+	}
+
+	if v := getenv("GCP_PROJECT_ID"); v != "" {
+		if !projectID.MatchString(v) {
+			errs = append(errs, fmt.Errorf("GCP_PROJECT_ID geçersiz: %q", v))
+		} else {
+			cfg.GCPProjectID = v
 		}
 	}
 

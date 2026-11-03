@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/burakkuru5534/bunker/backend/internal/config"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 )
 
 func main() {
@@ -47,8 +49,12 @@ func run(
 		return fmt.Errorf("yapılandırma: %w", err)
 	}
 
+	logger := newLogger(cfg, stdout)
+	slog.SetDefault(logger)
+
 	srv := &http.Server{
-		Handler: handlerFactory(cfg),
+		Handler:  handlerFactory(cfg, logger),
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 		// Başlıklar için üst sınır (Slowloris'e karşı). WebSocket bağlantıları
 		// uzun yaşadığından ReadTimeout / WriteTimeout bilinçli olarak yok;
 		// istek gövdesi sınırları ve zaman aşımları BE-002 middleware'inde.
@@ -61,7 +67,7 @@ func run(
 	if err != nil {
 		return fmt.Errorf("dinleme (%s): %w", cfg.Addr(), err)
 	}
-	fmt.Fprintf(stdout, "sunucu başladı env=%s addr=%s\n", cfg.Env, ln.Addr())
+	logger.Info("sunucu başladı", "env", string(cfg.Env), "addr", ln.Addr().String())
 	if onListening != nil {
 		onListening(ln.Addr())
 	}
@@ -78,7 +84,7 @@ func run(
 	case <-ctx.Done():
 	}
 
-	fmt.Fprintln(stdout, "kapanış başladı")
+	logger.Info("kapanış başladı", "timeout", cfg.ShutdownTimeout.String())
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -86,8 +92,18 @@ func run(
 		return fmt.Errorf("kapanış zaman aşımı: %w", err)
 	}
 	<-serveErr
-	fmt.Fprintln(stdout, "sunucu durdu")
+	logger.Info("sunucu durdu")
 	return nil
+}
+
+// newLogger, yapılandırmaya göre logger kurar (yerelde metin, bulutta JSON).
+func newLogger(cfg config.Config, w io.Writer) *slog.Logger {
+	level, _ := observability.ParseLevel(cfg.LogLevel) // config doğruladı
+	format := observability.FormatText
+	if cfg.LogJSON() {
+		format = observability.FormatJSON
+	}
+	return observability.NewLogger(w, level, format)
 }
 
 // handlerFactory, testlerde yavaş bir handler ile değiştirilebilsin diye
@@ -96,13 +112,15 @@ var handlerFactory = newHandler
 
 // newHandler, middleware zinciriyle sarılmış yönlendiriciyi döndürür.
 // Modül rotaları ve /health sonraki görevlerde Register içine eklenecek.
-func newHandler(cfg config.Config) http.Handler {
+func newHandler(cfg config.Config, logger *slog.Logger) http.Handler {
 	minVersion, err := httpapi.ParseVersion(cfg.MinAppVersion)
 	if err != nil {
 		// config.Load biçimi zaten doğruladı; buraya gelinmemeli.
 		panic(err)
 	}
 	return httpapi.NewRouter(httpapi.Options{
+		Logger:         logger,
+		ProjectID:      cfg.GCPProjectID,
 		MinAppVersion:  minVersion,
 		RequestTimeout: cfg.RequestTimeout,
 	})

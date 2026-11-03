@@ -14,7 +14,9 @@ const MaxBodyBytes = 4 << 10
 
 // Options, yönlendirici ayarları.
 type Options struct {
-	Logger         *slog.Logger
+	Logger *slog.Logger
+	// ProjectID: Cloud Logging izleme alanı için GCP proje kimliği (ops.).
+	ProjectID      string
 	MinAppVersion  Version
 	RequestTimeout time.Duration
 	// Register, modüllerin rotalarını ekler (ör. "POST /v1/rooms").
@@ -23,8 +25,9 @@ type Options struct {
 
 // NewRouter, middleware zinciriyle sarılmış yönlendiriciyi döndürür.
 //
-// Sıra (dıştan içe): RequestID → Recover → RequireAppVersion → LimitBody →
-// Timeout → ServeMux.
+// Sıra (dıştan içe): RequestID → AccessLog → Recover → RequireAppVersion →
+// LimitBody → Timeout → ServeMux. AccessLog, Recover'ın dışında olduğundan
+// panic sonucu dönen 500 de loglanır.
 //
 // Eşleşmeyen yol veya yöntem için standart 404 NOT_FOUND döner ("/" kalıbı
 // tüm yöntemlerle eşleştiği için ServeMux düz metin 405 üretmez).
@@ -44,7 +47,8 @@ func NewRouter(opts Options) http.Handler {
 
 	return Chain(mux,
 		RequestID(),
-		Recover(logger),
+		AccessLog(logger, opts.ProjectID),
+		Recover(),
 		RequireAppVersion(opts.MinAppVersion),
 		LimitBody(MaxBodyBytes),
 		Timeout(opts.RequestTimeout),

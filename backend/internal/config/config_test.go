@@ -16,7 +16,8 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("beklenmeyen hata: %v", err)
 	}
 	if cfg.Env != EnvLocal || cfg.Port != 8080 || cfg.ShutdownTimeout != 8*time.Second ||
-		cfg.MinAppVersion != "0.1.0" || cfg.RequestTimeout != 10*time.Second {
+		cfg.MinAppVersion != "0.1.0" || cfg.RequestTimeout != 10*time.Second ||
+		cfg.LogLevel != "info" || cfg.GCPProjectID != "" {
 		t.Fatalf("varsayılanlar yanlış: %+v", cfg)
 	}
 	if cfg.Addr() != ":8080" {
@@ -24,6 +25,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.IsProduction() {
 		t.Fatal("local, prod sayılmamalı")
+	}
+	if cfg.LogJSON() {
+		t.Fatal("yerelde metin log bekleniyordu")
 	}
 }
 
@@ -34,12 +38,15 @@ func TestLoadValues(t *testing.T) {
 		"SHUTDOWN_TIMEOUT": "5s",
 		"MIN_APP_VERSION":  "1.4.0",
 		"REQUEST_TIMEOUT":  "3s",
+		"LOG_LEVEL":        "DEBUG",
+		"GCP_PROJECT_ID":   "siginak-prod-123",
 	}))
 	if err != nil {
 		t.Fatalf("beklenmeyen hata: %v", err)
 	}
 	if cfg.Env != EnvProd || cfg.Port != 9090 || cfg.ShutdownTimeout != 5*time.Second ||
-		cfg.MinAppVersion != "1.4.0" || cfg.RequestTimeout != 3*time.Second {
+		cfg.MinAppVersion != "1.4.0" || cfg.RequestTimeout != 3*time.Second ||
+		cfg.LogLevel != "debug" || cfg.GCPProjectID != "siginak-prod-123" || !cfg.LogJSON() {
 		t.Fatalf("değerler okunmadı: %+v", cfg)
 	}
 	if !cfg.IsProduction() {
@@ -63,6 +70,8 @@ func TestLoadInvalid(t *testing.T) {
 		{"bozuk sürüm", map[string]string{"MIN_APP_VERSION": "1.2"}, "MIN_APP_VERSION"},
 		{"önde sıfırlı sürüm", map[string]string{"MIN_APP_VERSION": "1.02.0"}, "MIN_APP_VERSION"},
 		{"bozuk istek süresi", map[string]string{"REQUEST_TIMEOUT": "x"}, "REQUEST_TIMEOUT"},
+		{"bilinmeyen log seviyesi", map[string]string{"LOG_LEVEL": "trace"}, "LOG_LEVEL"},
+		{"bozuk proje kimliği", map[string]string{"GCP_PROJECT_ID": "Proje Adı"}, "GCP_PROJECT_ID"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

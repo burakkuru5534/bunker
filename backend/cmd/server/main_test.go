@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -111,7 +112,7 @@ func TestServerStartsAndShutsDownGracefully(t *testing.T) {
 	}
 
 	log := out.String()
-	for _, want := range []string{"sunucu başladı env=local", "kapanış başladı", "sunucu durdu"} {
+	for _, want := range []string{`message="sunucu başladı" env=local`, "httpRequest.status=404", "kapanış başladı", "sunucu durdu"} {
 		if !strings.Contains(log, want) {
 			t.Errorf("çıktıda %q yok:\n%s", want, log)
 		}
@@ -123,7 +124,7 @@ func TestShutdownWaitsForInFlightRequest(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	orig := handlerFactory
-	handlerFactory = func(config.Config) http.Handler {
+	handlerFactory = func(config.Config, *slog.Logger) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			close(entered)
 			<-release
@@ -174,7 +175,7 @@ func TestShutdownTimesOut(t *testing.T) {
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 	orig := handlerFactory
-	handlerFactory = func(config.Config) http.Handler {
+	handlerFactory = func(config.Config, *slog.Logger) http.Handler {
 		return http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 			close(entered)
 			<-release

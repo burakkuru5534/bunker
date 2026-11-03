@@ -6,12 +6,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 )
 
 // Middleware, bir handler'ı sarar.
@@ -64,7 +65,8 @@ func newRequestID() string {
 
 // Recover, handler'daki panic'i yakalar, loglar ve 500 INTERNAL döner.
 // İstemciye ayrıntı gösterilmez. http.ErrAbortHandler yeniden fırlatılır.
-func Recover(logger *slog.Logger) Middleware {
+// Log, istek kapsamlı logger'a (request_id, trace) yazılır.
+func Recover() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -75,8 +77,7 @@ func Recover(logger *slog.Logger) Middleware {
 				if err, ok := rec.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 					panic(rec)
 				}
-				logger.Error("panic",
-					"request_id", RequestIDFrom(r.Context()),
+				observability.LoggerFrom(r.Context()).Error("panic",
 					"method", r.Method,
 					"path", r.URL.Path,
 					"panic", fmt.Sprint(rec),
