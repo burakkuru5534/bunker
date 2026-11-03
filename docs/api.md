@@ -65,6 +65,34 @@
 | 429 | `RATE_LIMITED` | Sıklık sınırı |
 | 500 | `INTERNAL` | Beklenmeyen hata (ayrıntı loglarda) |
 
+- Tablo backend'de `internal/apperr` (kodlar) ve `internal/httpapi` (HTTP durumu) ile birebir aynıdır; mobilde her kodun l10n metni vardır. İki taraftaki testler bu tabloyu okur — kod eklerken önce buraya ekleyin.
+- `500 INTERNAL` yanıtında `message` her zaman genel metindir ve `details` boştur; asıl hata yalnızca loglanır.
+- `429 RATE_LIMITED` yanıtında `Retry-After` (saniye, ≥ 1) başlığı bulunur.
+- Koda özgü ek bilgiler `details` içindedir (ör. `UPGRADE_REQUIRED` → `details.min_version`).
+
+### Alan hataları (`details.fields`)
+
+`VALIDATION_FAILED` yanıtında `details.fields` alan adı → alan hatası kodu eşlemesidir. Alan adı JSON yoludur (iç içe alanlar noktalı: `settings.capacity`); gövdenin tamamı için `body`, başlıklar için başlık adı kullanılır. Her alan için yalnızca ilk hata döner.
+
+```json
+{ "error": { "code": "VALIDATION_FAILED", "message": "doğrulama başarısız", "request_id": "…",
+  "details": { "fields": { "nickname": "too_short", "capacity": "not_allowed" } } } }
+```
+
+| Alan hatası | Anlamı |
+|---|---|
+| `required` | Eksik (boş gövde dahil) |
+| `invalid` | Biçim veya değer geçersiz (bozuk JSON, birden fazla JSON değeri, yanlış `Content-Type` dahil) |
+| `invalid_type` | JSON türü yanlış (ör. sayı yerine metin) |
+| `too_short` / `too_long` | Uzunluk sınırı dışında |
+| `too_large` | Gövde 4 KB sınırını aşıyor (`details.max_bytes`) |
+| `unknown_field` | Beklenmeyen alan (sunucu bilinmeyen alanları reddeder) |
+| `not_allowed` | İzin verilen değerlerden biri değil (ör. `capacity: 3`) |
+| `profanity` | Küfür filtresine takıldı |
+| `invalid_chars` | İzin verilmeyen karakter |
+
+İstemci bilinmeyen bir alan hatası kodunu genel "geçersiz" metnine düşürür.
+
 ## 3. Ortak doğrulama kuralları
 
 | Alan | Kural |

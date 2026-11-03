@@ -111,6 +111,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **BE-001:** `backend/` Go 1.27.0 modülü (`github.com/burakkuru5534/bunker/backend`), dış bağımlılık yok. `internal/config` (APP_ENV, PORT, SHUTDOWN_TIMEOUT; tüm hatalar birlikte), `cmd/server` (ReadHeaderTimeout 10s, IdleTimeout 120s, 16 KB başlık sınırı; SIGINT/SIGTERM → graceful shutdown, süre aşılırsa zorla kapatma). Testler: yapılandırma %100, sunucu %71 kapsama; açık isteğin kapanışta tamamlanması ve zaman aşımı testli; `-race -count=3` temiz. `.github/workflows/backend.yml` (gofmt, vet, `test -race`).
 - **BE-002:** `internal/httpapi` (yalnızca standart kütüphane): Go 1.22+ `ServeMux` yöntem/yol kalıpları; middleware RequestID → Recover → RequireAppVersion (400/426, `MIN_APP_VERSION`) → LimitBody (4 KB) → Timeout (`REQUEST_TIMEOUT`, WS hariç). Eşleşmeyen yol/yöntem → JSON 404. Standart hata gövdesi yazıcısı (docs/api.md §2) bu görevde eklendi; alan hataları ve alan hatası → kod eşlemesi BE-004'te. httpapi kapsama %98,9.
 - **BE-003:** `internal/observability`: `log/slog` tabanlı logger; local → metin, test/prod → JSON. Cloud Logging alanları `severity`/`message`/`httpRequest`/`logging.googleapis.com/trace` (W3C `traceparent` ya da `X-Cloud-Trace-Context`; yalnız `GCP_PROJECT_ID` doluysa). Hassas anahtar/`Bearer` değerleri gruplar dahil `[REDACTED]`. `AccessLog` middleware: istek başına tek satır, sorgu dizesi/başlık/gövde yok, 5xx → ERROR, handler logları `request_id` taşır; WebSocket için Hijack/Flush iletimi. Yeni yapılandırma: `LOG_LEVEL`, `GCP_PROJECT_ID`. Kapsama: observability %100, httpapi %98,6, config %100, server %76,4; `-race -count=2` temiz.
+- **BE-004:** `internal/apperr`: 27 makine kodu, `*apperr.Error` (Message, Fields, Details, RetryAfter, loglanacak neden), `FieldErrors` toplayıcısı, kod bazlı `errors.Is`. `internal/httpapi`: kod → HTTP durumu tablosu, `WriteAppError` (INTERNAL/düz hata → genel mesaj + ERROR log; neden istemciye gitmez; 429 → `Retry-After`; istemci giderse yanıt yok), `Handle` adaptörü, katı `DecodeJSON` (Content-Type, bilinmeyen alan, tür, tek değer, 4 KB). Alan hata kodları docs/api.md §2'ye eklendi. `TestErrorCodesMatchDocs` tabloyu belgeyle karşılaştırır (mutasyonla doğrulandı); backend CI `docs/api.md` değişince de çalışır. Kapsama: apperr %100, httpapi %99.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -118,8 +119,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 |---|---|---|---|
 | BE-001 | Go servis iskeleti | P0 | Done |
 | BE-002 | HTTP router ve middleware | P0 | Done |
-| BE-003 | Yapılandırılmış loglama | P0 | Awaiting User Approval |
-| BE-004 | Standart API hata formatı | P0 | Backlog |
+| BE-003 | Yapılandırılmış loglama | P0 | Done |
+| BE-004 | Standart API hata formatı | P0 | Awaiting User Approval |
 | BE-005 | Health endpoint | P0 | Backlog |
 | DB-001 | Supabase PostgreSQL bağlantısı | P0 | Backlog |
 | DB-002 | Migration altyapısı | P0 | Backlog |

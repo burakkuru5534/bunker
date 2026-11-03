@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 )
 
 // MaxBodyBytes, /v1 REST istek gövdesi üst sınırı (docs/api.md §1).
@@ -42,7 +44,7 @@ func NewRouter(opts Options) http.Handler {
 		opts.Register(mux)
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		WriteError(w, r, http.StatusNotFound, CodeNotFound, "bulunamadı", nil)
+		WriteAppError(w, r, apperr.New(apperr.NotFound, "bulunamadı"))
 	})
 
 	return Chain(mux,

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 )
 
@@ -83,7 +84,7 @@ func Recover() Middleware {
 					"panic", fmt.Sprint(rec),
 					"stack", string(debug.Stack()),
 				)
-				WriteError(w, r, http.StatusInternalServerError, CodeInternal, "beklenmeyen hata", nil)
+				WriteError(w, r, http.StatusInternalServerError, string(apperr.Internal), "beklenmeyen hata", nil)
 			}()
 			next.ServeHTTP(w, r)
 		})
@@ -106,15 +107,14 @@ func RequireAppVersion(min Version) Middleware {
 			raw := r.Header.Get(AppVersionHeader)
 			v, err := ParseVersion(raw)
 			if err != nil {
-				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed,
-					"X-App-Version eksik veya geçersiz",
-					map[string]any{"fields": map[string]string{"X-App-Version": "invalid"}})
+				e := apperr.Field(AppVersionHeader, apperr.FieldInvalid)
+				e.Message = "X-App-Version eksik veya geçersiz"
+				WriteAppError(w, r, e)
 				return
 			}
 			if v.Less(min) {
-				WriteError(w, r, http.StatusUpgradeRequired, CodeUpgradeRequired,
-					"uygulama sürümü desteklenmiyor",
-					map[string]any{"min_version": min.String()})
+				WriteAppError(w, r, apperr.New(apperr.UpgradeRequired, "uygulama sürümü desteklenmiyor").
+					WithDetail("min_version", min.String()))
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -133,9 +133,9 @@ func LimitBody(maxBytes int64) Middleware {
 				return
 			}
 			if r.ContentLength > maxBytes {
-				WriteError(w, r, http.StatusBadRequest, CodeValidationFailed,
-					"istek gövdesi çok büyük",
-					map[string]any{"max_bytes": maxBytes})
+				e := apperr.Field("body", apperr.FieldTooLarge).WithDetail("max_bytes", maxBytes)
+				e.Message = "istek gövdesi çok büyük"
+				WriteAppError(w, r, e)
 				return
 			}
 			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)

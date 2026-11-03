@@ -1,5 +1,6 @@
 # Backend CI — BE-001
-# backend/ değişince format, vet ve yarış dedektörlü testleri çalıştırır.
+# backend/ veya docs/api.md değişince format, vet ve yarış dedektörlü testleri çalıştırır.
+# (Hata kodu tablosu testi docs/api.md'yi okur.)
 name: backend
 
 on:
@@ -7,10 +8,12 @@ on:
     branches: [main]
     paths:
       - "backend/**"
+      - "docs/api.md"
       - ".github/workflows/backend.yml"
   pull_request:
     paths:
       - "backend/**"
+      - "docs/api.md"
       - ".github/workflows/backend.yml"
   workflow_dispatch:
 

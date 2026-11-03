@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 )
 
 var testMin = Version{0, 2, 0}
@@ -39,7 +41,7 @@ func newTestRouter(t *testing.T, logs *bytes.Buffer) http.Handler {
 				if err != nil {
 					var mbe *http.MaxBytesError
 					if errors.As(err, &mbe) {
-						WriteError(w, r, http.StatusBadRequest, CodeValidationFailed, "büyük", nil)
+						WriteError(w, r, http.StatusBadRequest, string(apperr.ValidationFailed), "büyük", nil)
 						return
 					}
 					t.Errorf("okuma hatası: %v", err)
@@ -111,7 +113,7 @@ func TestUnknownPathReturnsStandardNotFound(t *testing.T) {
 		t.Fatalf("durum = %d", rec.Code)
 	}
 	e := decodeError(t, rec)
-	if e.Code != CodeNotFound {
+	if e.Code != string(apperr.NotFound) {
 		t.Fatalf("code = %q", e.Code)
 	}
 	if e.RequestID == "" || e.RequestID != rec.Header().Get(RequestIDHeader) {
@@ -126,7 +128,7 @@ func TestWrongMethodReturnsJSONNotPlainText(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("durum = %d, 404 bekleniyordu", rec.Code)
 	}
-	if decodeError(t, rec).Code != CodeNotFound {
+	if decodeError(t, rec).Code != string(apperr.NotFound) {
 		t.Fatal("NOT_FOUND bekleniyordu")
 	}
 }
@@ -165,7 +167,7 @@ func TestRecoverPanic(t *testing.T) {
 		t.Fatalf("durum = %d", rec.Code)
 	}
 	e := decodeError(t, rec)
-	if e.Code != CodeInternal || strings.Contains(e.Message, "patladı") {
+	if e.Code != string(apperr.Internal) || strings.Contains(e.Message, "patladı") {
 		t.Fatalf("istemciye ayrıntı sızmamalı: %+v", e)
 	}
 	if !strings.Contains(logs.String(), "patladı") || !strings.Contains(logs.String(), e.RequestID) {
@@ -192,9 +194,9 @@ func TestAppVersion(t *testing.T) {
 		status  int
 		code    string
 	}{
-		{"eksik", "", http.StatusBadRequest, CodeValidationFailed},
-		{"biçimsiz", "v1", http.StatusBadRequest, CodeValidationFailed},
-		{"eski", "0.1.9", http.StatusUpgradeRequired, CodeUpgradeRequired},
+		{"eksik", "", http.StatusBadRequest, string(apperr.ValidationFailed)},
+		{"biçimsiz", "v1", http.StatusBadRequest, string(apperr.ValidationFailed)},
+		{"eski", "0.1.9", http.StatusUpgradeRequired, string(apperr.UpgradeRequired)},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -234,7 +236,7 @@ func TestBodyLimit(t *testing.T) {
 	}
 
 	big := do(h, http.MethodPost, "/v1/echo", strings.NewReader(strings.Repeat("a", MaxBodyBytes+1)), nil)
-	if big.Code != http.StatusBadRequest || decodeError(t, big).Code != CodeValidationFailed {
+	if big.Code != http.StatusBadRequest || decodeError(t, big).Code != string(apperr.ValidationFailed) {
 		t.Fatalf("Content-Length sınırı aşınca reddedilmeli: %d", big.Code)
 	}
 

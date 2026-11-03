@@ -16,6 +16,7 @@ Mimari: [../docs/architecture.md](../docs/architecture.md), API: [../docs/api.md
 backend/
   cmd/server/          main: yapılandırma, HTTP sunucusu, graceful shutdown
   internal/
+    apperr/            uygulama hata türü ve makine kodları (HTTP bilmez)
     config/            ortam değişkenleri ve doğrulama
     httpapi/           yönlendirici, middleware, standart JSON yanıt/hata biçimi, erişim logu
     observability/     slog tabanlı yapılandırılmış log, maskeleme, Cloud Trace kimliği
@@ -51,7 +52,44 @@ Middleware sırası (dıştan içe):
 
 - Eşleşmeyen yol **veya yöntem** → `404 NOT_FOUND` (JSON). Düz metin yanıt üretilmez.
 - Hata gövdesi her zaman `{"error":{"code","message","request_id","details":{}}}` (docs/api.md §2).
-- Modüller rotalarını `httpapi.Options.Register` ile ekler (ör. `mux.HandleFunc("POST /v1/rooms", ...)`).
+- Modüller rotalarını `httpapi.Options.Register` ile ekler.
+
+## Hatalar (`internal/apperr`)
+
+Domain kodu HTTP bilmez; `*apperr.Error` döndürür. HTTP durumu ve JSON gövdesi `httpapi` katmanında koddan türetilir.
+
+```go
+mux.Handle("POST /v1/rooms/join", httpapi.Handle(func(w http.ResponseWriter, r *http.Request) error {
+	var req joinRequest
+	if err := httpapi.DecodeJSON(r, &req); err != nil { // katı: bilinmeyen alan, tür, boyut
+		return err
+	}
+	var fe apperr.FieldErrors
+	if len(req.InviteCode) != 6 {
+		fe.Add("invite_code", apperr.FieldInvalid)
+	}
+	if err := fe.Err(); err != nil {
+		return err // 400 VALIDATION_FAILED, details.fields
+	}
+	room, err := rooms.Join(r.Context(), req.InviteCode) // ör. apperr.New(apperr.RoomFull, "") → 409
+	if err != nil {
+		return err
+	}
+	httpapi.WriteJSON(w, http.StatusOK, room)
+	return nil
+}))
+```
+
+| Durum | Sonuç |
+|---|---|
+| `*apperr.Error` (sarılı olsa da) | Kodun HTTP durumu; `Message`, `Details`, `Fields` → `details.fields` |
+| `apperr.RateLimit(d)` | `429` + `Retry-After` (saniye, yukarı yuvarlanır, ≥ 1) |
+| `apperr.Wrap(code, msg, cause)` | `cause` yalnızca loglanır, istemciye gitmez |
+| Düz `error`, `INTERNAL` | `500`, genel mesaj, boş `details`; asıl hata `ERROR` olarak loglanır |
+| `context.DeadlineExceeded` | `500`, `WARNING` |
+| İstemci bağlantıyı kapattı | Yanıt yazılmaz |
+
+Kod listesi `docs/api.md` §2 ile test edilerek eşlenir (`TestErrorCodesMatchDocs`); yeni kod önce belgeye eklenir.
 
 ## Loglama (`internal/observability`)
 

@@ -5,15 +5,6 @@ import (
 	"net/http"
 )
 
-// Hata kodları (docs/api.md §2). Yalnızca HTTP katmanının ürettikleri burada;
-// alan hataları BE-004'te eklenecek.
-const (
-	CodeValidationFailed = "VALIDATION_FAILED"
-	CodeNotFound         = "NOT_FOUND"
-	CodeUpgradeRequired  = "UPGRADE_REQUIRED"
-	CodeInternal         = "INTERNAL"
-)
-
 // ErrorBody, standart hata gövdesidir:
 //
 //	{"error":{"code":"ROOM_FULL","message":"...","request_id":"...","details":{}}}
@@ -37,8 +28,9 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// WriteError, standart hata gövdesini yazar. message yalnızca hata ayıklama
-// içindir; istemci metni code'a göre seçer.
+// WriteError, standart hata gövdesini doğrudan yazar. Handler'lar bunun yerine
+// apperr hatası döndürmeli (Handle / WriteAppError); bu düşük seviye yazıcıdır.
+// message yalnızca hata ayıklama içindir; istemci metni code'a göre seçer.
 func WriteError(w http.ResponseWriter, r *http.Request, status int, code, message string, details map[string]any) {
 	if details == nil {
 		details = map[string]any{}
