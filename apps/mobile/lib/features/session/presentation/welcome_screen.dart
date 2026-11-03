@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,9 +18,11 @@ class WelcomeScreen extends ConsumerWidget {
       showAppBar: false,
       children: [
         FilledButton(
-          onPressed: () => ref
-              .read(sessionControllerProvider.notifier)
-              .signInAsGuestPlaceholder(),
+          onPressed: () => unawaited(
+            ref
+                .read(sessionControllerProvider.notifier)
+                .signInAsGuestPlaceholder(),
+          ),
           child: const Text('Başla (geçici)'),
         ),
       ],

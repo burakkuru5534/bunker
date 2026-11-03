@@ -15,7 +15,7 @@ lib/
     theme/                     app_colors, app_spacing, app_typography, app_theme, game_theme, font_licenses (MOB-008)
     realtime/                  WebSocket istemcisi (MOB-007)
     network/                   Dio istemcisi, WS istemcisi, hata eşleme (MOB-006/007/009)
-    storage/                   Güvenli oturum depolama (MOB-010)
+    storage/                   Güvenli depo ve oturum deposu (MOB-010)
     error/                     Hata → kullanıcı metni, global hata yakalama (MOB-009)
     ui/                        Ortak bileşenler: AppButton, PlayerAvatar, ConnectionBanner… (MOB-008b)
     l10n/                      Türkçe metinler: arb/app_tr.arb, generated/ (MOB-009)
@@ -203,7 +203,26 @@ Bileşen metinleri l10n'dan gelir (MOB-009).
 - Varsayılan raporlayıcı yalnızca debug'da konsola yazar; crash raporlama REL-004'te bağlanacak. Raporlara kullanıcı verisi (token, sohbet) konmaz.
 - Release derlemede bozulan widget kırmızı ekran yerine sade bir kutu gösterir.
 
-## 10. Adlandırma
+## 10. Güvenli oturum depolama
+
+Paket: `flutter_secure_storage` `^11.2.0` (Android: AES-GCM, anahtar Android Keystore'da; **minSdk 24** — Flutter varsayılanıyla aynı).
+
+| Dosya | Görev |
+|---|---|
+| `core/storage/secure_store.dart` | `SecureStore` soyutlaması; `FlutterSecureStore` (gerçek), `InMemorySecureStore` (test) |
+| `core/storage/session_store.dart` | `StoredSession` (token, bitiş, kullanıcı, takma ad) ve `SessionStore`: `session.v1` anahtarı, bellek önbelleği, süresi dolanı/bozuk veriyi siler |
+| `core/storage/storage_providers.dart` | `secureStoreProvider`, `sessionStoreProvider` |
+| `core/network/auth_token_provider.dart` | Token okuyucu artık `SessionStore`'dan okur |
+| `features/session/.../session_controller.dart` | Açılışta `unknown` → depoyu okur → `authenticated` / `unauthenticated`; `signIn`, `signOut` |
+
+Kurallar:
+- Token **yalnızca** güvenli depoda tutulur; `StoredSession.toString()` token içermez.
+- Android yedekleme ve cihazdan cihaza aktarım kapalıdır (`allowBackup="false"`, `data_extraction_rules.xml`): Keystore anahtarı taşınamadığından aktarılan veri çözülemez; misafir hesabı zaten kurtarılamaz (docs/security.md §1).
+- Keystore okunamazsa oturum yok sayılır (kullanıcı yeniden başlar).
+- 401 / WS 4001 → `main.dart` içindeki override ile `signOut()` → router `/welcome`'a götürür.
+- Testlerde `pumpWithProviders` varsayılan olarak `InMemorySecureStore` kullanır.
+
+## 11. Adlandırma
 
 | Öğe | Kural | Örnek |
 |---|---|---|
@@ -214,13 +233,13 @@ Bileşen metinleri l10n'dan gelir (MOB-009).
 | Repository | `<Ad>Repository` | `RoomRepository` |
 | DTO | `<Ad>Dto` | `RoomViewDto` |
 
-## 11. Testler
+## 12. Testler
 
 - `test/` klasörü `lib/` yapısını aynen yansıtır: `lib/features/home/presentation/home_screen.dart` → `test/features/home/presentation/home_screen_test.dart`.
 - `test/architecture/` bağımlılık kurallarını denetler.
 - `test/helpers/` test yardımcılarıdır (ör. `pumpWithProviders`).
 - Her görevde: `dart format --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
 
-## 12. Statik analiz
+## 13. Statik analiz
 
 `analysis_options.yaml`: `strict-casts`, `strict-inference`, `strict-raw-types` açık. `always_use_package_imports`, `avoid_print`, `unawaited_futures` **hata** seviyesindedir. Loglama için `print` yerine `debugPrint` / ileride log yardımcısı kullanılır.

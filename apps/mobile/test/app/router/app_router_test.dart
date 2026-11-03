@@ -7,6 +7,8 @@ import 'package:siginak/app/app.dart';
 import 'package:siginak/app/router/app_router.dart';
 import 'package:siginak/app/router/app_routes.dart';
 import 'package:siginak/core/network/update_required_provider.dart';
+import 'package:siginak/core/storage/secure_store.dart';
+import 'package:siginak/core/storage/session_store.dart';
 import 'package:siginak/core/ui/not_found_screen.dart';
 import 'package:siginak/features/home/presentation/home_screen.dart';
 import 'package:siginak/features/home/presentation/join_screen.dart';
@@ -21,11 +23,15 @@ import '../../helpers/pump_app.dart';
 void main() {
   const roomId = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
-  Future<ProviderContainer> startApp(WidgetTester tester) async {
+  Future<ProviderContainer> startApp(
+    WidgetTester tester, {
+    SecureStore? store,
+  }) async {
     await pumpWithProviders(
       tester,
       const SiginakApp(),
       wrapInMaterialApp: false,
+      secureStore: store,
     );
     await tester.pumpAndSettle();
     return ProviderScope.containerOf(tester.element(find.byType(SiginakApp)));
@@ -124,5 +130,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(UpdateRequiredScreen), findsOneWidget);
     expect(find.byType(Scaffold), findsOneWidget);
+  });
+
+  testWidgets('Saklı oturumu olan kullanıcı doğrudan ana ekrana gider', (
+    tester,
+  ) async {
+    final store = InMemorySecureStore();
+    await SessionStore(store).save(
+      StoredSession(
+        token: 't',
+        expiresAt: DateTime.now().add(const Duration(days: 1)),
+        userId: 'u',
+        nickname: 'Ayşe',
+      ),
+    );
+
+    await startApp(tester, store: store);
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(WelcomeScreen), findsNothing);
+  });
+
+  testWidgets('Oturum kapatılınca hoş geldin ekranına dönülür', (tester) async {
+    final c = await startApp(tester);
+    await signIn(tester);
+    expect(find.byType(HomeScreen), findsOneWidget);
+
+    await c.read(sessionControllerProvider.notifier).signOut();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WelcomeScreen), findsOneWidget);
   });
 }

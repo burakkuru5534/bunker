@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:siginak/core/config/app_config.dart';
 import 'package:siginak/core/config/app_config_provider.dart';
 import 'package:siginak/core/l10n/l10n.dart';
+import 'package:siginak/core/storage/secure_store.dart';
+import 'package:siginak/core/storage/storage_providers.dart';
 
 import 'pump_themed.dart' show testLocalizationsDelegates;
 
@@ -22,12 +24,17 @@ Future<void> pumpWithProviders(
   Widget child, {
   AppConfig? config,
   List<Override> overrides = const [],
+  SecureStore? secureStore,
   bool wrapInMaterialApp = true,
 }) {
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
         appConfigProvider.overrideWithValue(config ?? testConfig()),
+        // Testlerde platform eklentisi yok: bellek içi güvenli depo.
+        secureStoreProvider.overrideWithValue(
+          secureStore ?? InMemorySecureStore(),
+        ),
         ...overrides,
       ],
       child: wrapInMaterialApp

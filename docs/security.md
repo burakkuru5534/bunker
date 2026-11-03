@@ -11,7 +11,7 @@ Ayrıntı: [ADR-0008](decisions/0008-opaque-session-tokens.md).
 | Oturum türü | Misafir. `POST /v1/sessions/guest` → yeni `users` satırı + oturum |
 | Token | **Opak**, 32 bayt kriptografik rastgele (`crypto/rand`), base64url. JWT kullanılmaz. |
 | Saklama (sunucu) | Yalnızca `SHA-256(token)` → `sessions.token_hash`. Ham token veritabanında yok. |
-| Saklama (istemci) | `flutter_secure_storage` (Android Keystore) |
+| Saklama (istemci) | `flutter_secure_storage` (Android Keystore, AES-GCM). Android yedekleme ve cihazdan cihaza aktarım kapalı (`allowBackup=false`, `data_extraction_rules.xml`) |
 | Süre | 90 gün; `POST /v1/sessions/refresh` token'ı **döndürür** (yenisini verir, eskisini iptal eder) |
 | İptal | `sessions.revoked_at`; doğrulama her istekte sunucu tarafında yapılır |
 | Doğrulama maliyeti | Bellekte kısa ömürlü (≤60 sn) önbellek; iptal edilen oturum en geç 60 sn içinde geçersiz olur |

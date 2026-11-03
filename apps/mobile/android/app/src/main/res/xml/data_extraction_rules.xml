@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ yedekleme ve cihazdan cihaza aktarım kuralları.
+  Misafir oturumu Android Keystore anahtarıyla şifrelenir; anahtar başka cihaza
+  taşınamadığından şifreli veri aktarılırsa çözülemez. Bu yüzden hiçbir şey
+  yedeklenmez/aktarılmaz (docs/security.md §1: misafir hesabı kurtarılamaz).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>
