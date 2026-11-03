@@ -230,6 +230,8 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 - `tiebreak_vote`: yalnızca izleyiciler (elenen/ayrılan katılımcılar; hayattaki oyuncu `NOT_SPECTATOR`), yalnızca eşit oy alan ve hâlâ hayattaki adaylardan birine (`INVALID_TARGET`), bir kez (`ALREADY_VOTED`). Tüm izleyiciler oy verince sonuç hemen: hepsi aynı aday → o elenir (`method: spectators`), farklıysa kura. Hedef yine yalnızca `votes` tablosunda.
 - Aday listesi (`candidates`, `lottery_candidates`) koltuk sırasındadır.
 
+**Oyun sırasında ayrılma** (`POST /v1/rooms/{id}/leave`, oyun sürerken): hayattaki oyuncu oyunda `left` olur, elenmiş sayılır ve tüm kartları açılır; odaya `room.member_left` (+ gerekirse `room.host_changed`) ardından `game.player_eliminated` (`method: "left"`, `tally`/`lottery_candidates` boş, kartlar metinle) gider. Tur sonucu yazılmaz; turun elemesi yine oylamayla yapılır. Hayatta kalan kapasiteye inerse oyun hemen biter (`game.finished`); sıradaki kart açıcı ayrılırsa sıra geçer; kalanların hepsi hazırsa/oy verdiyse aşama erken biter; eşitlikte tek aday kalırsa sonuç hemen belirlenir. İzleyicinin veya bitmiş oyunda ayrılma oyunu değiştirmez. Ayrılan aynı odaya yalnızca izleyici olarak döner.
+
 **GET `/v1/games/{gameId}/result`** — Yalnızca `FINISHED` oyunlar (sürerken `409 INVALID_PHASE`); yetki: oyunun katılımcısı (değilse, oyun yoksa veya kimlik bozuksa `404`). `game.finished` olayının payload’ı bu yanıtla birebir aynıdır. Oyuncular koltuk sırasında, kartlar kategori sırasında; takma ad güncel `users` kaydından (silinmiş hesap "Silinmiş oyuncu"). Oyun bitince oda `finished` olur (oda sürümü +1; ayrı oda olayı yok, `game.finished` bildirir).
 ```json
 {

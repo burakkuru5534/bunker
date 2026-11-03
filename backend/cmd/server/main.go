@@ -203,7 +203,8 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		publisher := d.Timers.Publisher(nil)
 		gameSvc := game.NewService(d.DB, publisher, logger)
 		d.Timers.Bind(gameSvc)
-		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, publisher, logger).WithGames(game.NewStarter(logger)), authHTTP.Require)
+		hooks := game.RoomHooks{Starter: game.NewStarter(logger), Service: gameSvc}
+		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, publisher, logger).WithGames(hooks), authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
 		modules = append(modules, authHTTP.Register, roomHTTP.Register, gameHTTP.Register)
 	} else {

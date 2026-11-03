@@ -11,11 +11,17 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 )
 
-// GameStarter, oyunu odanın transaction'ı içinde kurar (ENG-003). Oyun
-// modülü uygular; room paketi oyun paketini bilmez (bağımlılık yönü
-// game → room).
+// GameStarter, odanın oyun modülüyle bağlantısıdır; çağrılar odanın
+// transaction'ı içinde, oda satırı kilitliyken yapılır (kilit sırası
+// oda → oyun). Oyun modülü uygular; room paketi oyun paketini bilmez
+// (bağımlılık yönü game → room).
 type GameStarter interface {
+	// StartGame, oyunu kurar (ENG-003).
 	StartGame(ctx context.Context, tx pgx.Tx, in GameStart) (GameStarted, error)
+	// LeaveGame, oyundan ayrılan üyeyi oyunda "ayrıldı" yapar (ENG-010);
+	// katılımcı değilse veya zaten hayatta değilse olay dönmez. Olaylar
+	// oyunun sürümünü taşır ve commit sonrası yayınlanır.
+	LeaveGame(ctx context.Context, tx pgx.Tx, gameID, userID string) ([]Event, error)
 }
 
 // GameStart, başlatılacak oyunun oda tarafındaki girdisidir.

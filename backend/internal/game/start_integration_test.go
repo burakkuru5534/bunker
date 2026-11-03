@@ -64,8 +64,8 @@ func newAPI(t *testing.T, seed bool) *api {
 	timers := NewTimers(logger)
 	t.Cleanup(func() { _ = timers.Stop(context.Background()) })
 	pub := timers.Publisher(rec)
-	roomHTTP := room.NewHTTP(room.NewService(env.DB, nil, pub, logger).WithGames(starter), authHTTP.Require)
 	svc := NewService(env.DB, pub, logger)
+	roomHTTP := room.NewHTTP(room.NewService(env.DB, nil, pub, logger).WithGames(RoomHooks{Starter: starter, Service: svc}), authHTTP.Require)
 	timers.Bind(svc)
 	gameHTTP := NewHTTP(svc, authHTTP.Require)
 	h := httpapi.NewRouter(httpapi.Options{

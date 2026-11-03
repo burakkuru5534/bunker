@@ -38,8 +38,6 @@ func NewStarter(logger *slog.Logger) *Starter {
 	return &Starter{engine: engine.New(engine.DefaultDurations), rng: engine.CryptoRand{}, now: time.Now, logger: logger}
 }
 
-var _ room.GameStarter = (*Starter)(nil)
-
 // StartGame, odanın transaction'ında: katalogu okur, dağıtır (koltuk,
 // senaryo, kartlar), oyunu DEALING'den SCENARIO_INTRO'ya geçirir ve yazar.
 // Katalog yetersizse içerik hatasıdır: loglanır, istemciye INTERNAL gider.

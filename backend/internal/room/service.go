@@ -213,9 +213,10 @@ func (s *Service) Leave(ctx context.Context, p auth.Principal, roomID string) er
 	if !validUUID(roomID) {
 		return nil
 	}
-	var events []Event
+	var events, gameEvents []Event
 	var closed bool
 	err := s.db.Tx(ctx, func(tx pgx.Tx) error {
+		events, gameEvents = nil, nil
 		r, err := loadForUpdate(ctx, tx, roomID)
 		if errors.Is(err, errRoomNotFound) {
 			return nil
@@ -237,6 +238,16 @@ func (s *Service) Leave(ctx context.Context, p auth.Principal, roomID string) er
 		}
 		if err != nil {
 			return err
+		}
+		// Oyun sürüyorsa oyuncu oyunda da "ayrıldı" olur (aynı transaction;
+		// oda kilitli, oyun bundan sonra kilitlenir). Oyun bu yüzden bitebilir.
+		if r.Status == StatusInGame && r.CurrentGameID != nil && s.games != nil {
+			if gameEvents, err = s.games.LeaveGame(ctx, tx, *r.CurrentGameID, p.UserID); err != nil {
+				return err
+			}
+			for i := range gameEvents {
+				gameEvents[i].RoomID = r.ID
+			}
 		}
 		if out.CloseRoom {
 			closed = true
@@ -262,7 +273,8 @@ func (s *Service) Leave(ctx context.Context, p auth.Principal, roomID string) er
 	if err != nil {
 		return err
 	}
-	for _, e := range events {
+	// Önce oda olayları (member_left, host_changed), sonra oyun olayları.
+	for _, e := range append(events, gameEvents...) {
 		s.publisher.Publish(e) // yalnızca commit sonrası
 	}
 	if closed {
