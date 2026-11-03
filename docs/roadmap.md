@@ -128,6 +128,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **AUTH-002b:** `POST /v1/sessions/guest` (201; IP başına 5/dk, sınır gövde doğrulamasından önce, IPv6 /64), `POST /v1/sessions/refresh` (boş gövde veya {}), `GET /v1/me` (active_room_id null/uuid); token yanıtları `Cache-Control: no-store`; `auth.Require` middleware (401 + `WWW-Authenticate: Bearer`, bağlama oturum sahibi ve user_id'li logger). `internal/ratelimit` (anahtar başına token bucket, bellek üst sınırlı; %100), `httpapi.ClientIP` + `RateKey`, `TRUSTED_PROXY_HOPS`. Uçtan uca testler (tam middleware zinciri + gerçek DB): sözleşme alanları, token'ın loglanmaması, sahte XFF ile sınırın atlatılamaması.
 - **AUTH-003:** `auth.Require` artık kullanıcı başına genel REST sınırını uygular (10 sn'de 30 → 429 + Retry-After; kimlik doğrulamasından sonra, kullanıcı başına); token yalnızca başlıktan (sorgu dizesindeki token yok sayılır, testli). WebSocket kararı: yetki/üyelik/sürüm hataları HTTP durumu değil, yükseltmeden sonra kapanış kodu (4001/4003/4026) — mobil istemcinin beklediği davranış; `/v1/ws` sürüm middleware'inden muaf, `httpapi.CheckAppVersion`, `VersionCloseCode`, `CloseCodeFor` ve kapanış kodu sabitleri WS işleyicisi (RT) için hazır. Kapsam notu: oda/oyun üyeliği denetimi oda modülüyle (ROOM, SAFE-003), kullanıcı başına 2 WS bağlantısı hub ile (RT-009) gelir.
 - **ROOM-001/002:** `internal/room` saf model (DB/HTTP bilmez; ADR-0002): Join (kapalı/atılmış/zaten üye/oyun sürüyor/eski katılımcı izleyici/10 dolu/Türkçe duyarsız takma ad çakışması), Leave (lobide sil, oyunda left_at; sahiplik en eski aktif oyuncuya; son üye → kapat), SetReady (yalnız lobide, izleyici olamaz, aynı değer değişiklik değil), ChangeCapacity / Kick / CanStart (oda sahibi dahil herkes hazır, 4–10; details.reason) / Rematch. Davet kodu: kriptografik, modulo yanlılığı olmadan 31 karakterlik alfabe; giriş büyük/küçük harf, boşluk ve tire duyarsız. 20 bin kodla dağılım testi. api.md katılma/ayrılma/başlatma/atma kuralları netleşti. Kapsama %97,7.
+- **ROOM-003:** `POST /v1/rooms` (kapasite ops., varsayılan 2; bilinmeyen alan reddi) → `201 RoomView` (+ `version`). Oda + sahibin oyuncu üyeliği tek transaction; `ALREADY_IN_ROOM` veritabanının 'tek aktif oda' kısıtından (yarışsız; 5 eşzamanlı istekte 1 oda) ve `details.room_id` ile; davet kodu çakışmasında en fazla 5 deneme. `room.Service`, `loadForUpdate` (satır kilidiyle oda + üyeler, sonraki işlemler için), `View`/`Presence` (connected RT gelene kadar false), `persistence.UniqueViolation`. Kapsama %95,8.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -173,9 +174,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| ROOM-001 | Oda modeli | P0 | Awaiting User Approval |
-| ROOM-002 | Davet kodu üretimi | P0 | Awaiting User Approval |
-| ROOM-003 | Oda oluşturma API'si | P0 | Backlog |
+| ROOM-001 | Oda modeli | P0 | Done |
+| ROOM-002 | Davet kodu üretimi | P0 | Done |
+| ROOM-003 | Oda oluşturma API'si | P0 | Awaiting User Approval |
 | ROOM-004 | Odaya katılma API'si | P0 | Backlog |
 | ROOM-005 | Odadan ayrılma | P0 | Backlog |
 | ROOM-006 | Oda üyeliği ve yetkilendirme | P0 | Backlog |
