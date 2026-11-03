@@ -8,6 +8,7 @@ package realtime
 import (
 	"encoding/json"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -44,6 +45,8 @@ type Hub struct {
 	queueSize int
 	now       func() time.Time
 
+	listener ConnectionListener // nil olabilir
+
 	mu     sync.Mutex
 	rooms  map[string]map[*Client]struct{}
 	users  map[string][]*Client // kullanıcının bağlantıları, en eskisi başta
@@ -57,6 +60,22 @@ func NewHub(logger *slog.Logger) *Hub {
 	}
 	return &Hub{logger: logger, queueSize: DefaultQueueSize, now: time.Now,
 		rooms: map[string]map[*Client]struct{}{}, users: map[string][]*Client{}}
+}
+
+// ConnectionListener, kullanıcının ilk bağlantısı açıldığında ve son
+// bağlantısı kapandığında haberdar edilir (RT-007: bağlantı kopması bekleme
+// süresi). Çağrılar ayrı goroutine'de yapılır ve sırası garanti değildir;
+// dinleyici karar anında Connected ile gerçek durumu denetlemelidir.
+type ConnectionListener interface {
+	UserConnected(userID, roomID string)
+	UserDisconnected(userID, roomID string)
+}
+
+// SetListener, dinleyiciyi bağlar (bağlantı kabulünden önce çağrılmalı).
+func (h *Hub) SetListener(l ConnectionListener) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.listener = l
 }
 
 var (
@@ -76,6 +95,9 @@ func (h *Hub) register(c *Client) bool {
 	for conns := h.users[c.userID]; len(conns) >= MaxConnsPerUser; conns = h.users[c.userID] {
 		conns[0].close(httpapi.CloseTooMany, "çok fazla bağlantı")
 		h.removeLocked(conns[0])
+	}
+	if len(h.users[c.userID]) == 0 && h.listener != nil {
+		go h.listener.UserConnected(c.userID, c.roomID)
 	}
 	h.users[c.userID] = append(h.users[c.userID], c)
 	if h.rooms[c.roomID] == nil {
@@ -99,14 +121,18 @@ func (h *Hub) removeLocked(c *Client) {
 		}
 	}
 	conns := h.users[c.userID]
-	for i, x := range conns {
-		if x == c {
-			conns = append(conns[:i:i], conns[i+1:]...)
-			break
-		}
+	i := slices.Index(conns, c)
+	if i < 0 {
+		return // zaten kaldırılmış (ör. 4008 ile değiştirildi, sonra işleyici çıktı)
 	}
+	conns = append(conns[:i:i], conns[i+1:]...)
 	if len(conns) == 0 {
 		delete(h.users, c.userID)
+		// Kapanışta (1012) bildirim yok: kopma zamanları açılış
+		// kurtarmasında yeniden kurulur.
+		if h.listener != nil && !h.closed {
+			go h.listener.UserDisconnected(c.userID, c.roomID)
+		}
 	} else {
 		h.users[c.userID] = conns
 	}

@@ -71,6 +71,15 @@ type deps struct {
 	DB     *persistence.DB // DATABASE_URL yoksa (yalnızca yerel) nil
 	Timers *game.Timers    // DB varsa; aşama süre dolumları (ADR-0005)
 	Hub    *realtime.Hub   // DB varsa; WebSocket bağlantıları (ADR-0003)
+	// Life, handler kurulurken eklenen açılış/kapanış işleridir (deps değer
+	// olarak geçtiği için işaretçi).
+	Life *lifecycle
+}
+
+// lifecycle, arka plan bileşenlerinin açılış ve kapanış işleridir.
+type lifecycle struct {
+	start []func()
+	stop  []func(ctx context.Context) error
 }
 
 // run, servisi ctx iptal edilene kadar çalıştırır. Test edilebilirlik için
@@ -99,6 +108,7 @@ func run(
 		d.DB = db
 		d.Timers = game.NewTimers(logger)
 		d.Hub = realtime.NewHub(logger)
+		d.Life = &lifecycle{}
 	} else {
 		logger.Warn("DATABASE_URL tanımlı değil; veritabanısız çalışılıyor (yalnızca yerel)")
 	}
@@ -127,6 +137,11 @@ func run(
 	go func() { serveErr <- srv.Serve(ln) }()
 	// Açılış kurtarması: bitmemiş oyunların süreleri yüklenir; geçmişler hemen işlenir.
 	d.Timers.Start()
+	if d.Life != nil {
+		for _, start := range d.Life.start {
+			start()
+		}
+	}
 
 	select {
 	case err := <-serveErr:
@@ -151,6 +166,13 @@ func run(
 		d.Hub.Shutdown()
 	}
 	// Zamanlayıcılar HTTP'den sonra durur (son istekler süre dolumu tetikleyebilir).
+	if d.Life != nil {
+		for _, stop := range d.Life.stop {
+			if err := stop(shutdownCtx); err != nil {
+				logger.Warn("arka plan işi zamanında durmadı", "error", err)
+			}
+		}
+	}
 	if err := d.Timers.Stop(shutdownCtx); err != nil {
 		logger.Warn("zamanlayıcılar zamanında durmadı", "error", err)
 	}
@@ -217,6 +239,13 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		roomSvc := room.NewService(d.DB, d.Hub, publisher, logger).WithGames(hooks)
 		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
+		// Bağlantısı kopan oyuncular: 60 sn bekleme, sonra ayrılmış sayılır (RT-007).
+		disconnects := game.NewDisconnects(gameSvc, roomSvc, d.Hub, logger)
+		d.Hub.SetListener(disconnects)
+		if d.Life != nil {
+			d.Life.start = append(d.Life.start, disconnects.Start)
+			d.Life.stop = append(d.Life.stop, disconnects.Stop)
+		}
 		ws := realtime.NewHandler(d.Hub, authSvc, realtime.RoomSnapshotter{Rooms: roomSvc, Games: gameSvc},
 			realtime.DefaultOptions(minVersion), logger)
 		modules = append(modules, ws.Register)

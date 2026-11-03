@@ -24,11 +24,14 @@ import (
 )
 
 type env struct {
-	t   *testing.T
-	db  *testdb.Env
-	hub *Hub
-	srv *httptest.Server
-	ip  atomic.Int64
+	t    *testing.T
+	db   *testdb.Env
+	hub  *Hub
+	disc *game.Disconnects
+	game *game.Service
+	room *room.Service
+	srv  *httptest.Server
+	ip   atomic.Int64
 }
 
 func newEnv(t *testing.T, mutate func(*Options)) *env {
@@ -45,6 +48,10 @@ func newEnv(t *testing.T, mutate func(*Options)) *env {
 		mutate(&opts)
 	}
 	ws := NewHandler(hub, authSvc, RoomSnapshotter{Rooms: roomSvc, Games: gameSvc}, opts, logger)
+	disc := game.NewDisconnects(gameSvc, roomSvc, hub, logger)
+	disc.SetGrace(300 * time.Millisecond)
+	hub.SetListener(disc)
+	t.Cleanup(func() { _ = disc.Stop(context.Background()) })
 	h := httpapi.NewRouter(httpapi.Options{
 		Logger: logger, MinAppVersion: httpapi.Version{Minor: 1}, RequestTimeout: 5 * time.Second,
 		Register: func(mux *http.ServeMux) {
@@ -57,7 +64,7 @@ func newEnv(t *testing.T, mutate func(*Options)) *env {
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	t.Cleanup(hub.Shutdown)
-	return &env{t: t, db: db, hub: hub, srv: srv}
+	return &env{t: t, db: db, hub: hub, srv: srv, disc: disc, game: gameSvc, room: roomSvc}
 }
 
 func (e *env) rest(method, path, token, body string) map[string]any {
@@ -119,10 +126,10 @@ func (e *env) dial(o dialOpts) *websocket.Conn {
 	return c
 }
 
-// read, sıradaki mesajı okur (2 sn).
+// read, sıradaki mesajı okur (5 sn: paralel CI yükünde veritabanı yavaşlayabilir).
 func read(t *testing.T, c *websocket.Conn) (Envelope, map[string]any) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, data, err := c.Read(ctx)
 	if err != nil {
@@ -271,7 +278,7 @@ func connected(view map[string]any, uid string) bool {
 
 func waitFor(t *testing.T, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(8 * time.Second)
 	for !cond() {
 		if time.Now().After(deadline) {
 			t.Fatal("koşul sağlanmadı")

@@ -145,6 +145,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **RT-001…004 + RT-006 (+ RT-009 kısmen):** `internal/realtime`, kütüphane `github.com/coder/websocket` v1.8.15 (govulncheck temiz). `GET /v1/ws?room_id=`: önce yükseltme, sonra sürüm (4026), token yalnız başlıktan (4001), kullanıcı başına bağlantı denemesi 10/dk (4008), üyelik (4003; hub’a kayıttan önce — üye olmayan hiç olay almaz). Kayıt → anlık görüntü yazılır → kuyruk; ilk mesaj her zaman `session.snapshot` (me, room; game ENG-013’te). `Hub`: oda → bağlantılar, kullanıcı başına en fazla 2 (fazlasında en eskisi 4008), `room.Publisher` (zarf v1, `To` → yalnız o kullanıcı; atılana önce olay sonra 4003, ayrılana 1000) ve `room.Presence` (oda görünümündeki `connected`). Bağlantı başına 64’lük kuyruk + yazıcı goroutine (dolunca 4009, yayın bloklanmaz), 25 sn ping, yanıtsız istemci el sıkışmasız kesilir; okuma bağlamı kapatmadan bağımsız (aksi halde kütüphane kodsuz koparıyordu). İstemciden yalnız `{"v":1,"type":"sync"}` (10 sn’de 5). Sunucu kapanışında 1012. Sunucuda olay zinciri zamanlayıcı → hub. Testler (gerçek sunucu + gerçek WS istemcisi): 7 ret senaryosu ve kodları, düz HTTP 426, anlık görüntü/olay/presence, özel kartların yalnız sahibine gitmesi (4 bağlantı), atılma/ayrılma kapanışları ve olay sırası, 2 bağlantı sınırı, sync ve geçersiz mesajlar, ping zaman aşımı, kapanış 1012; yavaş istemci birim testi. 5–8 tekrar kararlı (yarış dedektörüyle). Mutasyon 8/8. Kapsama %91,1. Test kodundaki bir hata (zaman aşımsız kanal okuma) bir çalıştırmayı süresiz bekletti; düzeltildi.
 - **CI düzeltmesi:** `migrate` sorgu planı testindeki yalın `analyze` tüm veritabanını tarıyordu; paralel CI paketlerinin aynı anda kurup sildiği şemalarla deadlock (40P01). Artık yalnız testin kendi şemasındaki tablolar analiz ediliyor; paralel takım 3× temiz.
 - **ENG-013 + ENG-015:** `game.Service.GameSnapshot(kullanıcı, oyun)` → `GameView` (`session.snapshot.game`): state_version, aşama (BÜYÜK), tur, süre, senaryo, sıradaki, katılımcılar (takma ad, koltuk, durum, `connected` hub’dan, açılmış kart metinleri), `my_cards` (yalnız kendi), `my_action_state`, hazır/oy/eşitlik sayaçları, son tur sonucu. Tek görünürlük kuralı: kart açıksa veya oyun bittiyse görünür; aksi halde yalnız sahibine. Oy hedefleri hiç yok. `RoomSnapshotter.Games` ile WS anlık görüntüsüne bağlandı (bağlanma ve `sync`). Testler: gizlilik özellik testi — 4 rastgele oyun (5–8 kişi; açma, oy, ayrılma, süre dolumu) her adımda tüm katılımcılar + bir yabancı için: başkasının kapalı kartı yok, kendi 5 kartı var, açık kartlar var, bitince hepsi var, kimlik/denge/hedef alanı yok. Alan testi (sıra, hazır/oy durumu ve sayaçlar, eleme sonucu, izleyici, eşitlik, bitiş), WS’de oyun sürerken bağlanan oyuncunun görünümü. Mutasyon 6/6 (biri ilk turda kaçtı → test tamamlandı). Kapsama: game %86,3, realtime %91,6.
+- **RT-007:** `realtime.Hub` kullanıcının ilk bağlantısında / son bağlantısı kapanınca `ConnectionListener`’ı ayrı goroutine’de çağırır (kapanışta 1012 hariç; aynı bağlantının ikinci kez kaldırılması bildirim üretmez). `game.Disconnects`: oyun sürerken hayattaki oyuncuya `game_participants.disconnected_at` + `game.player_connection {disconnected}`; 60 sn içinde dönerse kayıt silinir + `{reconnected}`; dönmezse `room.Service.Leave` (sebep `disconnect_timeout` eylem kaydında) + `{left}`. Her kararda gerçek bağlantı durumu (presence) denetlenir (bildirimler sırasız gelebilir). Açılış kurtarması: aktif oyunlardaki hayattaki oyunculara süre tanınır, önceden kopmuşların kalan süresi korunur, bağlı oldukları anlaşılanların kaydı sessizce silinir. Sunucuda açılış/kapanış `lifecycle` ile. Testler (gerçek WS + PostgreSQL, süre 300 ms): kopma ve süre içinde dönüş, dönmeyenin odadan ve oyundan ayrılması ve 4003, lobide etkisizlik, açılış kurtarması (dönmeyen + kalan süreli ayrılır, bağlı 4 kalır). Paralel tam takım yükü altında 8 tur kararlı (yükte 2 sn okuma süresi yetmiyordu → test süreleri 5/8 sn). Mutasyon 5/5 (bir eşdeğer bozma davranışı değiştirmiyor). Not: `disconnects.go` gerçek zamanlı paketin testlerince sınanıyor; Go kapsamayı paket bazında ölçtüğü için game paketi tek başına %73,5 görünür.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -179,7 +180,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | RT-004 | Oda bazlı bağlantı yönetimi | P0 | Awaiting User Approval |
 | RT-005 | Mesaj şemaları ve doğrulama | P0 | Backlog |
 | RT-006 | Oda içi olay yayını | P0 | Awaiting User Approval |
-| RT-007 | Bağlantı kopması ve yeniden bağlanma | P0 | Backlog |
+| RT-007 | Bağlantı kopması ve yeniden bağlanma | P0 | Awaiting User Approval |
 | RT-008 | Bağlantı temizliği ve kaynak yönetimi | P0 | Backlog |
 | RT-009 | Rate limiting | P0 | Backlog |
 | RT-010 | Eşzamanlılık ve bağlantı testleri | P0 | Backlog |
@@ -236,9 +237,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ENG-010 | Eleme | P0 | Done |
 | ENG-011 | Kazanma koşulları | P0 | Done |
 | ENG-012 | Maç sonu | P0 | Done |
-| ENG-013 | Yeniden bağlanma ve oyun kurtarma | P0 | Awaiting User Approval |
+| ENG-013 | Yeniden bağlanma ve oyun kurtarma | P0 | Done |
 | ENG-014 | İdempotent eylemler | P0 | Backlog |
-| ENG-015 | Gizli bilgi izolasyonu | P0 | Awaiting User Approval |
+| ENG-015 | Gizli bilgi izolasyonu | P0 | Done |
 | ENG-016 | Oyun motoru birim testleri | P0 | Backlog |
 
 ## Faz 8 — Oyun UI entegrasyonu

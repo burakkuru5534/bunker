@@ -279,7 +279,7 @@ X-App-Version: 1.0.0
 - Kullanıcı başına bağlantı denemesi dakikada 10 (aşılırsa 4008); `sync` 10 sn’de 5 (fazlası yok sayılır). İstemci mesajı en fazla 1 KB.
 - Atılan üyeye önce `room.member_kicked` gider, sonra 4003 ile kapanır; odadan kendi isteğiyle ayrılanın bağlantısı 1000 ile kapanır. Ping’e yanıt vermeyen bağlantı kapanış el sıkışması olmadan kesilir (istemci 1006 görür, yeniden bağlanır). Gönderim kuyruğu (64 mesaj) dolan istemci 4009.
 - Köken (Origin) denetlenmez: token yalnızca `Authorization` başlığındadır, tarayıcılar WebSocket isteğine bu başlığı ekleyemez; çerez yok → çapraz site WebSocket ele geçirme mümkün değil.
-- `session.snapshot.game`, oyun görünümü ENG-013 ile dolar; o zamana kadar `null`.
+- **Bağlantı kopması (oyun sürerken):** hayattaki oyuncunun son bağlantısı kapanınca odaya `game.player_connection {state: "disconnected"}` gider; 60 sn içinde yeniden bağlanırsa `{state: "reconnected"}`. Dönmezse oyuncu "Ayrıl" ile aynı yoldan odadan ve oyundan ayrılır (`member_left`, `player_eliminated {method: left}`, ardından `{state: "left"}`); geri gelirse davet koduyla yalnızca izleyici olarak katılır. Bu sürede sırası gelirse kart otomatik açılır, oy vermezse çekimser sayılır. Bağlantı olayları `state_version` taşımaz. Sunucu yeniden başlarsa kopma zamanları korunur; açılışta herkese yeniden bağlanmak için 60 sn tanınır. Lobide kopma hiçbir şey değiştirmez.
 - Sunucu 25 sn'de bir WS ping gönderir; 60 sn yanıt yoksa bağlantı kapanır.
 - Cloud Run istek zaman aşımı (≤60 dk) dolunca bağlantı kapanır; istemci hemen yeniden bağlanır.
 
