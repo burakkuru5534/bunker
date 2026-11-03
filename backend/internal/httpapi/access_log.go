@@ -36,10 +36,7 @@ func AccessLog(base *slog.Logger, projectID string) Middleware {
 				status = http.StatusOK
 			}
 			latency := time.Since(start)
-			level := slog.LevelInfo
-			if status >= 500 {
-				level = slog.LevelError
-			}
+			level := accessLogLevel(r.URL.Path, status)
 			logger.LogAttrs(r.Context(), level, "http istek",
 				slog.Group("httpRequest",
 					slog.String("requestMethod", r.Method),
@@ -96,3 +93,19 @@ func (s *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 }
 
 func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
+
+// accessLogLevel: 5xx → ERROR, diğerleri INFO. Sağlık denetimleri sık ve
+// sıradandır: başarılıysa DEBUG (log hacmi/maliyeti), başarısızsa WARNING
+// (hazırlık denetimindeki ayrıntı ayrıca loglanır).
+func accessLogLevel(path string, status int) slog.Level {
+	switch {
+	case isHealthPath(path) && status < 400:
+		return slog.LevelDebug
+	case isHealthPath(path):
+		return slog.LevelWarn
+	case status >= 500:
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}

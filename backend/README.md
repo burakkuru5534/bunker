@@ -44,7 +44,7 @@ Middleware sırası (dıştan içe):
 | # | Middleware | Kapsam | Davranış |
 |---|---|---|---|
 | 1 | `RequestID` | tümü | Geçerli `X-Request-ID` korunur, yoksa 32 hex üretilir; yanıta ve bağlama eklenir |
-| 2 | `AccessLog` | tümü | İstek logger'ını bağlama koyar (`request_id`, varsa trace); bitişte tek `httpRequest` satırı yazar |
+| 2 | `AccessLog` | tümü | İstek logger'ını bağlama koyar (`request_id`, varsa trace); bitişte tek `httpRequest` satırı yazar (başarılı `/health*` → DEBUG) |
 | 3 | `Recover` | tümü | panic → `500 INTERNAL` (ayrıntı istemciye gitmez, `request_id` ile loglanır) |
 | 4 | `RequireAppVersion` | `/v1/*` | Eksik/biçimsiz → `400 VALIDATION_FAILED`; `MIN_APP_VERSION`'dan eski → `426 UPGRADE_REQUIRED` (`details.min_version`) |
 | 5 | `LimitBody` | `/v1/*` (WS hariç) | Gövde ≤ 4 KB; aşılırsa `400 VALIDATION_FAILED` |
@@ -53,6 +53,19 @@ Middleware sırası (dıştan içe):
 - Eşleşmeyen yol **veya yöntem** → `404 NOT_FOUND` (JSON). Düz metin yanıt üretilmez.
 - Hata gövdesi her zaman `{"error":{"code","message","request_id","details":{}}}` (docs/api.md §2).
 - Modüller rotalarını `httpapi.Options.Register` ile ekler.
+
+## Sağlık uç noktaları
+
+| Yol | Yanıt | Kullanım |
+|---|---|---|
+| `GET /health` | `200 {"status":"ok"}` | Süreç ayakta mı; bağımlılıklara bakmaz. Cloud Run başlangıç/canlılık denetimi |
+| `GET /health/ready` | `200 {"status":"ready"}` / `503 {"status":"not_ready"}` | `httpapi.Health.Checks` paralel, her biri ≤ 2 sn. Başarısız denetimin adı ve hatası yalnızca loglanır |
+
+`X-App-Version` istemez, `HEAD` destekler, `Cache-Control: no-store`. Başarılı sağlık istekleri erişim logunda `DEBUG` seviyesindedir (prod'da `info` olduğu için yazılmaz → log hacmi düşük); başarısızlar `WARNING`. Veritabanı denetimi DB-001'de eklenecek:
+
+```go
+health := &httpapi.Health{Checks: []httpapi.ReadinessCheck{{Name: "database", Check: pool.Ping}}}
+```
 
 ## Hatalar (`internal/apperr`)
 

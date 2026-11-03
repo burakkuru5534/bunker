@@ -111,17 +111,22 @@ func newLogger(cfg config.Config, w io.Writer) *slog.Logger {
 var handlerFactory = newHandler
 
 // newHandler, middleware zinciriyle sarılmış yönlendiriciyi döndürür.
-// Modül rotaları ve /health sonraki görevlerde Register içine eklenecek.
+// Modül rotaları sonraki görevlerde Register içine eklenecek; veritabanı
+// hazırlık denetimi DB-001'de health.Checks'e eklenecek.
 func newHandler(cfg config.Config, logger *slog.Logger) http.Handler {
 	minVersion, err := httpapi.ParseVersion(cfg.MinAppVersion)
 	if err != nil {
 		// config.Load biçimi zaten doğruladı; buraya gelinmemeli.
 		panic(err)
 	}
+	health := &httpapi.Health{Timeout: httpapi.DefaultReadinessTimeout}
 	return httpapi.NewRouter(httpapi.Options{
 		Logger:         logger,
 		ProjectID:      cfg.GCPProjectID,
 		MinAppVersion:  minVersion,
 		RequestTimeout: cfg.RequestTimeout,
+		Register: func(mux *http.ServeMux) {
+			health.Register(mux)
+		},
 	})
 }

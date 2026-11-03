@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -99,6 +100,19 @@ func TestServerStartsAndShutsDownGracefully(t *testing.T) {
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("durum = %d, 404 bekleniyordu", resp.StatusCode)
+	}
+
+	// Sağlık uç noktaları gerçek sunucuda, sürüm başlığı olmadan çalışır.
+	for path, want := range map[string]string{"/health": `{"status":"ok"}`, "/health/ready": `{"status":"ready"}`} {
+		resp, err := http.Get(localURL(addr, path))
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != want {
+			t.Fatalf("%s: %d %s", path, resp.StatusCode, body)
+		}
 	}
 
 	cancel()

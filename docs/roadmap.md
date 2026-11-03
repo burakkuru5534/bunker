@@ -112,6 +112,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **BE-002:** `internal/httpapi` (yalnızca standart kütüphane): Go 1.22+ `ServeMux` yöntem/yol kalıpları; middleware RequestID → Recover → RequireAppVersion (400/426, `MIN_APP_VERSION`) → LimitBody (4 KB) → Timeout (`REQUEST_TIMEOUT`, WS hariç). Eşleşmeyen yol/yöntem → JSON 404. Standart hata gövdesi yazıcısı (docs/api.md §2) bu görevde eklendi; alan hataları ve alan hatası → kod eşlemesi BE-004'te. httpapi kapsama %98,9.
 - **BE-003:** `internal/observability`: `log/slog` tabanlı logger; local → metin, test/prod → JSON. Cloud Logging alanları `severity`/`message`/`httpRequest`/`logging.googleapis.com/trace` (W3C `traceparent` ya da `X-Cloud-Trace-Context`; yalnız `GCP_PROJECT_ID` doluysa). Hassas anahtar/`Bearer` değerleri gruplar dahil `[REDACTED]`. `AccessLog` middleware: istek başına tek satır, sorgu dizesi/başlık/gövde yok, 5xx → ERROR, handler logları `request_id` taşır; WebSocket için Hijack/Flush iletimi. Yeni yapılandırma: `LOG_LEVEL`, `GCP_PROJECT_ID`. Kapsama: observability %100, httpapi %98,6, config %100, server %76,4; `-race -count=2` temiz.
 - **BE-004:** `internal/apperr`: 27 makine kodu, `*apperr.Error` (Message, Fields, Details, RetryAfter, loglanacak neden), `FieldErrors` toplayıcısı, kod bazlı `errors.Is`. `internal/httpapi`: kod → HTTP durumu tablosu, `WriteAppError` (INTERNAL/düz hata → genel mesaj + ERROR log; neden istemciye gitmez; 429 → `Retry-After`; istemci giderse yanıt yok), `Handle` adaptörü, katı `DecodeJSON` (Content-Type, bilinmeyen alan, tür, tek değer, 4 KB). Alan hata kodları docs/api.md §2'ye eklendi. `TestErrorCodesMatchDocs` tabloyu belgeyle karşılaştırır (mutasyonla doğrulandı); backend CI `docs/api.md` değişince de çalışır. Kapsama: apperr %100, httpapi %99.
+- **BE-005:** `httpapi.Health`: `GET /health` (canlılık, bağımlılık yok) ve `GET /health/ready` (denetimler paralel, her biri ≤ 2 sn; panic ve bağlamı yok sayan denetim de güvenle zaman aşımına düşer; 503 yanıtında ayrıntı yok, yalnızca log). HEAD desteği, `no-store`, sürüm başlığı gerekmez. Başarılı sağlık istekleri erişim logunda DEBUG (log hacmi), başarısızlar WARNING. Veritabanı denetimi DB-001'de eklenecek. architecture.md Cloud Run tablosu: `/health` başlangıç/canlılık, `/health/ready` probe değil. httpapi kapsama %99,2.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -120,8 +121,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | BE-001 | Go servis iskeleti | P0 | Done |
 | BE-002 | HTTP router ve middleware | P0 | Done |
 | BE-003 | Yapılandırılmış loglama | P0 | Done |
-| BE-004 | Standart API hata formatı | P0 | Awaiting User Approval |
-| BE-005 | Health endpoint | P0 | Backlog |
+| BE-004 | Standart API hata formatı | P0 | Done |
+| BE-005 | Health endpoint | P0 | Awaiting User Approval |
 | DB-001 | Supabase PostgreSQL bağlantısı | P0 | Backlog |
 | DB-002 | Migration altyapısı | P0 | Backlog |
 | DB-003 | İlk şema | P0 | Backlog |

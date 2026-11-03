@@ -272,7 +272,8 @@ Ayrıntı: [ADR-0011](decisions/0011-cloud-run-configuration.md).
 | İstek zaman aşımı | 3600 sn | WS ömrü üst sınırı |
 | Session affinity | Açık | Tek instance'ta etkisiz ama zararsız; ileride yardımcı |
 | Port | 8080 | |
-| Startup probe | `GET /health` | |
+| Startup / liveness probe | `GET /health` | Yalnızca süreç ayakta mı; DB'ye bakmaz — DB kesintisi konteyneri yeniden başlatmamalı (BE-005) |
+| Hazırlık | `GET /health/ready` | DB erişimi (DB-001'den itibaren); dağıtım sonrası duman testi ve izleme içindir, probe olarak kullanılmaz |
 | Erişim | Herkese açık (`allUsers` invoker) | Kimlik uygulama katmanında (Bearer token) |
 | Secret | `DATABASE_URL` → Secret Manager, ortam değişkeni olarak | |
 | İmaj | Çok aşamalı Docker build → distroless, Artifact Registry `europe-west1` | Küçük imaj, hızlı soğuk başlatma |

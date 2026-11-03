@@ -114,6 +114,10 @@
 | GET | `/health` | Yok | `200 {"status":"ok"}` — süreç ayakta (DB'ye bakmaz) |
 | GET | `/health/ready` | Yok | `200 {"status":"ready"}` / `503` — DB erişilebilir mi |
 
+- `X-App-Version` gerekmez; `HEAD` de desteklenir; yanıtlar `Cache-Control: no-store`.
+- `/health/ready` başarısızsa `503 {"status":"not_ready"}` döner; hangi denetimin başarısız olduğu yanıtta yer almaz, yalnızca loglanır. Denetimler paralel çalışır, her biri en çok 2 sn.
+- `/health` Cloud Run başlangıç/canlılık denetimidir; `/health/ready` probe olarak kullanılmaz (DB kesintisi konteyneri yeniden başlatmamalı).
+
 ### Oturum ve kullanıcı
 
 **POST `/v1/sessions/guest`** — Yetki: yok. Sınır: IP başına 5/dk.
