@@ -164,6 +164,22 @@ Kurallar:
 - Yazı tipleri `assets/fonts/` altında gömülüdür (alt kümeli, ≈430 KB; ayrıntı `assets/fonts/README.md`).
 - Kontrast oranları `test/core/theme/contrast_test.dart` ile denetlenir (≥ 4,5:1).
 
+### Ortak bileşenler (`core/ui/`, MOB-008b)
+
+| Bileşen | Dosya | Not |
+|---|---|---|
+| `AppButton.primary / .secondary / .danger` | `app_buttons.dart` | 52 dp; `isLoading` (spinner, tekrar basılamaz); `disabledReason` devre dışıyken altta gösterilir |
+| `AppTextField` | `app_text_field.dart` | Etiket, yardımcı metin, `maxLength` sayacı, hata |
+| `InviteCodeInput`, `InviteCodeFormatter` | `invite_code_input.dart` | 6 kutu; tek görünmez `TextField` (yapıştırma doğal); alfabe `23456789ABCDEFGHJKMNPQRSTUVWXYZ` |
+| `PlayerAvatar` | `player_avatar.dart` | S 28 / M 40 / L 64; koltuk sırasına göre renk; çevrimiçi / bağlantı koptu (nokta) / elendi (çizgi) |
+| `StatusBadge` | `status_badge.dart` | Hazır, Bekliyor, Oda sahibi, İzleyici, Elendi, Ayrıldı, Sırada |
+| `ConnectionBanner` | `connection_banner.dart` | gizli / yeniden bağlanıyor / bağlandı / bağlantı yok + Tekrar dene; `liveRegion` |
+| `showConfirmDialog` | `confirm_dialog.dart` | `Future<bool>`; `destructive` |
+| `showAppSnackBar` | `app_snack_bar.dart` | Önceki mesajı kapatır; hata ikonu |
+| `LoadingView`, `ErrorView`, `EmptyState` | `state_views.dart` | Durum kalıpları (design-system §4) |
+
+Bileşen metinleri şimdilik Türkçe sabit; l10n (ARB) ekranlarla birlikte eklenecek.
+
 ## 9. Adlandırma
 
 | Öğe | Kural | Örnek |

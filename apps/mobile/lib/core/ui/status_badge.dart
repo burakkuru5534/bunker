@@ -1,0 +1,63 @@
+import 'package:flutter/material.dart';
+
+import 'package:siginak/core/theme/app_spacing.dart';
+import 'package:siginak/core/theme/game_theme.dart';
+
+enum StatusBadgeKind { ready, waiting, host, spectator, eliminated, left, turn }
+
+/// Küçük hap biçimli durum etiketi ("Hazır", "Oda sahibi", "Elendi"…).
+class StatusBadge extends StatelessWidget {
+  const StatusBadge(this.kind, {super.key});
+
+  final StatusBadgeKind kind;
+
+  static String labelOf(StatusBadgeKind kind) => switch (kind) {
+    StatusBadgeKind.ready => 'Hazır',
+    StatusBadgeKind.waiting => 'Bekliyor',
+    StatusBadgeKind.host => 'Oda sahibi',
+    StatusBadgeKind.spectator => 'İzleyici',
+    StatusBadgeKind.eliminated => 'Elendi',
+    StatusBadgeKind.left => 'Ayrıldı',
+    StatusBadgeKind.turn => 'Sırada',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final game = context.gameTheme;
+    final (Color fg, IconData? icon) = switch (kind) {
+      StatusBadgeKind.ready => (game.hope, Icons.check_rounded),
+      StatusBadgeKind.waiting => (scheme.onSurfaceVariant, null),
+      StatusBadgeKind.host => (scheme.primary, Icons.star_rounded),
+      StatusBadgeKind.spectator => (
+        scheme.onSurfaceVariant,
+        Icons.visibility_rounded,
+      ),
+      StatusBadgeKind.eliminated => (game.danger, null),
+      StatusBadgeKind.left => (scheme.onSurfaceVariant, null),
+      StatusBadgeKind.turn => (scheme.primary, null),
+    };
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: fg),
+            const SizedBox(width: AppSpacing.s1),
+          ],
+          Text(
+            labelOf(kind),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fg),
+          ),
+        ],
+      ),
+    );
+  }
+}
