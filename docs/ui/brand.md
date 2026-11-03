@@ -72,7 +72,7 @@ Büyük harf dönüşümünde Türkçe yerel ayar kullanılır (`i → İ`, `ı 
 ## 5. İkonografi
 
 - Flutter'ın yerleşik **Material Symbols (Rounded)** seti; ek ikon paketi yok.
-- Oyuncu avatarı: baş harf + odadaki sırasına göre sabit renk (8 renklik döngü, kategori renklerinden ayrı).
+- Oyuncu avatarı: baş harf + odadaki sırasına göre sabit renk (8 renklik döngü: kategori ve vurgu renkleri; mockup'larla aynı). Üzerindeki baş harf `background` rengindedir (kontrast ≥ 4,5:1, testli).
 - Logo / uygulama ikonu: MVP'de Oswald ile yazılmış "SIĞINAK" kelime işareti + turuncu kapı/ışık sembolü. Nihai ikon ve mağaza görselleri REL-001'de.
 
 ## 6. Ses tonu (Türkçe metinler)

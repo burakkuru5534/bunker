@@ -49,14 +49,16 @@ Eğri: `Curves.easeOutCubic` (giriş), `Curves.easeInCubic` (çıkış). "Animas
 ## 2. Flutter karşılığı
 
 ```
-apps/mobile/lib/app/theme/
+apps/mobile/lib/core/theme/
   app_colors.dart        // brand.md renk sabitleri
   app_spacing.dart       // space*, radius*
   app_typography.dart    // Oswald / Inter TextTheme (Türkçe büyük harf yardımcıları)
   app_theme.dart         // ThemeData(useMaterial3: true, colorScheme: dark, ...)
-  game_theme.dart        // ThemeExtension<GameTheme>: kategori renkleri/ikonları,
+  game_theme.dart        // ThemeExtension<GameTheme>: kategori renkleri/ikonları/etiketleri,
                          //   avatar renk döngüsü, danger/success/secondary vurguları
 ```
+
+> Tema `core/theme/` altındadır (MOB-008a): hem `core/ui` hem feature'lar kullandığından `app/` altında olsaydı bağımlılık kuralları bozulurdu.
 
 - `ColorScheme.dark(...)`: `primary`, `onPrimary`, `secondary`, `error = danger`, `surface`, `surfaceContainerHigh = surfaceHigh`, `onSurface = textPrimary`, `onSurfaceVariant = textSecondary`, `outline`.
 - Oyuna özgü değerler `ThemeExtension<GameTheme>` içinde; widget'lar `Theme.of(context).extension<GameTheme>()!` ile okur. Sabit renk kodu widget içinde **yazılmaz**.

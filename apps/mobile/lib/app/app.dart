@@ -2,28 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:siginak/app/router/app_router.dart';
+import 'package:siginak/core/theme/app_theme.dart';
 
 /// Uygulamanın kök widget'ı: tema ve yönlendirmenin bağlandığı yer.
 ///
 /// Bir `ProviderScope` altında çalışır (bkz. `main.dart`).
-/// Tema token'ları MOB-008'de eklenecektir.
+/// MVP'de yalnızca koyu tema vardır (docs/ui/brand.md §2).
 class SiginakApp extends ConsumerWidget {
   const SiginakApp({super.key});
+
+  static final _theme = buildAppTheme();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'Sığınak',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFF2A33A),
-          brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: const Color(0xFF0F1115),
-      ),
+      theme: _theme,
+      darkTheme: _theme,
+      themeMode: ThemeMode.dark,
       routerConfig: ref.watch(appRouterProvider),
     );
   }

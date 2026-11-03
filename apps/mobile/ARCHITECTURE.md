@@ -8,11 +8,12 @@
 lib/
   main.dart                    Yalnızca yapılandırmayı okur ve SiginakApp'i başlatır
   app/                         Uygulamayı birleştiren katman
-    app.dart                   MaterialApp, tema, router bağlama
-    router.dart                go_router rotaları (MOB-005)
-    theme/                     app_colors, app_spacing, app_typography, app_theme, game_theme (MOB-008)
+    app.dart                   MaterialApp.router, tema bağlama
+    router/                    go_router rotaları ve yönlendirme (MOB-005)
   core/                        Feature'lardan bağımsız altyapı
-    config/                    AppConfig (MOB-002)
+    config/                    AppConfig, kAppVersion (MOB-002, MOB-006)
+    theme/                     app_colors, app_spacing, app_typography, app_theme, game_theme, font_licenses (MOB-008)
+    realtime/                  WebSocket istemcisi (MOB-007)
     network/                   Dio istemcisi, WS istemcisi, hata eşleme (MOB-006/007/009)
     storage/                   Güvenli oturum depolama (MOB-010)
     error/                     Uygulama hata modeli, hata kodu → l10n metni (MOB-009)
@@ -64,7 +65,7 @@ Ortak ihtiyaç iki feature'da birden doğarsa kod `core/`'a taşınır.
 - **Widget'lar** veri çekmez; provider'lardan okur.
 - **Provider'lar** (MOB-004) repository'leri çağırır ve UI durumunu tutar.
 - **Repository'ler** (`data/`) REST/WS çağrılarını yapar, DTO'ları modele çevirir, hata kodlarını uygulama hatasına eşler.
-- **Sabit renk / boşluk değeri** widget içine yazılmaz; tema token'ları kullanılır (MOB-008).
+- **Sabit renk / boşluk değeri** widget içine yazılmaz; tema token'ları kullanılır (§8).
 - **Metinler** l10n dosyalarından gelir (ekranlar oluşturulurken eklenecek).
 
 ## 4. Durum yönetimi (Riverpod)
@@ -142,7 +143,28 @@ Davranış:
 - Mesaj içeriği, başlık ve token loglanmaz.
 - Testlerde gerçek soket yok: `test/helpers/fake_ws.dart` + `fake_async`.
 
-## 8. Adlandırma
+## 8. Tema ve tasarım token'ları
+
+Kaynak: [docs/ui/brand.md](../../docs/ui/brand.md), [docs/ui/design-system.md](../../docs/ui/design-system.md).
+
+> Tema `app/` yerine **`core/theme/`** altındadır: hem `core/ui` bileşenleri hem feature'lar kullandığından `app/`'te olsaydı bağımlılık kuralları (§2) bozulurdu.
+
+| Dosya | İçerik |
+|---|---|
+| `app_colors.dart` | Renk token'ları (yüzey, metin, vurgu, kategori, avatar döngüsü) |
+| `app_spacing.dart` | `AppSpacing` (4'ün katları, `minTouchTarget` 48), `AppRadius`, `AppMotion` |
+| `app_typography.dart` | `AppFonts` (Oswald / Inter), `buildTextTheme`, `turkishUpperCase` / `turkishLowerCase` |
+| `game_theme.dart` | `ThemeExtension<GameTheme>`: kategori stili (renk + ikon + etiket), avatar rengi, danger/success/hope; `context.gameTheme` |
+| `app_theme.dart` | `buildAppTheme()`: koyu M3 `ColorScheme` ve bileşen temaları (düğme 52 dp, giriş alanı, chip, snackbar, alt sayfa, diyalog…) |
+| `font_licenses.dart` | OFL lisanslarını `LicenseRegistry`'ye ekler |
+
+Kurallar:
+- Widget içinde **sabit renk / boyut yazılmaz**: `Theme.of(context)`, `context.gameTheme`, `AppSpacing`, `AppRadius` kullanılır. `AppColors` yalnızca tema kurulumunda ve testlerde doğrudan okunur.
+- Büyük harfli metinlerde `toUpperCase()` değil `turkishUpperCase()`.
+- Yazı tipleri `assets/fonts/` altında gömülüdür (alt kümeli, ≈430 KB; ayrıntı `assets/fonts/README.md`).
+- Kontrast oranları `test/core/theme/contrast_test.dart` ile denetlenir (≥ 4,5:1).
+
+## 9. Adlandırma
 
 | Öğe | Kural | Örnek |
 |---|---|---|
@@ -153,13 +175,13 @@ Davranış:
 | Repository | `<Ad>Repository` | `RoomRepository` |
 | DTO | `<Ad>Dto` | `RoomViewDto` |
 
-## 9. Testler
+## 10. Testler
 
 - `test/` klasörü `lib/` yapısını aynen yansıtır: `lib/features/home/presentation/home_screen.dart` → `test/features/home/presentation/home_screen_test.dart`.
 - `test/architecture/` bağımlılık kurallarını denetler.
 - `test/helpers/` test yardımcılarıdır (ör. `pumpWithProviders`).
 - Her görevde: `dart format --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
 
-## 10. Statik analiz
+## 11. Statik analiz
 
 `analysis_options.yaml`: `strict-casts`, `strict-inference`, `strict-raw-types` açık. `always_use_package_imports`, `avoid_print`, `unawaited_futures` **hata** seviyesindedir. Loglama için `print` yerine `debugPrint` / ileride log yardımcısı kullanılır.
