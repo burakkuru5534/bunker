@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -64,7 +65,9 @@ type ActionResult struct {
 type action struct {
 	typ     string
 	payload map[string]any // game_actions.payload (denetim kaydı)
-	apply   func(e engine.Engine, s engine.State, userID string, now time.Time) (engine.State, []engine.Event, error)
+	apply   func(e engine.Engine, s engine.State, userID string, now time.Time, rng engine.Rand) (engine.State, []engine.Event, error)
+	// persist, durum farkının dışında yazılması gerekeni yazar (oylar; bkz. saveState).
+	persist func(ctx context.Context, tx pgx.Tx, gameID string, old engine.State, userID string) error
 }
 
 // parseAction, gövdeyi doğrular (transaction'dan önce; geçersiz istek
@@ -79,9 +82,9 @@ func parseAction(req ActionRequest) (action, error) {
 	switch req.Type {
 	case "":
 		fe.Add("type", apperr.FieldRequired)
-	case ActionRevealCard:
-	case ActionDiscussionReady, ActionVote, ActionTiebreakVote:
-		// Sonraki ENG adımlarında (ENG-006/008/009) eklenecek.
+	case ActionRevealCard, ActionDiscussionReady, ActionVote:
+	case ActionTiebreakVote:
+		// ENG-009'da eklenecek.
 		fe.Add("type", apperr.FieldNotAllowed)
 	default:
 		fe.Add("type", apperr.FieldNotAllowed)
@@ -89,23 +92,55 @@ func parseAction(req ActionRequest) (action, error) {
 	if err := fe.Err(); err != nil {
 		return action{}, err
 	}
-	var p struct {
-		Category *string `json:"category"`
+	switch req.Type {
+	case ActionRevealCard:
+		var p struct {
+			Category *string `json:"category"`
+		}
+		if err := strictUnmarshal(req.Payload, &p); err != nil {
+			return action{}, err
+		}
+		if p.Category == nil {
+			return action{}, apperr.Field("payload.category", apperr.FieldRequired)
+		}
+		c := engine.Category(*p.Category)
+		return action{typ: req.Type, payload: map[string]any{"category": *p.Category},
+			apply: func(e engine.Engine, s engine.State, userID string, now time.Time, _ engine.Rand) (engine.State, []engine.Event, error) {
+				return e.Reveal(s, userID, c, now)
+			}}, nil
+	case ActionDiscussionReady:
+		var p struct{}
+		if err := strictUnmarshal(req.Payload, &p); err != nil {
+			return action{}, err
+		}
+		return action{typ: req.Type, payload: map[string]any{},
+			apply: func(e engine.Engine, s engine.State, userID string, now time.Time, _ engine.Rand) (engine.State, []engine.Event, error) {
+				return e.DiscussionReady(s, userID, now)
+			}}, nil
+	default: // ActionVote
+		var p struct {
+			Target *string `json:"target_user_id"`
+		}
+		if err := strictUnmarshal(req.Payload, &p); err != nil {
+			return action{}, err
+		}
+		switch {
+		case p.Target == nil:
+			return action{}, apperr.Field("payload.target_user_id", apperr.FieldRequired)
+		case !validUUID(*p.Target):
+			return action{}, apperr.Field("payload.target_user_id", apperr.FieldInvalid)
+		}
+		target := strings.ToLower(*p.Target)
+		// Hedef denetim kaydına yazılmaz: oylar yalnızca votes tablosunda
+		// (gizli; api.md "Gizlilik kuralları").
+		return action{typ: req.Type, payload: map[string]any{},
+			apply: func(e engine.Engine, s engine.State, userID string, now time.Time, rng engine.Rand) (engine.State, []engine.Event, error) {
+				return e.Vote(s, userID, target, now, rng)
+			},
+			persist: func(ctx context.Context, tx pgx.Tx, gameID string, old engine.State, userID string) error {
+				return insertVote(ctx, tx, gameID, old.Round, voteRegular, engine.Vote{Voter: userID, Target: target})
+			}}, nil
 	}
-	if err := strictUnmarshal(req.Payload, &p); err != nil {
-		return action{}, err
-	}
-	if p.Category == nil {
-		return action{}, apperr.Field("payload.category", apperr.FieldRequired)
-	}
-	c := engine.Category(*p.Category)
-	return action{
-		typ:     ActionRevealCard,
-		payload: map[string]any{"category": *p.Category},
-		apply: func(e engine.Engine, s engine.State, userID string, now time.Time) (engine.State, []engine.Event, error) {
-			return e.Reveal(s, userID, c, now)
-		},
-	}, nil
 }
 
 // strictUnmarshal, eylem yükünü çözer: nesne olmalı, bilinmeyen alan yok.
@@ -180,12 +215,25 @@ func (s *Service) Act(ctx context.Context, p auth.Principal, gameID string, req 
 				timedOut = true
 				return err
 			}
-			next, engineEvents, err := act.apply(s.engine, old, p.UserID, now)
+			next, engineEvents, err := act.apply(s.engine, old, p.UserID, now, s.rng)
+			if errors.Is(err, engine.ErrNoChange) {
+				// Geçerli ama etkisiz (ör. ikinci "Hazırım"): sürüm artmaz, olay
+				// yok; tekrar gönderim duplicate dönsün diye kaydedilir.
+				res = ActionResult{StateVersion: old.Version}
+				_, err = tx.Exec(ctx, `insert into game_actions (game_id, actor_id, action_id, type, payload, state_version)
+					values ($1, $2, $3, $4, $5, $6)`, gameID, p.UserID, req.ActionID, act.typ, act.payload, old.Version)
+				return err
+			}
 			if err != nil {
 				return err
 			}
 			if err := saveState(ctx, tx, gameID, old, next, now); err != nil {
 				return err
+			}
+			if act.persist != nil {
+				if err := act.persist(ctx, tx, gameID, old, p.UserID); err != nil {
+					return err
+				}
 			}
 			if _, err := tx.Exec(ctx, `insert into game_actions (game_id, actor_id, action_id, type, payload, state_version)
 				values ($1, $2, $3, $4, $5, $6)`, gameID, p.UserID, req.ActionID, act.typ, act.payload, next.Version); err != nil {
@@ -212,8 +260,13 @@ func (s *Service) Act(ctx context.Context, p auth.Principal, gameID string, req 
 func (s *Service) wireEvents(ctx context.Context, tx pgx.Tx, g gameRow, evs []engine.Event, version int64, now time.Time) ([]room.Event, error) {
 	var ids []int32
 	for _, e := range evs {
-		if e.Type == engine.EventCardRevealed {
+		switch e.Type {
+		case engine.EventCardRevealed:
 			ids = append(ids, int32(e.Payload["card_id"].(int)))
+		case engine.EventPlayerEliminated:
+			for _, c := range e.Payload["cards"].([]map[string]any) {
+				ids = append(ids, int32(c["card_id"].(int)))
+			}
 		}
 	}
 	var texts map[int]string
@@ -231,10 +284,18 @@ func (s *Service) wireEvents(ctx context.Context, tx pgx.Tx, g gameRow, evs []en
 	for _, e := range evs {
 		w := wireEvent(e, version, now)
 		w.RoomID, w.GameID = roomID, g.ID
-		if e.Type == engine.EventCardRevealed {
-			payload := w.Payload.(map[string]any)
+		payload := w.Payload.(map[string]any)
+		switch e.Type {
+		case engine.EventCardRevealed:
 			payload["text"] = texts[e.Payload["card_id"].(int)]
 			delete(payload, "card_id")
+		case engine.EventPlayerEliminated:
+			// Elenenin tüm kartları metinle (kimlik ve denge etiketi yok).
+			var cards []map[string]any
+			for _, c := range e.Payload["cards"].([]map[string]any) {
+				cards = append(cards, map[string]any{"category": c["category"], "text": texts[c["card_id"].(int)]})
+			}
+			payload["cards"] = cards
 		}
 		out = append(out, w)
 	}

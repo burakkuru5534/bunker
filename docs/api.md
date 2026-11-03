@@ -224,7 +224,9 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 - `action_id` oyuncu başına tekildir (iki oyuncu aynı kimliği kullanabilir). Yalnızca **başarılı** eylemler kaydedilir; reddedilen eylem (ör. `NOT_YOUR_TURN`) aynı `action_id` ile yeniden denenebilir.
 - Çağıran oyunun katılımcısı değilse — oyun yoksa veya kimlik bozuksa da — `404 NOT_FOUND` (oyunun varlığı sızdırılmaz).
 - Gövde katıdır: `payload` nesne olmalı, bilinmeyen alan reddedilir (`VALIDATION_FAILED`, `details.fields`: `payload.category` vb.). Henüz desteklenmeyen türler (`discussion_ready`, `vote`, `tiebreak_vote`; ENG-006/008/009) `type: not_allowed` döner.
-- `game.card_revealed` olayı kart metnini taşır; kart kimliği ve denge etiketi istemciye gitmez.
+- `game.card_revealed` ve `game.player_eliminated` (`cards`) kart metnini taşır; kart kimliği ve denge etiketi istemciye gitmez.
+- `discussion_ready`: aynı turda ikinci kez gelirse başarıdır ama etkisizdir (sürüm artmaz, olay yok). Hayattaki herkes hazır olunca `VOTING` hemen başlar.
+- `vote`: hedef hayattaki başka bir katılımcı olmalı (değilse `INVALID_TARGET`; biçimi bozuksa `VALIDATION_FAILED`). Hedef yalnızca `votes` tablosunda tutulur; eylem kaydına ve olaylara yazılmaz. Hayattaki herkes oy verince sayım hemen yapılır.
 
 **GET `/v1/games/{gameId}/result`** — Yalnızca `FINISHED` oyunlar; yetki: oyunun katılımcısı.
 ```json

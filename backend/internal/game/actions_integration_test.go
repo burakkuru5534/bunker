@@ -187,7 +187,7 @@ func TestIntegrationActionValidationAndAccess(t *testing.T) {
 		"action_id bozuk":     {`{"action_id":"abc","type":"reveal_card","payload":{"category":"profession"}}`, `"action_id":"invalid"`},
 		"tür yok":             {`{"action_id":"` + newActionID() + `","payload":{}}`, `"type":"required"`},
 		"bilinmeyen tür":      {`{"action_id":"` + newActionID() + `","type":"fly","payload":{}}`, `"type":"not_allowed"`},
-		"henüz yok: vote":     {`{"action_id":"` + newActionID() + `","type":"vote","payload":{}}`, `"type":"not_allowed"`},
+		"henüz yok: tiebreak": {`{"action_id":"` + newActionID() + `","type":"tiebreak_vote","payload":{}}`, `"type":"not_allowed"`},
 		"kategori yok":        {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{}}`, `"payload.category":"required"`},
 		"yük yok":             {`{"action_id":"` + newActionID() + `","type":"reveal_card"}`, `"payload.category":"required"`},
 		"bilinmeyen alan":     {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{"category":"profession","x":1}}`, `"payload":"unknown_field"`},
