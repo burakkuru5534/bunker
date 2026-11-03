@@ -327,7 +327,7 @@ Yanıt: yeni `session.snapshot`. Başka mesaj kabul edilmez (gelirse yok sayıl�
 `game` (oyun sürüyorsa):
 ```json
 {
-  "id": "uuid", "phase": "REVEAL", "round": 2, "total_rounds": 8,
+  "id": "uuid", "state_version": 42, "phase": "REVEAL", "round": 2, "total_rounds": 8, "capacity": 2,
   "phase_deadline_at": "…",
   "scenario": { "id": "…", "title": "…", "disaster": "…", "duration": "…",
                 "bunker": ["…","…","…"], "outside": "…" },
@@ -345,7 +345,9 @@ Yanıt: yeni `session.snapshot`. Başka mesaj kabul edilmez (gelirse yok sayıl�
   "last_round_result": { /* game.player_eliminated payload */ }
 }
 ```
-- `my_cards` yalnızca katılımcıya, kendi kartlarıdır; izleyicide yalnızca kendi (elenmiş) kartları.
+- `my_cards` yalnızca katılımcıya, kendi kartlarıdır; izleyicide yalnızca kendi (elenmiş) kartları; katılımcı olmayanda boş.
+- `revealed_cards`: açılmış kartlar (elenen/ayrılanın tümü elenince açılır); oyun bitince (`FINISHED`) herkesin tüm kartları. Hayattaki oyuncunun kapalı kartı hiçbir izleyiciye gitmez (ENG-015; her adımda her izleyici için testli).
+- `state_version`: görüntünün oyun sürümü; sonraki olaylar bundan büyük olmalı. `phase_deadline_at` bitmiş oyunda `null`. `tiebreak` yalnızca `TIE_BREAK`’te dolu, `last_round_result` henüz eleme yoksa `null`. `my_action_state.discussion_ready` yalnızca bu turun tartışmasında doğru.
 - Kalan süre istemcide `phase_deadline_at − server_time` farkıyla hesaplanır (saat kayması etkilenmez).
 
 **Oda olayları** (odadaki herkese)

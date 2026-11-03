@@ -32,6 +32,7 @@ type Service struct {
 	engine    engine.Engine
 	publisher room.Publisher
 	rng       engine.Rand
+	presence  room.Presence // nil: connected hep false
 	now       func() time.Time
 	logger    *slog.Logger
 }

@@ -38,13 +38,13 @@ func newEnv(t *testing.T, mutate func(*Options)) *env {
 	hub := NewHub(logger)
 	authSvc := auth.NewService(db.DB, nil, logger)
 	authHTTP := auth.NewHTTP(authSvc, 1)
-	gameSvc := game.NewService(db.DB, hub, logger)
+	gameSvc := game.NewService(db.DB, hub, logger).WithPresence(hub)
 	roomSvc := room.NewService(db.DB, hub, hub, logger).WithGames(game.RoomHooks{Starter: game.NewStarter(logger), Service: gameSvc})
 	opts := DefaultOptions(httpapi.Version{Minor: 1})
 	if mutate != nil {
 		mutate(&opts)
 	}
-	ws := NewHandler(hub, authSvc, RoomSnapshotter{Rooms: roomSvc}, opts, logger)
+	ws := NewHandler(hub, authSvc, RoomSnapshotter{Rooms: roomSvc, Games: gameSvc}, opts, logger)
 	h := httpapi.NewRouter(httpapi.Options{
 		Logger: logger, MinAppVersion: httpapi.Version{Minor: 1}, RequestTimeout: 5 * time.Second,
 		Register: func(mux *http.ServeMux) {
@@ -425,6 +425,47 @@ func seedCatalog(t *testing.T, db *testdb.Env) {
 				(ci+1)*1000+i, c, fmt.Sprintf("%s kartı (%02d)", c, i), []int{-1, 0, 1}[i%3]); err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+}
+
+// Oyun sürerken bağlanan (veya yeniden bağlanan) oyuncu, anlık görüntüde
+// kendine göre süzülmüş oyunu alır (ENG-013).
+func TestWSSnapshotIncludesGame(t *testing.T) {
+	e := newEnv(t, nil)
+	seedCatalog(t, e.db)
+	roomID, _, tokens, users := e.roomWith(4)
+	for _, tok := range tokens {
+		e.rest("POST", "/v1/rooms/"+roomID+"/ready", tok, `{"ready":true}`)
+	}
+	gameID := e.rest("POST", "/v1/rooms/"+roomID+"/start", tokens[0], "")["game_id"].(string)
+	c := e.dial(dialOpts{token: tokens[2], roomID: roomID})
+	env, p := read(t, c)
+	g, _ := p["game"].(map[string]any)
+	if env.Type != TypeSnapshot || g == nil || g["id"] != gameID || g["phase"] != "SCENARIO_INTRO" || g["state_version"] != float64(1) {
+		t.Fatalf("oyun görünümü yok: %v", p["game"])
+	}
+	mine := g["my_cards"].([]any)
+	if len(mine) != 5 {
+		t.Fatalf("my_cards %d", len(mine))
+	}
+	// Kendi kartları DB ile aynı; başka kimsenin kapalı kartı yok.
+	raw, _ := json.Marshal(p)
+	rows, _ := e.db.DB.Pool().Query(context.Background(), `select pc.user_id::text, d.text from player_cards pc
+		join card_definitions d on d.id = pc.card_id where pc.game_id = $1`, gameID)
+	defer rows.Close()
+	for rows.Next() {
+		var uid, text string
+		_ = rows.Scan(&uid, &text)
+		if in := strings.Contains(string(raw), text); in != (uid == users[2]) {
+			t.Fatalf("%s kartı %q görünürlüğü yanlış (görünüyor=%v)", uid, text, in)
+		}
+	}
+	// Bağlı olan connected=true.
+	for _, part := range g["participants"].([]any) {
+		pp := part.(map[string]any)
+		if pp["connected"] != (pp["user_id"] == users[2]) {
+			t.Fatalf("connected %+v", pp)
 		}
 	}
 }

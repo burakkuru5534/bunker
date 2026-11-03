@@ -211,13 +211,13 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		// gerçek yayıncı buraya bağlanır).
 		// Olay zinciri: zamanlayıcı (bitişleri planlar) → hub (WebSocket).
 		publisher := d.Timers.Publisher(d.Hub)
-		gameSvc := game.NewService(d.DB, publisher, logger)
+		gameSvc := game.NewService(d.DB, publisher, logger).WithPresence(d.Hub)
 		d.Timers.Bind(gameSvc)
 		hooks := game.RoomHooks{Starter: game.NewStarter(logger), Service: gameSvc}
 		roomSvc := room.NewService(d.DB, d.Hub, publisher, logger).WithGames(hooks)
 		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
-		ws := realtime.NewHandler(d.Hub, authSvc, realtime.RoomSnapshotter{Rooms: roomSvc},
+		ws := realtime.NewHandler(d.Hub, authSvc, realtime.RoomSnapshotter{Rooms: roomSvc, Games: gameSvc},
 			realtime.DefaultOptions(minVersion), logger)
 		modules = append(modules, ws.Register)
 		modules = append(modules, authHTTP.Register, roomHTTP.Register, gameHTTP.Register)
