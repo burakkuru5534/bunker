@@ -13,12 +13,15 @@ const (
 	EventReturnedToLobby = "room.returned_to_lobby"
 )
 
-// Event, odadaki herkese giden olaydır. Version, olaydan sonraki oda
-// sürümüdür (zarfın state_version alanı).
+// Event, odadaki herkese (To boş) veya yalnızca bir kullanıcının
+// bağlantılarına (To dolu; gizli bilgi, ör. game.your_cards) giden olaydır.
+// Version, zarfın state_version alanıdır: lobide oda sürümü, oyun sürerken
+// oyun sürümü (api.md §5).
 type Event struct {
 	RoomID  string
 	Type    string
 	Version int64
+	To      string
 	Payload any
 }
 

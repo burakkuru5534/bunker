@@ -26,6 +26,7 @@ type Service struct {
 	publisher Publisher
 	logger    *slog.Logger
 	newCode   func() (string, error)
+	games     GameStarter // nil: başlatma INTERNAL döner (WithGames)
 }
 
 // NewService, servisi kurar. presence ve publisher nil olabilir (RT öncesi).
@@ -309,7 +310,10 @@ func (s *Service) mutate(ctx context.Context, p auth.Principal, roomID string,
 			return err
 		}
 		for i := range ch.events {
-			ch.events[i].RoomID, ch.events[i].Version = r.ID, r.Version
+			ch.events[i].RoomID = r.ID
+			if ch.events[i].Version == 0 { // oyun olayları kendi sürümünü taşır
+				ch.events[i].Version = r.Version
+			}
 		}
 		return nil
 	})

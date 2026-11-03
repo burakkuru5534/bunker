@@ -23,6 +23,7 @@ func sampleBodies(targetUserID string) map[string]string {
 		"POST /v1/rooms/{roomId}/ready":     `{"ready":true}`,
 		"PATCH /v1/rooms/{roomId}/settings": `{"capacity":1}`,
 		"POST /v1/rooms/{roomId}/kick":      `{"user_id":"` + targetUserID + `"}`,
+		"POST /v1/rooms/{roomId}/start":     ``,
 	}
 }
 

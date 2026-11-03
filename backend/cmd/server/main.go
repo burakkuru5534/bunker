@@ -27,6 +27,7 @@ import (
 
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/config"
+	"github.com/burakkuru5534/bunker/backend/internal/game"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
@@ -189,7 +190,7 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		health.Checks = append(health.Checks, httpapi.ReadinessCheck{Name: "database", Check: d.DB.Ping})
 		// Küfür denetimi SAFE-013'te bağlanır.
 		authHTTP := auth.NewHTTP(auth.NewService(d.DB, nil, logger), cfg.TrustedProxyHops)
-		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, nil, logger), authHTTP.Require)
+		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, nil, logger).WithGames(game.NewStarter(logger)), authHTTP.Require)
 		modules = append(modules, authHTTP.Register, roomHTTP.Register)
 	} else {
 		logger.Warn("veritabanı yok: /v1 uç noktaları kayıtlı değil (yalnızca yerel)")
