@@ -85,7 +85,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | MOB-004 | Riverpod | P0 | Awaiting User Approval |
 | MOB-005 | go_router | P0 | Awaiting User Approval |
 | MOB-006 | Dio | P0 | Awaiting User Approval |
-| MOB-007 | WebSocket istemcisi | P0 | Backlog |
+| MOB-007 | WebSocket istemcisi | P0 | Awaiting User Approval |
 | MOB-008 | Tasarım sistemi bileşenleri | P1 | Backlog |
 | MOB-009 | Hata yönetimi | P0 | Backlog |
 | MOB-010 | Güvenli oturum depolama | P0 | Backlog |
@@ -98,6 +98,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **MOB-004:** `flutter_riverpod` 3.4.3 (en güncel, Dart ^3.12.0), kod üretici yok. `ProviderScope` + `appConfigProvider` (override zorunlu). `HomeScreen` → `ConsumerWidget`. Test yardımcısı `test/helpers/pump_app.dart`. Riverpod kuralları ARCHITECTURE.md §4. 16 test geçti.
 - **MOB-005:** `go_router` ^18.1.0 (kilit: 18.1.2). 8 rota (ekran haritası §2) geçici ekranlarla; saf `appRedirect` (güncelleme → oturum → aktif oda), `refreshListenable` ile Riverpod bağlantısı, geçersiz oda kimliği/bilinmeyen adres → `NotFoundScreen`. Ekranlar gezinmeyi geri çağrıyla alır. Oturum şimdilik bellek içi iskelet ("Başla (geçici)"); gerçek oturum MOB-010/AUTH-002. 32 test geçti.
 - **MOB-006:** `dio` ^5.11.1. `ApiClient` (taban adres, `X-App-Version`, Bearer token, zaman aşımları 10/10/15 sn), `ApiException` + hata eşleme (timeout, network, 401, 426 → `/update`, 429 + Retry-After, standart hata gövdesi, alan hataları). Token/gövde loglanmaz, otomatik yeniden deneme yok. `kAppVersion` pubspec ile testle eşleniyor. 46 test geçti.
+- **MOB-007:** `dart:io` WebSocket (yeni çalışma zamanı bağımlılığı yok; test için `fake_async`). `RealtimeClient`: `/v1/ws?room_id=`, token yalnızca başlıkta, v1 zarf çözümleme, `state_version` (snapshot bekleme, kopya atma, boşlukta `sync`), üstel yeniden bağlanma 0,5→10 sn ±%20, 4001/4003/4008/4026'da kalıcı durma, `onAppResumed`. 70 test geçti.
 
 ## Faz 3 — Go backend ve PostgreSQL
 

@@ -121,7 +121,28 @@ Kurallar:
 - Loglama yalnızca debug derlemede ve yalnızca `yöntem yol → durum (süre)`; **başlık, token ve gövde loglanmaz.**
 - Testlerde ağa çıkılmaz: `test/helpers/fake_http_adapter.dart`.
 
-## 7. Adlandırma
+## 7. Gerçek zamanlı (WebSocket)
+
+Ek paket yok: `dart:io` `WebSocket` (mobil hedef; `Authorization` başlığı ve ping/pong destekli). Sözleşme: [docs/api.md](../../docs/api.md) §5, [ADR-0006](../../docs/decisions/0006-snapshot-on-reconnect.md), [ADR-0007](../../docs/decisions/0007-rest-commands-ws-push.md).
+
+| Dosya | Görev |
+|---|---|
+| `core/realtime/realtime_client.dart` | `RealtimeClient`: tek odaya bağlantı, olay akışı (`events`), durum akışı (`states`), `state_version` takibi, yeniden bağlanma |
+| `core/realtime/ws_envelope.dart` | v1 zarfı çözümleme; geçersiz/başka sürüm mesajlar yok sayılır |
+| `core/realtime/ws_socket.dart` | Test edilebilir soket soyutlaması ve `dart:io` uygulaması (bağlantı zaman aşımı 10 sn, istemci ping'i 30 sn) |
+| `core/realtime/realtime_client_provider.dart` | `realtimeClientProvider`, `realtimeStateProvider` |
+
+Davranış:
+- Adres `wss://…/v1/ws?room_id=<id>`; token **yalnızca** `Authorization` başlığında.
+- WS yalnızca sunucu → istemci: istemci sadece `{"v":1,"type":"sync"}` gönderir; komutlar REST ile gider.
+- `state_version`: bağlantı/yeniden bağlantı sonrası `session.snapshot` beklenir; sonra yalnızca `bilinen + 1` kabul edilir, kopya/eski atılır, **boşlukta `sync`** istenir ve yeni snapshot'a kadar sürümlü olaylar atlanır. Sürümsüz olaylar (`chat.message`) her zaman iletilir.
+- Yeniden bağlanma: 1001/1006/1012/4009 ve bağlantı hatalarında üstel geri çekilme (0,5 → 1 → 2 → … en fazla 10 sn, ±%20); başarılı bağlantıda sayaç sıfırlanır.
+- Kalıcı durma: **4001** (oturum → `unauthorizedHandlerProvider`), **4003** (üye değil/atıldı), **4008** (yerini yeni bağlantı aldı), **4026** (sürüm → `/update`).
+- `onAppResumed()`: bağlıysa `sync`, değilse beklemeden yeniden bağlan (oda ekranı yaşam döngüsüne bağlayacak — PLAY-009).
+- Mesaj içeriği, başlık ve token loglanmaz.
+- Testlerde gerçek soket yok: `test/helpers/fake_ws.dart` + `fake_async`.
+
+## 8. Adlandırma
 
 | Öğe | Kural | Örnek |
 |---|---|---|
@@ -132,13 +153,13 @@ Kurallar:
 | Repository | `<Ad>Repository` | `RoomRepository` |
 | DTO | `<Ad>Dto` | `RoomViewDto` |
 
-## 8. Testler
+## 9. Testler
 
 - `test/` klasörü `lib/` yapısını aynen yansıtır: `lib/features/home/presentation/home_screen.dart` → `test/features/home/presentation/home_screen_test.dart`.
 - `test/architecture/` bağımlılık kurallarını denetler.
 - `test/helpers/` test yardımcılarıdır (ör. `pumpWithProviders`).
 - Her görevde: `dart format --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
 
-## 9. Statik analiz
+## 10. Statik analiz
 
 `analysis_options.yaml`: `strict-casts`, `strict-inference`, `strict-raw-types` açık. `always_use_package_imports`, `avoid_print`, `unawaited_futures` **hata** seviyesindedir. Loglama için `print` yerine `debugPrint` / ileride log yardımcısı kullanılır.
