@@ -121,6 +121,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **DB-003b:** `0002_catalog.sql`: scenarios (metin anahtar, tam 3 sığınak özelliği, uzunluk sınırları), card_definitions (açık tamsayı id, 5 kategori, kategori içinde tekil metin, gizli balance −1/0/+1, aktif kart indeksi). İçerik ayrı (CARD görevleri). Yetki eşitleme genişletildi: `@app:readonly` yorumlu tablolarda uygulama rolüne yalnızca SELECT + `for select` politikası; yanlış komut/rollü politika yeniden kurulur (ADR-0012 eki). Testler: salt okunur davranışı, işaretin kaldırılınca yazmanın açılması, anon'a açılan politikanın düzeltilmesi, katalog kısıtları.
 - **DB-003c:** `0003_game.sql`: games (aşama/tur/sıra/deadline/state_version tutarlılık kısıtları, odada tek aktif oyun, oda silinse de oyun kalır), game_participants (koltuk sırası, durum ve eleme turu tutarlılığı, kazanan hayatta), player_cards (kart–kategori bileşik yabancı anahtarı, oyunda kart tekilliği, açılış alanları birlikte), votes (oy değiştirilemez, kendine oy yok), round_results, game_actions (idempotency anahtarı, sistem eylemleri actor_id null). `rooms.current_game_id` yabancı anahtarı eklendi. Tüm kısıtlar uygulama rolüyle gerçek PostgreSQL'de test edildi.
 - **DB-003d:** `0004_chat_and_moderation.sql`: chat_messages (maskelenmiş metin 1–200, client_msg_id tekrar koruması, son 50 mesaj ve 30 gün temizlik indeksleri), reports (neden/not/durum tutarlılığı, ≤64 KB mesaj anlık görüntüsü, aynı kişi için tek açık rapor). Oda silinince sohbet gider, rapor ve kanıtı kalır. data-model.md'deki 15 tablonun tamamı kesinleşti (DB-003 bitti).
+- **DB-004:** [queries.md](queries.md): 16 sıcak yol + 5 bakım sorgusu; her biri gerçekçi hacimde veriyle (20 bin kullanıcı, 3 bin oda, 2 bin oyun, 100 bin mesaj) uygulama rolüyle EXPLAIN testinde (tam tarama yok, beklenen indeks). Bulunanlar: toplu silmelerde `in (select)` tam tarama yapıyordu → `id = any(array(...))` biçimi; oda temizliği için iki kısmi indeks eksikti; yeni yabancı anahtar indeks testi `reports.room_id` eksiğini buldu → `0005_cleanup_indexes.sql`. Bilinçli indekssiz yabancı anahtarlar gerekçeli izin listesinde (liste eskirse test kırılır).
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -137,8 +138,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | DB-003a | Şema: kimlik ve odalar (users, sessions, rooms, room_members, blocks) | P0 | Done |
 | DB-003b | Şema: katalog (scenarios, card_definitions); içerik CARD-002…007'de | P0 | Done |
 | DB-003c | Şema: oyun (games, game_participants, player_cards, votes, round_results, game_actions) | P0 | Done |
-| DB-003d | Şema: sohbet ve moderasyon (chat_messages, reports) | P0 | Awaiting User Approval |
-| DB-004 | Sorgu ve indeks tasarımı | P0 | Backlog |
+| DB-003d | Şema: sohbet ve moderasyon (chat_messages, reports) | P0 | Done |
+| DB-004 | Sorgu ve indeks tasarımı | P0 | Awaiting User Approval |
 | DB-005 | Bağlantı havuzu ve limitleri | P0 | Backlog |
 | AUTH-001 | Misafir oturumu tasarımı | P0 | Backlog |
 | AUTH-002 | Oturum oluşturma ve doğrulama | P0 | Backlog |
