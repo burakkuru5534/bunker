@@ -31,6 +31,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
+	"github.com/burakkuru5534/bunker/backend/internal/realtime"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
 )
 
@@ -69,6 +70,7 @@ const dbStartupTimeout = 15 * time.Second
 type deps struct {
 	DB     *persistence.DB // DATABASE_URL yoksa (yalnızca yerel) nil
 	Timers *game.Timers    // DB varsa; aşama süre dolumları (ADR-0005)
+	Hub    *realtime.Hub   // DB varsa; WebSocket bağlantıları (ADR-0003)
 }
 
 // run, servisi ctx iptal edilene kadar çalıştırır. Test edilebilirlik için
@@ -96,6 +98,7 @@ func run(
 		defer db.Close()
 		d.DB = db
 		d.Timers = game.NewTimers(logger)
+		d.Hub = realtime.NewHub(logger)
 	} else {
 		logger.Warn("DATABASE_URL tanımlı değil; veritabanısız çalışılıyor (yalnızca yerel)")
 	}
@@ -142,6 +145,11 @@ func run(
 		return fmt.Errorf("kapanış zaman aşımı: %w", err)
 	}
 	<-serveErr
+	// WebSocket bağlantıları Shutdown'ın beklediği istekler değildir (hijack);
+	// 1012 ile kapatılır, istemciler yeniden bağlanır (ADR-0006).
+	if d.Hub != nil {
+		d.Hub.Shutdown()
+	}
 	// Zamanlayıcılar HTTP'den sonra durur (son istekler süre dolumu tetikleyebilir).
 	if err := d.Timers.Stop(shutdownCtx); err != nil {
 		logger.Warn("zamanlayıcılar zamanında durmadı", "error", err)
@@ -197,15 +205,21 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 	if d.DB != nil {
 		health.Checks = append(health.Checks, httpapi.ReadinessCheck{Name: "database", Check: d.DB.Ping})
 		// Küfür denetimi SAFE-013'te bağlanır.
-		authHTTP := auth.NewHTTP(auth.NewService(d.DB, nil, logger), cfg.TrustedProxyHops)
+		authSvc := auth.NewService(d.DB, nil, logger)
+		authHTTP := auth.NewHTTP(authSvc, cfg.TrustedProxyHops)
 		// Tüm olaylar zamanlayıcıdan geçer: phase_changed bitişi planlar (RT gelince
 		// gerçek yayıncı buraya bağlanır).
-		publisher := d.Timers.Publisher(nil)
+		// Olay zinciri: zamanlayıcı (bitişleri planlar) → hub (WebSocket).
+		publisher := d.Timers.Publisher(d.Hub)
 		gameSvc := game.NewService(d.DB, publisher, logger)
 		d.Timers.Bind(gameSvc)
 		hooks := game.RoomHooks{Starter: game.NewStarter(logger), Service: gameSvc}
-		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, publisher, logger).WithGames(hooks), authHTTP.Require)
+		roomSvc := room.NewService(d.DB, d.Hub, publisher, logger).WithGames(hooks)
+		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
+		ws := realtime.NewHandler(d.Hub, authSvc, realtime.RoomSnapshotter{Rooms: roomSvc},
+			realtime.DefaultOptions(minVersion), logger)
+		modules = append(modules, ws.Register)
 		modules = append(modules, authHTTP.Register, roomHTTP.Register, gameHTTP.Register)
 	} else {
 		logger.Warn("veritabanı yok: /v1 uç noktaları kayıtlı değil (yalnızca yerel)")

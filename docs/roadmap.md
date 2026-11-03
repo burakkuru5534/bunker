@@ -142,6 +142,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **ENG-009:** Motor `TiebreakVote` (TIE_BREAK; izleyici değilse `NOT_SPECTATOR`; aday dışı/hayatta olmayan hedef `INVALID_TARGET`; tek oy `ALREADY_VOTED`; `game.tiebreak_progress {cast,total}` — total izleyici sayısı; tüm izleyiciler oy verince `resolveTieBreak` hemen: oybirliği → spectators, dağınık → kura). Servis: `tiebreak_vote` normal oyla ortak ayrıştırma, `votes.kind = tiebreak`, hedef eylem kaydında yok. Böylece oylama zinciri (oy → sayım → eşitlik → izleyici/kura → eleme) eylemlerle ve süre dolumuyla uçtan uca tamam. Testler: motor birim (kurallar, tek izleyici kararı, dağınık → kura) + gerçek PostgreSQL (eşitliğe HTTP oylarıyla düşme, tiebreak_started adayları, izleyici/aday/aşama hataları, tek izleyicinin kararıyla anında eleme ve DB yöntemi, eleme olayında metinler, iki izleyici aynı anda farklı oy → tek sonuç, kura). 5 tekrar kararlı; mutasyon 4/4. Kapsama: game %87,5, engine %96,7.
 - **ENG-012 (+ rematch):** Kilit sırası her yerde oda → oyun (`loadState(lock)` önce oyunun odasını kilitler); deadlock önlenir, testle doğrulandı (oda kilitliyken eylem oyunu kilitlemeden bekler). Oyun bitince `saveState` aynı transaction’da odayı `finished` yapar (sürüm +1). `game.Result` / `GET /v1/games/{id}/result` (katılımcı; sürerken INVALID_PHASE; tüm kartlar metinle, kazananlar, tur sonuçları ve sayımlar; kimlik/denge/oy hedefi yok); `game.finished` payload’ı birebir aynı yapı. `POST /v1/rooms/{id}/rematch` (sahip, `finished`): oda lobiye, üyeler oyuncu ve hazır değil, `current_game_id` boş, `room.returned_to_lobby {room}`; yalıtım matrisine eklendi. Testler (gerçek PostgreSQL): zamanlayıcıyla biten oyunda oda durumu/sürümü, sonuç içeriği ve erişim (yabancı/olmayan/bozuk 404), olay = sonuç, rematch kuralları ve aynı odada yeni oyun, eski sonucun okunması, kilit sırası. Mutasyon 6/6. Kapsama: game %86,4, room %87,2.
 - **ENG-010/011 (oyunda ayrılma, kazanma koşulları):** Motor `Leave`: hayattaki oyuncu `left` + elenmiş sayılır, kartları açılır (tanıtımda ayrılırsa kart turu 1), `game.player_eliminated {method: left}`; ardından hayatta ≤ kapasite → bitiş (0 → terk edildi; ayrılmalar tek tek işlendiği için pratikte ulaşılamaz, savunma amaçlı), REVEAL’da sırası gelen ayrıldıysa sıra geçer, kalanların hepsi hazırsa oylama, hepsi oy verdiyse sayım, eşitlikte tek aday kaldıysa sonuç. Hayatta değilse/bitmişse `ErrNoChange`. Bağlantı: `room.GameStarter.LeaveGame` — oda ayrılması oyun sürerken aynı transaction’da oyunu günceller (oda kilitli → oyun; kilit sırası korunur); `game.RoomHooks{Starter, Service}`; `leave` eylem kaydı. Olay sırası: oda olayları → oyun olayları. Testler: motor birim (tanıtım/sıra/tartışma/oylama/eşitlik/bitiş/terk) + gerçek PostgreSQL (sırası gelenin ayrılması ve olay sırası, izleyici olarak dönüş ve eylem reddi, ayrılmanın oyunu bitirmesi ve odanın finished olması, ayrılanın sonucu görmesi, oylamanın ayrılmayla tamamlanması, oda sahibinin oyunda ayrılması, kart açma + 3 ayrılma eşzamanlı ×5). Mutasyon 7/7. Kesintili test (rastgele koltukta oda sahibinin sırası gelince ek host_changed olayı) bulundu ve düzeltildi; 15 tekrar kararlı. Kapsama: game %86,1, engine %97,4, room %86,7. Bağlantı kopması (60 sn bekleme → `disconnect_timeout`) RT ile birlikte.
+- **RT-001…004 + RT-006 (+ RT-009 kısmen):** `internal/realtime`, kütüphane `github.com/coder/websocket` v1.8.15 (govulncheck temiz). `GET /v1/ws?room_id=`: önce yükseltme, sonra sürüm (4026), token yalnız başlıktan (4001), kullanıcı başına bağlantı denemesi 10/dk (4008), üyelik (4003; hub’a kayıttan önce — üye olmayan hiç olay almaz). Kayıt → anlık görüntü yazılır → kuyruk; ilk mesaj her zaman `session.snapshot` (me, room; game ENG-013’te). `Hub`: oda → bağlantılar, kullanıcı başına en fazla 2 (fazlasında en eskisi 4008), `room.Publisher` (zarf v1, `To` → yalnız o kullanıcı; atılana önce olay sonra 4003, ayrılana 1000) ve `room.Presence` (oda görünümündeki `connected`). Bağlantı başına 64’lük kuyruk + yazıcı goroutine (dolunca 4009, yayın bloklanmaz), 25 sn ping, yanıtsız istemci el sıkışmasız kesilir; okuma bağlamı kapatmadan bağımsız (aksi halde kütüphane kodsuz koparıyordu). İstemciden yalnız `{"v":1,"type":"sync"}` (10 sn’de 5). Sunucu kapanışında 1012. Sunucuda olay zinciri zamanlayıcı → hub. Testler (gerçek sunucu + gerçek WS istemcisi): 7 ret senaryosu ve kodları, düz HTTP 426, anlık görüntü/olay/presence, özel kartların yalnız sahibine gitmesi (4 bağlantı), atılma/ayrılma kapanışları ve olay sırası, 2 bağlantı sınırı, sync ve geçersiz mesajlar, ping zaman aşımı, kapanış 1012; yavaş istemci birim testi. 5–8 tekrar kararlı (yarış dedektörüyle). Mutasyon 8/8. Kapsama %91,1. Test kodundaki bir hata (zaman aşımsız kanal okuma) bir çalıştırmayı süresiz bekletti; düzeltildi.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -170,12 +171,12 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| RT-001 | WebSocket sunucusu | P0 | Backlog |
-| RT-002 | Bağlantı kimlik doğrulaması | P0 | Backlog |
-| RT-003 | Oda üyeliği kontrolü | P0 | Backlog |
-| RT-004 | Oda bazlı bağlantı yönetimi | P0 | Backlog |
+| RT-001 | WebSocket sunucusu | P0 | Awaiting User Approval |
+| RT-002 | Bağlantı kimlik doğrulaması | P0 | Awaiting User Approval |
+| RT-003 | Oda üyeliği kontrolü | P0 | Awaiting User Approval |
+| RT-004 | Oda bazlı bağlantı yönetimi | P0 | Awaiting User Approval |
 | RT-005 | Mesaj şemaları ve doğrulama | P0 | Backlog |
-| RT-006 | Oda içi olay yayını | P0 | Backlog |
+| RT-006 | Oda içi olay yayını | P0 | Awaiting User Approval |
 | RT-007 | Bağlantı kopması ve yeniden bağlanma | P0 | Backlog |
 | RT-008 | Bağlantı temizliği ve kaynak yönetimi | P0 | Backlog |
 | RT-009 | Rate limiting | P0 | Backlog |
@@ -230,8 +231,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ENG-007 | Tur zamanlayıcıları (kalıcı deadline) | P0 | Done |
 | ENG-008 | Oylama | P0 | Done |
 | ENG-009 | Oylama sonucu ve eşitlik bozma | P0 | Done |
-| ENG-010 | Eleme | P0 | Awaiting User Approval |
-| ENG-011 | Kazanma koşulları | P0 | Awaiting User Approval |
+| ENG-010 | Eleme | P0 | Done |
+| ENG-011 | Kazanma koşulları | P0 | Done |
 | ENG-012 | Maç sonu | P0 | Done |
 | ENG-013 | Yeniden bağlanma ve oyun kurtarma | P0 | Backlog |
 | ENG-014 | İdempotent eylemler | P0 | Backlog |

@@ -3,6 +3,7 @@ module github.com/burakkuru5534/bunker/backend
 go 1.27.3
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/text v0.43.0
 )

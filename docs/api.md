@@ -275,7 +275,11 @@ X-App-Version: 1.0.0
 - Kimlik ve oda üyeliği doğrulanır; kullanıcı başına en fazla 2 eşzamanlı bağlantı.
 - **Yetki, üyelik ve sürüm hataları HTTP durumu (401/403/426) olarak dönmez:** sunucu bağlantıyı yükseltir ve hemen ilgili kapanış koduyla (4001 / 4003 / 4026) kapatır; mobil istemci yükseltme öncesi HTTP durumunu güvenilir okuyamaz. Bu yüzden `/v1/ws` sürüm middleware'inden muaftır; denetimi WS işleyicisi yapar (`httpapi.CheckAppVersion`, `httpapi.CloseCodeFor`). Eksik/biçimsiz sürüm başlığı da 4026'dır; geçersiz `room_id` 4003'tür.
 - Token yalnızca `Authorization` başlığından okunur; sorgu dizesindeki token yok sayılır.
-- Bağlanınca ilk mesaj her zaman `session.snapshot`.
+- Bağlanınca ilk mesaj her zaman `session.snapshot`. Görüntüden önce kuyruğa girmiş, sürümü görüntüdekine eşit veya küçük olaylar gelebilir; istemci bunları yok sayar (yalnızca bildiğinden büyük ve +1 olmayan sürümde `sync`).
+- Kullanıcı başına bağlantı denemesi dakikada 10 (aşılırsa 4008); `sync` 10 sn’de 5 (fazlası yok sayılır). İstemci mesajı en fazla 1 KB.
+- Atılan üyeye önce `room.member_kicked` gider, sonra 4003 ile kapanır; odadan kendi isteğiyle ayrılanın bağlantısı 1000 ile kapanır. Ping’e yanıt vermeyen bağlantı kapanış el sıkışması olmadan kesilir (istemci 1006 görür, yeniden bağlanır). Gönderim kuyruğu (64 mesaj) dolan istemci 4009.
+- Köken (Origin) denetlenmez: token yalnızca `Authorization` başlığındadır, tarayıcılar WebSocket isteğine bu başlığı ekleyemez; çerez yok → çapraz site WebSocket ele geçirme mümkün değil.
+- `session.snapshot.game`, oyun görünümü ENG-013 ile dolar; o zamana kadar `null`.
 - Sunucu 25 sn'de bir WS ping gönderir; 60 sn yanıt yoksa bağlantı kapanır.
 - Cloud Run istek zaman aşımı (≤60 dk) dolunca bağlantı kapanır; istemci hemen yeniden bağlanır.
 
