@@ -31,6 +31,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
+	"github.com/burakkuru5534/bunker/backend/internal/profanity"
 	"github.com/burakkuru5534/bunker/backend/internal/realtime"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
 )
@@ -226,8 +227,8 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 	var modules []func(*http.ServeMux)
 	if d.DB != nil {
 		health.Checks = append(health.Checks, httpapi.ReadinessCheck{Name: "database", Check: d.DB.Ping})
-		// Küfür denetimi SAFE-013'te bağlanır.
-		authSvc := auth.NewService(d.DB, nil, logger)
+		// Küfür filtresi (SAFE-013): takma adda red, sohbette *** maskeleme.
+		authSvc := auth.NewService(d.DB, profanity.Default.Contains, logger)
 		authHTTP := auth.NewHTTP(authSvc, cfg.TrustedProxyHops)
 		// Tüm olaylar zamanlayıcıdan geçer: phase_changed bitişi planlar (RT gelince
 		// gerçek yayıncı buraya bağlanır).
@@ -236,7 +237,7 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		gameSvc := game.NewService(d.DB, publisher, logger).WithPresence(d.Hub)
 		d.Timers.Bind(gameSvc)
 		hooks := game.RoomHooks{Starter: game.NewStarter(logger), Service: gameSvc}
-		roomSvc := room.NewService(d.DB, d.Hub, publisher, logger).WithGames(hooks)
+		roomSvc := room.NewService(d.DB, d.Hub, publisher, logger).WithGames(hooks).WithTextFilter(profanity.Default)
 		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
 		// Bağlantısı kopan oyuncular: 60 sn bekleme, sonra ayrılmış sayılır (RT-007).
