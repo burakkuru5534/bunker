@@ -46,8 +46,9 @@ func (e Engine) Reveal(s State, userID string, c Category, now time.Time) (State
 
 // Olay türleri (oyuncu eylemleri).
 const (
-	EventDiscussionReady = "game.discussion_ready"
-	EventVoteProgress    = "game.vote_progress"
+	EventDiscussionReady  = "game.discussion_ready"
+	EventVoteProgress     = "game.vote_progress"
+	EventTiebreakProgress = "game.tiebreak_progress"
 )
 
 // ErrNoChange: eylem geçerli ama durumu değiştirmiyor (ör. ikinci "Hazırım").
@@ -137,6 +138,49 @@ func (e Engine) Vote(s State, voterID, targetID string, now time.Time, rng Rand)
 	st.emit(EventVoteProgress, map[string]any{"cast": cast, "total": total})
 	if cast == total {
 		st.resolveVoting()
+	}
+	return st.done()
+}
+
+// TieVotesCast, eşitlik bozmada oy vermiş izleyici sayısıdır.
+func (s State) TieVotesCast() int {
+	spectators := s.Spectators()
+	n := 0
+	for _, v := range s.TieVotes {
+		if slices.Contains(spectators, v.Voter) {
+			n++
+		}
+	}
+	return n
+}
+
+// TiebreakVote, izleyicinin eşitlik bozma oyudur (game-design §10): yalnızca
+// izleyiciler (elenen/ayrılan katılımcılar), yalnızca eşit oy alan ve hâlâ
+// hayattaki adaylardan birine, bir kez. Tüm izleyiciler oy verince sonuç hemen
+// belirlenir (hepsi aynı aday → o; aksi halde kura).
+func (e Engine) TiebreakVote(s State, voterID, targetID string, now time.Time, rng Rand) (State, []Event, error) {
+	if s.Phase != PhaseTieBreak {
+		return s, nil, invalidPhase()
+	}
+	p := s.Player(voterID)
+	if p == nil {
+		return s, nil, apperr.New(apperr.NotFound, "oyuncu bulunamadı")
+	}
+	if p.Alive() {
+		return s, nil, apperr.New(apperr.NotSpectator, "eşitlik oyu yalnızca izleyicilere açık")
+	}
+	if slices.ContainsFunc(s.TieVotes, func(v Vote) bool { return v.Voter == voterID }) {
+		return s, nil, apperr.New(apperr.AlreadyVoted, "bu eşitlikte oy verildi")
+	}
+	if t := s.player(targetID); t == nil || !t.Alive() || !slices.Contains(s.TieCandidates, targetID) {
+		return s, nil, apperr.New(apperr.InvalidTarget, "hedef eşit oy alan adaylardan değil")
+	}
+	st := e.begin(s, now, rng)
+	st.s.TieVotes = append(st.s.TieVotes, Vote{Voter: voterID, Target: targetID})
+	cast, total := st.s.TieVotesCast(), len(st.s.Spectators())
+	st.emit(EventTiebreakProgress, map[string]any{"cast": cast, "total": total})
+	if cast == total {
+		st.resolveTieBreak()
 	}
 	return st.done()
 }

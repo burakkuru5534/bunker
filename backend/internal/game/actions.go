@@ -82,10 +82,7 @@ func parseAction(req ActionRequest) (action, error) {
 	switch req.Type {
 	case "":
 		fe.Add("type", apperr.FieldRequired)
-	case ActionRevealCard, ActionDiscussionReady, ActionVote:
-	case ActionTiebreakVote:
-		// ENG-009'da eklenecek.
-		fe.Add("type", apperr.FieldNotAllowed)
+	case ActionRevealCard, ActionDiscussionReady, ActionVote, ActionTiebreakVote:
 	default:
 		fe.Add("type", apperr.FieldNotAllowed)
 	}
@@ -117,7 +114,7 @@ func parseAction(req ActionRequest) (action, error) {
 			apply: func(e engine.Engine, s engine.State, userID string, now time.Time, _ engine.Rand) (engine.State, []engine.Event, error) {
 				return e.DiscussionReady(s, userID, now)
 			}}, nil
-	default: // ActionVote
+	default: // ActionVote, ActionTiebreakVote
 		var p struct {
 			Target *string `json:"target_user_id"`
 		}
@@ -131,14 +128,18 @@ func parseAction(req ActionRequest) (action, error) {
 			return action{}, apperr.Field("payload.target_user_id", apperr.FieldInvalid)
 		}
 		target := strings.ToLower(*p.Target)
+		apply, kind := engine.Engine.Vote, voteRegular
+		if req.Type == ActionTiebreakVote {
+			apply, kind = engine.Engine.TiebreakVote, voteTiebreak
+		}
 		// Hedef denetim kaydına yazılmaz: oylar yalnızca votes tablosunda
 		// (gizli; api.md "Gizlilik kuralları").
 		return action{typ: req.Type, payload: map[string]any{},
 			apply: func(e engine.Engine, s engine.State, userID string, now time.Time, rng engine.Rand) (engine.State, []engine.Event, error) {
-				return e.Vote(s, userID, target, now, rng)
+				return apply(e, s, userID, target, now, rng)
 			},
 			persist: func(ctx context.Context, tx pgx.Tx, gameID string, old engine.State, userID string) error {
-				return insertVote(ctx, tx, gameID, old.Round, voteRegular, engine.Vote{Voter: userID, Target: target})
+				return insertVote(ctx, tx, gameID, old.Round, kind, engine.Vote{Voter: userID, Target: target})
 			}}, nil
 	}
 }

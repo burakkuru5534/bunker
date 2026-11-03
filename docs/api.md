@@ -227,6 +227,8 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 - `game.card_revealed` ve `game.player_eliminated` (`cards`) kart metnini taşır; kart kimliği ve denge etiketi istemciye gitmez.
 - `discussion_ready`: aynı turda ikinci kez gelirse başarıdır ama etkisizdir (sürüm artmaz, olay yok). Hayattaki herkes hazır olunca `VOTING` hemen başlar.
 - `vote`: hedef hayattaki başka bir katılımcı olmalı (değilse `INVALID_TARGET`; biçimi bozuksa `VALIDATION_FAILED`). Hedef yalnızca `votes` tablosunda tutulur; eylem kaydına ve olaylara yazılmaz. Hayattaki herkes oy verince sayım hemen yapılır.
+- `tiebreak_vote`: yalnızca izleyiciler (elenen/ayrılan katılımcılar; hayattaki oyuncu `NOT_SPECTATOR`), yalnızca eşit oy alan ve hâlâ hayattaki adaylardan birine (`INVALID_TARGET`), bir kez (`ALREADY_VOTED`). Tüm izleyiciler oy verince sonuç hemen: hepsi aynı aday → o elenir (`method: spectators`), farklıysa kura. Hedef yine yalnızca `votes` tablosunda.
+- Aday listesi (`candidates`, `lottery_candidates`) koltuk sırasındadır.
 
 **GET `/v1/games/{gameId}/result`** — Yalnızca `FINISHED` oyunlar; yetki: oyunun katılımcısı.
 ```json

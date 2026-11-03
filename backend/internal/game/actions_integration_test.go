@@ -183,17 +183,17 @@ func TestIntegrationActionValidationAndAccess(t *testing.T) {
 		return string(b)
 	}
 	cases := map[string]struct{ body, field string }{
-		"action_id yok":       {`{"type":"reveal_card","payload":{"category":"profession"}}`, `"action_id":"required"`},
-		"action_id bozuk":     {`{"action_id":"abc","type":"reveal_card","payload":{"category":"profession"}}`, `"action_id":"invalid"`},
-		"tür yok":             {`{"action_id":"` + newActionID() + `","payload":{}}`, `"type":"required"`},
-		"bilinmeyen tür":      {`{"action_id":"` + newActionID() + `","type":"fly","payload":{}}`, `"type":"not_allowed"`},
-		"henüz yok: tiebreak": {`{"action_id":"` + newActionID() + `","type":"tiebreak_vote","payload":{}}`, `"type":"not_allowed"`},
-		"kategori yok":        {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{}}`, `"payload.category":"required"`},
-		"yük yok":             {`{"action_id":"` + newActionID() + `","type":"reveal_card"}`, `"payload.category":"required"`},
-		"bilinmeyen alan":     {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{"category":"profession","x":1}}`, `"payload":"unknown_field"`},
-		"yük dizi":            {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":[1]}`, `"payload":"invalid_type"`},
-		"kategori sayı":       {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{"category":5}}`, `"payload.category":"invalid_type"`},
-		"bilinmeyen kategori": {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{"category":"weapon"}}`, `"payload.category":"invalid"`},
+		"action_id yok":        {`{"type":"reveal_card","payload":{"category":"profession"}}`, `"action_id":"required"`},
+		"action_id bozuk":      {`{"action_id":"abc","type":"reveal_card","payload":{"category":"profession"}}`, `"action_id":"invalid"`},
+		"tür yok":              {`{"action_id":"` + newActionID() + `","payload":{}}`, `"type":"required"`},
+		"bilinmeyen tür":       {`{"action_id":"` + newActionID() + `","type":"fly","payload":{}}`, `"type":"not_allowed"`},
+		"eşitlik oyu hedefsiz": {`{"action_id":"` + newActionID() + `","type":"tiebreak_vote","payload":{}}`, `"payload.target_user_id":"required"`},
+		"kategori yok":         {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{}}`, `"payload.category":"required"`},
+		"yük yok":              {`{"action_id":"` + newActionID() + `","type":"reveal_card"}`, `"payload.category":"required"`},
+		"bilinmeyen alan":      {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{"category":"profession","x":1}}`, `"payload":"unknown_field"`},
+		"yük dizi":             {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":[1]}`, `"payload":"invalid_type"`},
+		"kategori sayı":        {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{"category":5}}`, `"payload.category":"invalid_type"`},
+		"bilinmeyen kategori":  {`{"action_id":"` + newActionID() + `","type":"reveal_card","payload":{"category":"weapon"}}`, `"payload.category":"invalid"`},
 	}
 	a.advance(gameID, nil)
 	for name, c := range cases {
