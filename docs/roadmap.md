@@ -124,6 +124,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **DB-004:** [queries.md](queries.md): 16 sıcak yol + 5 bakım sorgusu; her biri gerçekçi hacimde veriyle (20 bin kullanıcı, 3 bin oda, 2 bin oyun, 100 bin mesaj) uygulama rolüyle EXPLAIN testinde (tam tarama yok, beklenen indeks). Bulunanlar: toplu silmelerde `in (select)` tam tarama yapıyordu → `id = any(array(...))` biçimi; oda temizliği için iki kısmi indeks eksikti; yeni yabancı anahtar indeks testi `reports.room_id` eksiğini buldu → `0005_cleanup_indexes.sql`. Bilinçli indekssiz yabancı anahtarlar gerekçeli izin listesinde (liste eskirse test kırılır).
 - **DB-005:** `persistence.DB` (Tx / Read yardımcıları; bağlantı fonksiyon dışına sızmaz, hata/panic → rollback). Havuzdan bağlantı `DB_ACQUIRE_TIMEOUT` (3 sn) ile sınırlı: önceden isteğin 10 sn'lik süresi boyunca bekliyordu → artık `ErrPoolExhausted` ile hızlı hata + WARNING; 500 ms üstü bekleme uyarısı. Supabase sınırları kaynaktan doğrulandı (Nano: 60 doğrudan, 200 pooler; session mode'da rol başına Pool Size). Bağlantı bütçesi architecture.md §11'de; `dbsetup check` artık rolün açık bağlantılarını, rol sınırını ve `-pool-size` ile panel değerinin yeterliliğini raporluyor. Testler: commit/rollback/panic, bağlantı sızıntısı yok, havuz doluyken 200 ms'de hata (istek 10 sn olsa da), iptal edilen isteğin ayrı hatası, geç alma uyarısı.
 - **AUTH-001:** `internal/auth`: takma ad kuralları (NFC, 3–16, yalnızca Latin alfabesi + Türkçe harfler, rakam, boşluk, _; en az bir harf; ardışık boşluk yok; ayrılmış adlar; küfür kancası) ve Türkçe büyük/küçük harf duyarsız karşılaştırma (`IŞIK` = `ışık`, `I` ≠ `i`); opak token (32 bayt, base64url 43 karakter, SHA-256), biçimi bozuk token'ın DB'ye gitmeden reddi, `Bearer` ayrıştırma. security.md §1'e akışlar (oluşturma, doğrulama, yenileme, silme, istemci IP'si) ve 'son kullanım saatte bir yazılır' kararı. Küfür listesi için SAFE-013 eklendi. Testler %97,8 + fuzz (geçerli her ad DB kısıtını sağlar ve kararlıdır).
+- **AUTH-002a:** `auth.Service`: CreateGuest (takma ad doğrulama → tek transaction'da users + sessions; ham token yalnızca yanıtta), Authenticate (biçim → 60 sn önbellek → `sessions ⨝ users`; süresi dolmuş / iptal / silinmiş kullanıcı → nedeni ayrıştırılmayan UNAUTHORIZED; son kullanım en fazla saatte bir), Refresh (tek transaction'da eskiyi iptal + yeni; eşzamanlı yenilemelerden yalnız biri başarılı), Me (aktif oda), ForgetUser. Önbellek yalnızca geçerli oturumları, oturum süresini aşmadan, üst sınırla tutar. `internal/testdb`: tüm migration'ları uygulanmış yalıtılmış şema + uygulama rolüyle DB (sonraki modüllerin testleri için). Kapsama %91,8.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -143,8 +144,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | DB-003d | Şema: sohbet ve moderasyon (chat_messages, reports) | P0 | Done |
 | DB-004 | Sorgu ve indeks tasarımı | P0 | Done |
 | DB-005 | Bağlantı havuzu ve limitleri | P0 | Done |
-| AUTH-001 | Misafir oturumu tasarımı | P0 | Awaiting User Approval |
-| AUTH-002 | Oturum oluşturma ve doğrulama | P0 | Backlog |
+| AUTH-001 | Misafir oturumu tasarımı | P0 | Done |
+| AUTH-002a | Oturum servisi: oluşturma, doğrulama, yenileme, önbellek | P0 | Awaiting User Approval |
+| AUTH-002b | Oturum uç noktaları (guest, refresh, me) ve IP sınırı | P0 | Backlog |
 | AUTH-003 | REST ve WebSocket yetkilendirmesi | P0 | Backlog |
 
 ## Faz 4 — Gerçek zamanlı altyapı

@@ -25,6 +25,8 @@ backend/
     persistence/       pgx bağlantı havuzu ve açılış güvenlik denetimleri
     dbsetup/           Supabase rol kurulumu (SCRAM şifre, SQL, denetim)
     migrate/           migration yükleme, kurallar, uygulama, yetki eşitleme
+    auth/              misafir oturumu: takma ad, token, oturum servisi ve önbellek
+    testdb/            entegrasyon testleri için yalıtılmış şema (yalnızca testler)
     (auth, room, game, cards, chat, moderation, realtime — sonraki görevlerde)
 ```
 
@@ -194,6 +196,13 @@ go run ./cmd/migrate status
 Sunucu migration çalıştırmaz; migration her zaman ayrı ve bilinçli bir adımdır.
 
 ### Entegrasyon testleri
+
+Modül testleri gerçek şemayla çalışmak için `internal/testdb` kullanır: rastgele adlı şema + uygulama/migration rolleri kurar, depodaki **tüm migration'ları** uygular ve **uygulama rolüyle** (gerçek yetkiler ve RLS ile) bir `persistence.DB` verir; test bitince her şeyi siler.
+
+```go
+env := testdb.New(t)          // TEST_DATABASE_ADMIN_URL yoksa test atlanır
+svc := auth.NewService(env.DB, nil, logger)
+```
 
 `TEST_DATABASE_ADMIN_URL` tanımlıysa gerçek PostgreSQL'e karşı çalışır: her test rastgele adlı rol ve şema kurar, sonunda siler. Tanımlı değilse atlanır. CI'da geçici bir `postgres:17` servisiyle çalışır. **Supabase adresini buraya vermeyin**; yerel veya tek kullanımlık bir PostgreSQL kullanın.
 
