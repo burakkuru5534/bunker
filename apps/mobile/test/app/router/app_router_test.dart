@@ -56,8 +56,9 @@ void main() {
     await tester.tap(find.text('Koda katıl'));
     await tester.pumpAndSettle();
     expect(find.byType(JoinScreen), findsOneWidget);
+    expect(find.byTooltip('Geri'), findsOneWidget); // Türkçe Material metinleri
 
-    await tester.pageBack();
+    await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.byType(HomeScreen), findsOneWidget);
 

@@ -16,9 +16,9 @@ lib/
     realtime/                  WebSocket istemcisi (MOB-007)
     network/                   Dio istemcisi, WS istemcisi, hata eşleme (MOB-006/007/009)
     storage/                   Güvenli oturum depolama (MOB-010)
-    error/                     Uygulama hata modeli, hata kodu → l10n metni (MOB-009)
-    ui/                        Ortak bileşenler: AppPrimaryButton, PlayerAvatar, ConnectionBanner… (MOB-008)
-    l10n/                      Türkçe metinler (ARB)
+    error/                     Hata → kullanıcı metni, global hata yakalama (MOB-009)
+    ui/                        Ortak bileşenler: AppButton, PlayerAvatar, ConnectionBanner… (MOB-008b)
+    l10n/                      Türkçe metinler: arb/app_tr.arb, generated/ (MOB-009)
   features/
     session/                   Misafir oturumu, takma ad, /welcome
     home/                      Ana ekran, koda katıl
@@ -66,7 +66,7 @@ Ortak ihtiyaç iki feature'da birden doğarsa kod `core/`'a taşınır.
 - **Provider'lar** (MOB-004) repository'leri çağırır ve UI durumunu tutar.
 - **Repository'ler** (`data/`) REST/WS çağrılarını yapar, DTO'ları modele çevirir, hata kodlarını uygulama hatasına eşler.
 - **Sabit renk / boşluk değeri** widget içine yazılmaz; tema token'ları kullanılır (§8).
-- **Metinler** l10n dosyalarından gelir (ekranlar oluşturulurken eklenecek).
+- **Kullanıcıya görünen metinler** `lib/core/l10n/arb/app_tr.arb` dosyasından gelir (`context.l10n`); widget içine Türkçe metin yazılmaz (§9).
 
 ## 4. Durum yönetimi (Riverpod)
 
@@ -178,9 +178,32 @@ Kurallar:
 | `showAppSnackBar` | `app_snack_bar.dart` | Önceki mesajı kapatır; hata ikonu |
 | `LoadingView`, `ErrorView`, `EmptyState` | `state_views.dart` | Durum kalıpları (design-system §4) |
 
-Bileşen metinleri şimdilik Türkçe sabit; l10n (ARB) ekranlarla birlikte eklenecek.
+Bileşen metinleri l10n'dan gelir (MOB-009).
 
-## 9. Adlandırma
+## 9. Yerelleştirme ve hata yönetimi
+
+### l10n
+- `flutter_localizations` (SDK) + `intl` ^0.20.2; `flutter gen-l10n` (`l10n.yaml`, `pubspec.yaml` → `generate: true`).
+- Kaynak: `lib/core/l10n/arb/app_tr.arb`. Üretilen dosyalar `lib/core/l10n/generated/` altında **repoya dahildir** (IDE ve CI ek adım gerektirmesin); ARB değişince `flutter gen-l10n` çalıştırılır (`flutter run/build` de otomatik üretir). Üretilen kod analiz dışıdır.
+- Kullanım: `context.l10n.anahtar` (`core/l10n/l10n.dart`). Yalnızca `tr` desteklenir; Material/Cupertino metinleri de Türkçedir ("Geri", "Kapat"…).
+- Yeni metin = ARB'ye anahtar ekle → `flutter gen-l10n`.
+
+### Hata → kullanıcı metni (`core/error/error_messages.dart`)
+| Fonksiyon | Girdi |
+|---|---|
+| `messageForErrorCode(l, code)` | API hata kodu (docs/api.md §2). Bilinmeyen kod → genel metin |
+| `messageForApiError(l, e)` | `ApiException` türüne göre; iptal → `null` (gösterilmez); 429 → bekleme süresiyle |
+| `messageForRealtimeStop(l, reason)` | WS kalıcı durma nedeni |
+| `messageForError(l, error)` | Herhangi bir hata; bilinmeyen → genel metin |
+
+`docs/api.md`'deki **her** hata kodunun kendine özgü bir metni olduğu testle denetlenir (`test/core/error/error_messages_test.dart` dokümanı okur).
+
+### Yakalanmamış hatalar (`core/error/error_reporting.dart`)
+- `installGlobalErrorHandlers()` `main()` içinde kurulur: `FlutterError.onError` ve `PlatformDispatcher.onError` → raporlayıcı; asenkron hatalar uygulamayı çökertmez.
+- Varsayılan raporlayıcı yalnızca debug'da konsola yazar; crash raporlama REL-004'te bağlanacak. Raporlara kullanıcı verisi (token, sohbet) konmaz.
+- Release derlemede bozulan widget kırmızı ekran yerine sade bir kutu gösterir.
+
+## 10. Adlandırma
 
 | Öğe | Kural | Örnek |
 |---|---|---|
@@ -191,13 +214,13 @@ Bileşen metinleri şimdilik Türkçe sabit; l10n (ARB) ekranlarla birlikte ekle
 | Repository | `<Ad>Repository` | `RoomRepository` |
 | DTO | `<Ad>Dto` | `RoomViewDto` |
 
-## 10. Testler
+## 11. Testler
 
 - `test/` klasörü `lib/` yapısını aynen yansıtır: `lib/features/home/presentation/home_screen.dart` → `test/features/home/presentation/home_screen_test.dart`.
 - `test/architecture/` bağımlılık kurallarını denetler.
 - `test/helpers/` test yardımcılarıdır (ör. `pumpWithProviders`).
 - Her görevde: `dart format --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
 
-## 11. Statik analiz
+## 12. Statik analiz
 
 `analysis_options.yaml`: `strict-casts`, `strict-inference`, `strict-raw-types` açık. `always_use_package_imports`, `avoid_print`, `unawaited_futures` **hata** seviyesindedir. Loglama için `print` yerine `debugPrint` / ileride log yardımcısı kullanılır.

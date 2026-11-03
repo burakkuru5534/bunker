@@ -88,7 +88,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | MOB-007 | WebSocket istemcisi | P0 | Awaiting User Approval |
 | MOB-008a | Tasarım token'ları, yazı tipleri, tema, GameTheme | P1 | Awaiting User Approval |
 | MOB-008b | Ortak `core/ui` bileşenleri | P1 | Awaiting User Approval |
-| MOB-009 | Hata yönetimi | P0 | Backlog |
+| MOB-009 | Hata yönetimi ve l10n altyapısı | P0 | Awaiting User Approval |
 | MOB-010 | Güvenli oturum depolama | P0 | Backlog |
 | MOB-011 | Widget testleri | P0 | Backlog |
 | MOB-012 | CI doğrulaması | P1 | Backlog |
@@ -102,6 +102,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **MOB-007:** `dart:io` WebSocket (yeni çalışma zamanı bağımlılığı yok; test için `fake_async`). `RealtimeClient`: `/v1/ws?room_id=`, token yalnızca başlıkta, v1 zarf çözümleme, `state_version` (snapshot bekleme, kopya atma, boşlukta `sync`), üstel yeniden bağlanma 0,5→10 sn ±%20, 4001/4003/4008/4026'da kalıcı durma, `onAppResumed`. 70 test geçti.
 - **MOB-008a:** MOB-008 ikiye bölündü. Tema `core/theme/` altında (bağımlılık kuralları nedeniyle `app/theme` yerine). Renk/boşluk/köşe/hareket token'ları, `buildAppTheme()` (koyu M3 + bileşen temaları), `GameTheme` (kategori renk+ikon+etiket, avatar döngüsü), Türkçe büyük/küçük harf yardımcıları. Oswald (500/600/700) ve Inter (400/500/600) google/fonts deposundan alındı, sabit ağırlık + Latin/Türkçe alt kümesi (≈430 KB), OFL lisansları `LicenseRegistry`'de. WCAG kontrast testleri. 115 test geçti.
 - **MOB-008b:** `core/ui`: `AppButton` (primary/secondary/danger, yükleniyor, devre dışı nedeni), `AppTextField`, `InviteCodeInput` (+ formatter), `PlayerAvatar` (3 boyut, 3 durum, Türkçe baş harf), `StatusBadge` (7 tür), `ConnectionBanner` (4 durum), `showConfirmDialog`, `showAppSnackBar`, `LoadingView`/`ErrorView`/`EmptyState`. Yeni paket yok. 134 test geçti.
+- **MOB-009:** l10n altyapısı (`flutter_localizations` SDK + `intl` ^0.20.2, `l10n.yaml`, `app_tr.arb`, üretilen kod repoda). Uygulama ve Material metinleri Türkçe. `core/ui` metinleri ARB'ye taşındı. `error_messages.dart`: api.md'deki 27 hata kodunun her biri, `ApiException` türleri, 429 bekleme süresi, WS durma nedenleri → Türkçe metin (doküman testle denetleniyor). `installGlobalErrorHandlers` (FlutterError + PlatformDispatcher; release'de sade hata kutusu). 147 test geçti.
 
 ## Faz 3 — Go backend ve PostgreSQL
 

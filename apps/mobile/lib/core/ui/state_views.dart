@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/ui/app_buttons.dart';
 
@@ -56,7 +57,7 @@ class ErrorView extends StatelessWidget {
             if (onRetry != null) ...[
               const SizedBox(height: AppSpacing.s5),
               AppButton.secondary(
-                label: 'Tekrar dene',
+                label: context.l10n.actionRetry,
                 icon: Icons.refresh_rounded,
                 onPressed: onRetry,
                 expand: false,

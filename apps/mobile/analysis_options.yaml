@@ -20,6 +20,7 @@ analyzer:
     - ios/**
     - "**/*.g.dart"
     - "**/*.freezed.dart"
+    - lib/core/l10n/generated/**
     - web/**
     - windows/**
     - macos/**

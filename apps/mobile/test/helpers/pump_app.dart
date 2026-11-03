@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:siginak/core/config/app_config.dart';
 import 'package:siginak/core/config/app_config_provider.dart';
+import 'package:siginak/core/l10n/l10n.dart';
+
+import 'pump_themed.dart' show testLocalizationsDelegates;
 
 /// Testlerde kullanılan varsayılan yapılandırma (local ortam).
 AppConfig testConfig() => AppConfig.fromValues(
@@ -27,7 +30,14 @@ Future<void> pumpWithProviders(
         appConfigProvider.overrideWithValue(config ?? testConfig()),
         ...overrides,
       ],
-      child: wrapInMaterialApp ? MaterialApp(home: child) : child,
+      child: wrapInMaterialApp
+          ? MaterialApp(
+              locale: const Locale('tr'),
+              supportedLocales: AppLocalizations.supportedLocales,
+              localizationsDelegates: testLocalizationsDelegates,
+              home: child,
+            )
+          : child,
     ),
   );
 }

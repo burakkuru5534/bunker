@@ -1,0 +1,8 @@
+# Yerelleştirme (flutter gen-l10n). Tek dil: Türkçe.
+arb-dir: lib/core/l10n/arb
+template-arb-file: app_tr.arb
+output-dir: lib/core/l10n/generated
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+preferred-supported-locales: [tr]
+nullable-getter: false

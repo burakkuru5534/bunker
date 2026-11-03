@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/theme/game_theme.dart';
 
@@ -28,21 +29,22 @@ class ConnectionBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final game = context.gameTheme;
+    final l10n = context.l10n;
 
     final (String text, Color color, IconData icon)? content = switch (state) {
       ConnectionBannerState.hidden => null,
       ConnectionBannerState.reconnecting => (
-        'Bağlantı koptu, yeniden bağlanıyoruz…',
+        l10n.connectionReconnecting,
         theme.colorScheme.primary,
         Icons.wifi_off_rounded,
       ),
       ConnectionBannerState.restored => (
-        'Bağlandı',
+        l10n.connectionRestored,
         game.success,
         Icons.wifi_rounded,
       ),
       ConnectionBannerState.offline => (
-        'Bağlantı yok',
+        l10n.connectionOffline,
         game.danger,
         Icons.cloud_off_rounded,
       ),
@@ -82,7 +84,7 @@ class ConnectionBanner extends StatelessWidget {
                         onRetry != null)
                       TextButton(
                         onPressed: onRetry,
-                        child: const Text('Tekrar dene'),
+                        child: Text(l10n.actionRetry),
                       ),
                   ],
                 ),

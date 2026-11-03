@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/theme/app_typography.dart';
 
@@ -100,7 +101,7 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
         : -1;
 
     return Semantics(
-      label: 'Davet kodu, $inviteCodeLength karakter',
+      label: context.l10n.inviteCodeLabel(inviteCodeLength),
       value: text,
       textField: true,
       child: GestureDetector(

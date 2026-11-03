@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/theme/game_theme.dart';
 
@@ -100,7 +101,7 @@ class AppButton extends StatelessWidget {
     final semantic = Semantics(
       button: true,
       enabled: enabled,
-      label: isLoading ? '$label, yükleniyor' : null,
+      label: isLoading ? context.l10n.loadingLabel(label) : null,
       excludeSemantics: isLoading,
       child: expand ? SizedBox(width: double.infinity, child: button) : button,
     );

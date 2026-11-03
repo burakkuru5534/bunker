@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_typography.dart';
 import 'package:siginak/core/theme/game_theme.dart';
 
@@ -46,14 +47,15 @@ class PlayerAvatar extends StatelessWidget {
     final color = game.avatarColorFor(seat);
     final faded = presence != PlayerPresence.online;
 
-    final stateLabel = switch (presence) {
-      PlayerPresence.online => '',
-      PlayerPresence.disconnected => ', bağlantısı koptu',
-      PlayerPresence.eliminated => ', elendi',
+    final l10n = context.l10n;
+    final semanticLabel = switch (presence) {
+      PlayerPresence.online => nickname,
+      PlayerPresence.disconnected => l10n.avatarDisconnected(nickname),
+      PlayerPresence.eliminated => l10n.avatarEliminated(nickname),
     };
 
     return Semantics(
-      label: '$nickname$stateLabel',
+      label: semanticLabel,
       image: true,
       child: SizedBox.square(
         dimension: d,

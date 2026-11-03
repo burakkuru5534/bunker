@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/theme/game_theme.dart';
 
@@ -11,15 +12,16 @@ class StatusBadge extends StatelessWidget {
 
   final StatusBadgeKind kind;
 
-  static String labelOf(StatusBadgeKind kind) => switch (kind) {
-    StatusBadgeKind.ready => 'Hazır',
-    StatusBadgeKind.waiting => 'Bekliyor',
-    StatusBadgeKind.host => 'Oda sahibi',
-    StatusBadgeKind.spectator => 'İzleyici',
-    StatusBadgeKind.eliminated => 'Elendi',
-    StatusBadgeKind.left => 'Ayrıldı',
-    StatusBadgeKind.turn => 'Sırada',
-  };
+  static String labelOf(AppLocalizations l, StatusBadgeKind kind) =>
+      switch (kind) {
+        StatusBadgeKind.ready => l.statusReady,
+        StatusBadgeKind.waiting => l.statusWaiting,
+        StatusBadgeKind.host => l.statusHost,
+        StatusBadgeKind.spectator => l.statusSpectator,
+        StatusBadgeKind.eliminated => l.statusEliminated,
+        StatusBadgeKind.left => l.statusLeft,
+        StatusBadgeKind.turn => l.statusTurn,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +55,7 @@ class StatusBadge extends StatelessWidget {
             const SizedBox(width: AppSpacing.s1),
           ],
           Text(
-            labelOf(kind),
+            labelOf(context.l10n, kind),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fg),
           ),
         ],
