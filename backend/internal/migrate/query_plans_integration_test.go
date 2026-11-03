@@ -162,7 +162,6 @@ func seed(t *testing.T, e *env) *seedIDs {
 		 select a.id, b.id, tr.id, 'spam', case when a.rn % 10 = 0 then 'open' else 'dismissed' end,
 		        case when a.rn % 10 = 0 then null else now() end
 		   from tu a join tu b on b.rn = a.rn + 7 join tr on tr.rn = a.rn where a.rn <= 2000`,
-		`analyze`,
 	}
 	conn, err := e.admin.Begin(ctx)
 	if err != nil {
@@ -177,7 +176,15 @@ func seed(t *testing.T, e *env) *seedIDs {
 	if err := conn.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.admin.Exec(ctx, "analyze "+s+".sessions, "+s+".rooms, "+s+".chat_messages, "+s+".games"); err != nil {
+	// Yalnızca bu testin şemasındaki tablolar analiz edilir. Yalın "analyze"
+	// tüm veritabanını tarar; CI'da paralel paketlerin aynı anda kurup
+	// sildiği şemalara kilit alıp deadlock'a yol açıyordu.
+	var tables string
+	if err := e.admin.QueryRow(ctx, `select string_agg(format('%I.%I', schemaname, tablename), ', ')
+		from pg_tables where schemaname = $1`, s).Scan(&tables); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.admin.Exec(ctx, "analyze "+tables); err != nil {
 		t.Fatal(err)
 	}
 
