@@ -184,8 +184,16 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 - `in_game` ve kullanıcı katılımcı değil → `GAME_IN_PROGRESS`.
 - Atılmış kullanıcı aynı odaya tekrar katılamaz → `KICKED`.
 - Bir kullanıcı aynı anda yalnızca **bir aktif odada** olabilir.
+- `finished` odaya katılan oyuncu olarak girer (oda sahibi "Tekrar oyna" deyince lobide olur); 10 oyuncu sınırı geçerlidir.
+- Zaten aktif üye olan kullanıcının tekrar katılması değişiklik yapmaz, `200 RoomView` döner.
+- Ayrılmış (atılmamış) kullanıcı lobiye yeniden katılabilir.
+- Davet kodu girişi büyük/küçük harf duyarsızdır; boşluk ve tire yok sayılır. Biçimi bozuk kod `400 VALIDATION_FAILED` (`fields.invite_code = invalid`), geçerli biçimde ama açık odası olmayan kod `404 INVITE_CODE_NOT_FOUND`.
 
-**Ayrılma kuralları:** Lobide üyelik silinir. Oyunda katılımcı "ayrıldı" olur ve elenmiş sayılır. Oda sahibi ayrılırsa sahiplik en eski üyeye geçer. Son üye ayrılırsa oda kapanır.
+**Ayrılma kuralları:** Lobide (ve sonuç ekranında) üyelik silinir. Oyunda üyelik `left_at` ile kapanır, katılımcı "ayrıldı" olur ve elenmiş sayılır. Oda sahibi ayrılırsa sahiplik **en eski aktif oyuncuya**, oyuncu yoksa en eski üyeye geçer. Son üye ayrılırsa oda kapanır.
+
+**Başlatma:** Oda sahibi, `lobby`, 4–10 oyuncu ve **oda sahibi dahil** tüm oyuncular hazır (izleyiciler sayılmaz). Değilse `409 START_CONDITIONS_NOT_MET` + `details.reason` ∈ `too_few_players`, `not_all_ready` (+ `details.players`). **Tekrar oyna:** tüm aktif üyeler oyuncu olur, hazırlar sıfırlanır.
+
+**Atma:** Oda sahibi kendini atamaz (`VALIDATION_FAILED`); aktif olmayan hedef `NOT_FOUND`.
 
 ### Oyun
 

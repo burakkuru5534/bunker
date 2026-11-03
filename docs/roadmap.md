@@ -127,6 +127,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **AUTH-002a:** `auth.Service`: CreateGuest (takma ad doğrulama → tek transaction'da users + sessions; ham token yalnızca yanıtta), Authenticate (biçim → 60 sn önbellek → `sessions ⨝ users`; süresi dolmuş / iptal / silinmiş kullanıcı → nedeni ayrıştırılmayan UNAUTHORIZED; son kullanım en fazla saatte bir), Refresh (tek transaction'da eskiyi iptal + yeni; eşzamanlı yenilemelerden yalnız biri başarılı), Me (aktif oda), ForgetUser. Önbellek yalnızca geçerli oturumları, oturum süresini aşmadan, üst sınırla tutar. `internal/testdb`: tüm migration'ları uygulanmış yalıtılmış şema + uygulama rolüyle DB (sonraki modüllerin testleri için). Kapsama %91,8.
 - **AUTH-002b:** `POST /v1/sessions/guest` (201; IP başına 5/dk, sınır gövde doğrulamasından önce, IPv6 /64), `POST /v1/sessions/refresh` (boş gövde veya {}), `GET /v1/me` (active_room_id null/uuid); token yanıtları `Cache-Control: no-store`; `auth.Require` middleware (401 + `WWW-Authenticate: Bearer`, bağlama oturum sahibi ve user_id'li logger). `internal/ratelimit` (anahtar başına token bucket, bellek üst sınırlı; %100), `httpapi.ClientIP` + `RateKey`, `TRUSTED_PROXY_HOPS`. Uçtan uca testler (tam middleware zinciri + gerçek DB): sözleşme alanları, token'ın loglanmaması, sahte XFF ile sınırın atlatılamaması.
 - **AUTH-003:** `auth.Require` artık kullanıcı başına genel REST sınırını uygular (10 sn'de 30 → 429 + Retry-After; kimlik doğrulamasından sonra, kullanıcı başına); token yalnızca başlıktan (sorgu dizesindeki token yok sayılır, testli). WebSocket kararı: yetki/üyelik/sürüm hataları HTTP durumu değil, yükseltmeden sonra kapanış kodu (4001/4003/4026) — mobil istemcinin beklediği davranış; `/v1/ws` sürüm middleware'inden muaf, `httpapi.CheckAppVersion`, `VersionCloseCode`, `CloseCodeFor` ve kapanış kodu sabitleri WS işleyicisi (RT) için hazır. Kapsam notu: oda/oyun üyeliği denetimi oda modülüyle (ROOM, SAFE-003), kullanıcı başına 2 WS bağlantısı hub ile (RT-009) gelir.
+- **ROOM-001/002:** `internal/room` saf model (DB/HTTP bilmez; ADR-0002): Join (kapalı/atılmış/zaten üye/oyun sürüyor/eski katılımcı izleyici/10 dolu/Türkçe duyarsız takma ad çakışması), Leave (lobide sil, oyunda left_at; sahiplik en eski aktif oyuncuya; son üye → kapat), SetReady (yalnız lobide, izleyici olamaz, aynı değer değişiklik değil), ChangeCapacity / Kick / CanStart (oda sahibi dahil herkes hazır, 4–10; details.reason) / Rematch. Davet kodu: kriptografik, modulo yanlılığı olmadan 31 karakterlik alfabe; giriş büyük/küçük harf, boşluk ve tire duyarsız. 20 bin kodla dağılım testi. api.md katılma/ayrılma/başlatma/atma kuralları netleşti. Kapsama %97,7.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -149,7 +150,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | AUTH-001 | Misafir oturumu tasarımı | P0 | Done |
 | AUTH-002a | Oturum servisi: oluşturma, doğrulama, yenileme, önbellek | P0 | Done |
 | AUTH-002b | Oturum uç noktaları (guest, refresh, me) ve IP sınırı | P0 | Done |
-| AUTH-003 | REST ve WebSocket yetkilendirmesi | P0 | Awaiting User Approval |
+| AUTH-003 | REST ve WebSocket yetkilendirmesi | P0 | Done |
 
 ## Faz 4 — Gerçek zamanlı altyapı
 
@@ -172,8 +173,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| ROOM-001 | Oda modeli | P0 | Backlog |
-| ROOM-002 | Davet kodu üretimi | P0 | Backlog |
+| ROOM-001 | Oda modeli | P0 | Awaiting User Approval |
+| ROOM-002 | Davet kodu üretimi | P0 | Awaiting User Approval |
 | ROOM-003 | Oda oluşturma API'si | P0 | Backlog |
 | ROOM-004 | Odaya katılma API'si | P0 | Backlog |
 | ROOM-005 | Odadan ayrılma | P0 | Backlog |
