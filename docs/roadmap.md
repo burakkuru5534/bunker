@@ -146,6 +146,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **CI düzeltmesi:** `migrate` sorgu planı testindeki yalın `analyze` tüm veritabanını tarıyordu; paralel CI paketlerinin aynı anda kurup sildiği şemalarla deadlock (40P01). Artık yalnız testin kendi şemasındaki tablolar analiz ediliyor; paralel takım 3× temiz.
 - **ENG-013 + ENG-015:** `game.Service.GameSnapshot(kullanıcı, oyun)` → `GameView` (`session.snapshot.game`): state_version, aşama (BÜYÜK), tur, süre, senaryo, sıradaki, katılımcılar (takma ad, koltuk, durum, `connected` hub’dan, açılmış kart metinleri), `my_cards` (yalnız kendi), `my_action_state`, hazır/oy/eşitlik sayaçları, son tur sonucu. Tek görünürlük kuralı: kart açıksa veya oyun bittiyse görünür; aksi halde yalnız sahibine. Oy hedefleri hiç yok. `RoomSnapshotter.Games` ile WS anlık görüntüsüne bağlandı (bağlanma ve `sync`). Testler: gizlilik özellik testi — 4 rastgele oyun (5–8 kişi; açma, oy, ayrılma, süre dolumu) her adımda tüm katılımcılar + bir yabancı için: başkasının kapalı kartı yok, kendi 5 kartı var, açık kartlar var, bitince hepsi var, kimlik/denge/hedef alanı yok. Alan testi (sıra, hazır/oy durumu ve sayaçlar, eleme sonucu, izleyici, eşitlik, bitiş), WS’de oyun sürerken bağlanan oyuncunun görünümü. Mutasyon 6/6 (biri ilk turda kaçtı → test tamamlandı). Kapsama: game %86,3, realtime %91,6.
 - **RT-007:** `realtime.Hub` kullanıcının ilk bağlantısında / son bağlantısı kapanınca `ConnectionListener`’ı ayrı goroutine’de çağırır (kapanışta 1012 hariç; aynı bağlantının ikinci kez kaldırılması bildirim üretmez). `game.Disconnects`: oyun sürerken hayattaki oyuncuya `game_participants.disconnected_at` + `game.player_connection {disconnected}`; 60 sn içinde dönerse kayıt silinir + `{reconnected}`; dönmezse `room.Service.Leave` (sebep `disconnect_timeout` eylem kaydında) + `{left}`. Her kararda gerçek bağlantı durumu (presence) denetlenir (bildirimler sırasız gelebilir). Açılış kurtarması: aktif oyunlardaki hayattaki oyunculara süre tanınır, önceden kopmuşların kalan süresi korunur, bağlı oldukları anlaşılanların kaydı sessizce silinir. Sunucuda açılış/kapanış `lifecycle` ile. Testler (gerçek WS + PostgreSQL, süre 300 ms): kopma ve süre içinde dönüş, dönmeyenin odadan ve oyundan ayrılması ve 4003, lobide etkisizlik, açılış kurtarması (dönmeyen + kalan süreli ayrılır, bağlı 4 kalır). Paralel tam takım yükü altında 8 tur kararlı (yükte 2 sn okuma süresi yetmiyordu → test süreleri 5/8 sn). Mutasyon 5/5 (bir eşdeğer bozma davranışı değiştirmiyor). Not: `disconnects.go` gerçek zamanlı paketin testlerince sınanıyor; Go kapsamayı paket bazında ölçtüğü için game paketi tek başına %73,5 görünür.
+- **Sohbet (+ SAFE-003 tamam):** `POST /v1/rooms/{id}/messages` oda modülünde (yalıtım matrisi kapsıyor): lobide/bitmiş odada her aktif üye, oyunda yalnız hayattakiler (403), üye değilse 404; `room.CleanMessage` (NFC, satır sonu → boşluk, kontrol/biçim/yön değiştirme karakterleri atılır, 1–200); `TextFilter` maskeleme bağlantı noktası (SAFE-013); sıklık 1/sn + 5/10 sn; `client_msg_id` tekrarı ilk sonucu döndürür, yayınlamaz, sınıra sayılmaz; `game_id` dolu (oyunda). `chat.message` olayı göndereni engelleyen üyelere gitmez (`room.Event.Exclude`, hub süzer); `session.snapshot.chat` son 50 mesaj (engellenenler hariç). SAFE-003: oda rotaları (sohbet dahil), oyun eylemleri/sonuç (katılımcı değilse aynı 404), WS (üyelik kayıttan önce) ve olaylar (oda + `To`/`Exclude`) yalıtılmış ve testli. Testler: metin temizleme birim; lobi (gönderim, maskeleme, tekrar, 429, doğrulama, 404, bitmiş oda), 10 sn sınırı, engelleme ve 50 mesaj geçmişi; oyunda hayattaki/elenen/izleyici; WS teslimi ve geçmiş. Mutasyon 7/7 (bir eşdeğer bozma gerçek bozmayla değiştirildi). Kapsama: room %87,0, realtime %92,0.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -180,7 +181,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | RT-004 | Oda bazlı bağlantı yönetimi | P0 | Awaiting User Approval |
 | RT-005 | Mesaj şemaları ve doğrulama | P0 | Backlog |
 | RT-006 | Oda içi olay yayını | P0 | Awaiting User Approval |
-| RT-007 | Bağlantı kopması ve yeniden bağlanma | P0 | Awaiting User Approval |
+| RT-007 | Bağlantı kopması ve yeniden bağlanma | P0 | Done |
 | RT-008 | Bağlantı temizliği ve kaynak yönetimi | P0 | Backlog |
 | RT-009 | Rate limiting | P0 | Backlog |
 | RT-010 | Eşzamanlılık ve bağlantı testleri | P0 | Backlog |
@@ -265,7 +266,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 |---|---|---|---|
 | SAFE-001 | İstek ve girdi doğrulama | P0 | Backlog |
 | SAFE-002 | Rate limiting | P0 | Backlog |
-| SAFE-003 | Oda izolasyonu | P0 | In Progress (oda rotaları tamam; oyun/sohbet/WS kendi görevlerinde) |
+| SAFE-003 | Oda izolasyonu | P0 | Awaiting User Approval |
 | SAFE-004 | Gizli kart erişim testleri | P0 | Backlog |
 | SAFE-005 | Oyuncu raporlama | P0 | Backlog |
 | SAFE-006 | Oyuncu engelleme | P0 | Backlog |

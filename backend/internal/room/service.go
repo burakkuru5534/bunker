@@ -27,6 +27,9 @@ type Service struct {
 	logger    *slog.Logger
 	newCode   func() (string, error)
 	games     GameStarter // nil: başlatma INTERNAL döner (WithGames)
+
+	textFilter TextFilter // nil: maskeleme yok (SAFE-013)
+	chat       chatLimits
 }
 
 // NewService, servisi kurar. presence ve publisher nil olabilir (RT öncesi).
@@ -40,7 +43,8 @@ func NewService(db *persistence.DB, presence Presence, publisher Publisher, logg
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, presence: presence, publisher: publisher, logger: logger, newCode: NewInviteCode}
+	return &Service{db: db, presence: presence, publisher: publisher, logger: logger, newCode: NewInviteCode,
+		chat: newChatLimits()}
 }
 
 // Create, yeni oda kurar; oluşturan oda sahibi ve oyuncu olur. Kullanıcı

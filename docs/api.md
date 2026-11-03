@@ -100,7 +100,7 @@
 | `nickname` | Unicode NFC'ye çevrilir, baştaki/sondaki boşluk kırpılır; 3–16 karakter; **Latin alfabesi harfleri (Türkçe ç ğ ı İ ö ş ü dahil)**, 0–9, boşluk, `_`; en az bir harf; ardışık boşluk yok; ayrılmış adlar ("Silinmiş oyuncu", "Sistem", "Admin"…) yok; küfür filtresi. Hata: `NICKNAME_INVALID` + `details.fields.nickname` ∈ `required`, `too_short`, `too_long`, `invalid_chars`, `invalid` (harf yok / ardışık boşluk), `not_allowed`, `profanity`. Oda içi tekillik Türkçe büyük/küçük harf duyarsızdır ("IŞIK" = "ışık") |
 | `invite_code` | 6 karakter, alfabe `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (31 karakter; 0/O, 1/I/L yok). Büyük/küçük harf duyarsız |
 | `capacity` | 1 veya 2 |
-| `text` (sohbet) | Kırpılır; 1–200 karakter; küfürler `***` ile maskelenir |
+| `text` (sohbet) | NFC; satır sonu/sekme → boşluk, ardışık boşluk teke iner; kontrol ve biçim karakterleri (yön değiştiren Unicode dahil) atılır; kırpılır; 1–200 karakter; küfürler `***` ile maskelenir (SAFE-013) |
 | `category` | `profession`, `health`, `hobby`, `item`, `secret` |
 
 ---
@@ -193,6 +193,8 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 **Ayrılma kuralları:** Lobide (ve sonuç ekranında) üyelik silinir. Oyunda üyelik `left_at` ile kapanır, katılımcı "ayrıldı" olur ve elenmiş sayılır. Oda sahibi ayrılırsa sahiplik **en eski aktif oyuncuya**, oyuncu yoksa en eski üyeye geçer (`room.member_left` + `room.host_changed`, aynı sürüm). Son üye ayrılırsa oda kapanır (olay yok; kodu yeniden kullanılabilir).
 
 **Başlatma:** Oda sahibi, `lobby`, 4–10 oyuncu ve **oda sahibi dahil** tüm oyuncular hazır (izleyiciler sayılmaz). Değilse `409 START_CONDITIONS_NOT_MET` + `details.reason` ∈ `too_few_players`, `not_all_ready` (+ `details.players`); oda sahibi değilse `403 FORBIDDEN`, oyun zaten başladıysa `409 INVALID_PHASE` (eşzamanlı başlatmalardan yalnızca biri başarılı olur). Başarılı başlatma tek transaction’dır (koltuk, senaryo ve kartlar sunucuda rastgele; oda `in_game`, oda sürümü +1); commit sonrası sırasıyla `game.started` (oda), her oyuncuya `game.your_cards` (özel) ve `game.phase_changed` (`SCENARIO_INTRO`) yayınlanır, hepsi oyunun `state_version`’ı (1) ile. Kart kataloğu yetersizse `500 INTERNAL` (hiçbir şey yazılmaz). **Tekrar oyna:** tüm aktif üyeler (izleyiciler dahil) oyuncu olur, hazırlar sıfırlanır, `current_game_id` boşalır; yanıt ve `room.returned_to_lobby` aynı `RoomView`’ı (yeni sürümle) taşır. Biten oyunun sonucu okunmaya devam eder. Bitmiş odaya katılan yeni oyuncularla 10’u aşılırsa başlatma `too_many_players` ile reddedilir.
+
+**Sohbet:** `POST …/messages` lobide ve oyun bitince her aktif üyeye, oyun sürerken yalnızca hayattaki oyunculara açık (izleyici/elenen `403 FORBIDDEN`); üye değilse `404`. Sıklık kullanıcı başına saniyede 1 ve 10 sn’de 5 (`429` + `Retry-After`). Aynı `client_msg_id` tekrar gelirse ilk mesajın `{id, created_at}`’i döner, yeni mesaj ve yayın yok (sıklık sınırına sayılmaz). `chat.message` göndereni engelleyen üyelere gönderilmez; `session.snapshot.chat` odanın son 50 mesajıdır (eskiden yeniye, izleyicinin engellediklerininki hariç).
 
 **Atma:** Oda sahibi kendini atamaz (`VALIDATION_FAILED`); aktif olmayan hedef `NOT_FOUND`.
 

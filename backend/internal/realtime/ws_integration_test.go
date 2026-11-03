@@ -476,3 +476,38 @@ func TestWSSnapshotIncludesGame(t *testing.T) {
 		}
 	}
 }
+
+// chat.message odaya gider; göndereni engelleyen almaz; bağlanınca son
+// mesajlar (engellenenler hariç) anlık görüntüdedir.
+func TestWSChat(t *testing.T) {
+	e := newEnv(t, nil)
+	roomID, _, tokens, users := e.roomWith(3)
+	if _, err := e.db.Migrate.Exec(context.Background(), `insert into blocks (blocker_id, blocked_id) values ($1, $2)`, users[2], users[1]); err != nil {
+		t.Fatal(err)
+	}
+	var conns []*websocket.Conn
+	for _, tok := range tokens {
+		c := e.dial(dialOpts{token: tok, roomID: roomID})
+		read(t, c)
+		conns = append(conns, c)
+	}
+	e.rest("POST", "/v1/rooms/"+roomID+"/messages", tokens[1], `{"client_msg_id":"00000000-0000-4000-8000-000000000001","text":"selam"}`)
+	e.rest("POST", "/v1/rooms/"+roomID+"/messages", tokens[0], `{"client_msg_id":"00000000-0000-4000-8000-000000000002","text":"herkese"}`)
+	for i, c := range conns[:2] {
+		if _, p := readUntil(t, c, "chat.message"); p["text"] != "selam" || p["user_id"] != users[1] || p["nickname"] != "Oyuncu1" {
+			t.Fatalf("%d: %v", i, p)
+		}
+	}
+	// Engelleyen (u2) ilk mesajı almaz: ilk chat.message "herkese".
+	if _, p := readUntil(t, conns[2], "chat.message"); p["text"] != "herkese" {
+		t.Fatalf("engelleyen engellenenin mesajını aldı: %v", p)
+	}
+	// Yeni bağlanan geçmişi görür; engelleyenin geçmişinde engellenen yok.
+	for i, want := range map[int]int{0: 2, 2: 1} {
+		c := e.dial(dialOpts{token: tokens[i], roomID: roomID})
+		_, p := read(t, c)
+		if chat := p["chat"].([]any); len(chat) != want {
+			t.Fatalf("%d geçmişi %d mesaj, beklenen %d", i, len(chat), want)
+		}
+	}
+}

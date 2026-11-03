@@ -23,6 +23,8 @@ type Event struct {
 	Type    string
 	Version int64
 	To      string
+	// Exclude, olayı almayacak kullanıcılar (ör. göndereni engelleyenler).
+	Exclude []string
 	Payload any
 }
 

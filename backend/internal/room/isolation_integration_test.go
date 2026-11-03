@@ -25,6 +25,7 @@ func sampleBodies(targetUserID string) map[string]string {
 		"POST /v1/rooms/{roomId}/kick":      `{"user_id":"` + targetUserID + `"}`,
 		"POST /v1/rooms/{roomId}/start":     ``,
 		"POST /v1/rooms/{roomId}/rematch":   ``,
+		"POST /v1/rooms/{roomId}/messages":  `{"client_msg_id":"7d2c1f5e-0b7a-4c1e-9f3a-2a6b8c9d0e1f","text":"selam"}`,
 	}
 }
 

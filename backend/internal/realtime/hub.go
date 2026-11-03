@@ -172,7 +172,7 @@ func (h *Hub) Publish(e room.Event) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for c := range h.rooms[e.RoomID] {
-		if e.To == "" || c.userID == e.To {
+		if (e.To == "" || c.userID == e.To) && !slices.Contains(e.Exclude, c.userID) {
 			c.enqueue(msg)
 		}
 	}

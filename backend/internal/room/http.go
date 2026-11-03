@@ -45,6 +45,7 @@ var roomScopedRoutes = []roomRoute{
 	{"POST /v1/rooms/{roomId}/kick", func(h *HTTP) httpapi.HandlerFunc { return h.kick }},
 	{"POST /v1/rooms/{roomId}/start", func(h *HTTP) httpapi.HandlerFunc { return h.start }},
 	{"POST /v1/rooms/{roomId}/rematch", func(h *HTTP) httpapi.HandlerFunc { return h.rematch }},
+	{"POST /v1/rooms/{roomId}/messages", func(h *HTTP) httpapi.HandlerFunc { return h.message }},
 }
 
 // Register, rotaları ekler. Tüm oda rotaları oturum ister.

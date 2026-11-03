@@ -15,8 +15,8 @@ type Snapshot struct {
 	Room       room.View `json:"room"`
 	// Game, oyun sürüyorsa izleyiciye göre süzülmüş oyun durumu (ENG-013);
 	// yoksa null.
-	Game any   `json:"game"`
-	Chat []any `json:"chat"` // sohbet modülüyle (CHAT) dolar
+	Game any                `json:"game"`
+	Chat []room.ChatMessage `json:"chat"` // son 50 mesaj (engellenenler hariç)
 }
 
 // SnapMe, bağlanan kullanıcıdır.
@@ -52,7 +52,11 @@ func (s RoomSnapshotter) Snapshot(ctx context.Context, p auth.Principal, roomID 
 	if s.Now != nil {
 		now = s.Now
 	}
-	snap := Snapshot{ServerTime: now().UTC(), Me: SnapMe{UserID: p.UserID, Role: m.Role}, Room: view, Chat: []any{}}
+	chat, err := s.Rooms.RecentMessages(ctx, p.UserID, roomID)
+	if err != nil {
+		return nil, err
+	}
+	snap := Snapshot{ServerTime: now().UTC(), Me: SnapMe{UserID: p.UserID, Role: m.Role}, Room: view, Chat: chat}
 	if s.Games != nil && m.CurrentGameID != nil {
 		if snap.Game, err = s.Games.GameSnapshot(ctx, p.UserID, *m.CurrentGameID); err != nil {
 			return nil, err
