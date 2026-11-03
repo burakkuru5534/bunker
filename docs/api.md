@@ -251,6 +251,8 @@ X-App-Version: 1.0.0
 ```
 
 - Kimlik ve oda üyeliği doğrulanır; kullanıcı başına en fazla 2 eşzamanlı bağlantı.
+- **Yetki, üyelik ve sürüm hataları HTTP durumu (401/403/426) olarak dönmez:** sunucu bağlantıyı yükseltir ve hemen ilgili kapanış koduyla (4001 / 4003 / 4026) kapatır; mobil istemci yükseltme öncesi HTTP durumunu güvenilir okuyamaz. Bu yüzden `/v1/ws` sürüm middleware'inden muaftır; denetimi WS işleyicisi yapar (`httpapi.CheckAppVersion`, `httpapi.CloseCodeFor`). Eksik/biçimsiz sürüm başlığı da 4026'dır; geçersiz `room_id` 4003'tür.
+- Token yalnızca `Authorization` başlığından okunur; sorgu dizesindeki token yok sayılır.
 - Bağlanınca ilk mesaj her zaman `session.snapshot`.
 - Sunucu 25 sn'de bir WS ping gönderir; 60 sn yanıt yoksa bağlantı kapanır.
 - Cloud Run istek zaman aşımı (≤60 dk) dolunca bağlantı kapanır; istemci hemen yeniden bağlanır.

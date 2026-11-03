@@ -199,3 +199,37 @@ func TestIntegrationHTTPGuestRateLimit(t *testing.T) {
 		t.Fatalf("aynı /64 sınırı paylaşmalı: %d", r.code)
 	}
 }
+
+func TestIntegrationHTTPUserRateLimitAndHeaderOnly(t *testing.T) {
+	a := newAPI(t, 1)
+	guest := func(ip, nick string) string {
+		r := a.do("POST", "/v1/sessions/guest", "", `{"nickname":"`+nick+`"}`, "X-Forwarded-For", ip)
+		tok, _ := r.body["token"].(string)
+		return tok
+	}
+	alice, bob := guest("198.51.100.1", "Alice"), guest("198.51.100.2", "Bobby")
+
+	for i := range UserLimit {
+		if r := a.do("GET", "/v1/me", alice, ""); r.code != 200 {
+			t.Fatalf("%d. istek 200 olmalı: %d", i+1, r.code)
+		}
+	}
+	r := a.do("GET", "/v1/me", alice, "")
+	if r.code != 429 || errCode(r) != "RATE_LIMITED" || r.header.Get("Retry-After") == "" {
+		t.Fatalf("31. istek 429 olmalı: %d %s", r.code, r.raw)
+	}
+	// Sınır kullanıcı başınadır.
+	if r := a.do("GET", "/v1/me", bob, ""); r.code != 200 {
+		t.Fatalf("başka kullanıcı etkilenmemeli: %d", r.code)
+	}
+	// Geçersiz token sınır kotasını tüketmez (önce kimlik).
+	if r := a.do("GET", "/v1/me", "", ""); r.code != 401 {
+		t.Fatalf("yetkisiz istek 401: %d", r.code)
+	}
+	// Token URL'den kabul edilmez.
+	for _, q := range []string{"access_token", "token"} {
+		if r := a.do("GET", "/v1/me?"+q+"="+bob, "", ""); r.code != 401 {
+			t.Errorf("?%s ile kimlik doğrulanmamalı: %d", q, r.code)
+		}
+	}
+}

@@ -126,6 +126,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **AUTH-001:** `internal/auth`: takma ad kuralları (NFC, 3–16, yalnızca Latin alfabesi + Türkçe harfler, rakam, boşluk, _; en az bir harf; ardışık boşluk yok; ayrılmış adlar; küfür kancası) ve Türkçe büyük/küçük harf duyarsız karşılaştırma (`IŞIK` = `ışık`, `I` ≠ `i`); opak token (32 bayt, base64url 43 karakter, SHA-256), biçimi bozuk token'ın DB'ye gitmeden reddi, `Bearer` ayrıştırma. security.md §1'e akışlar (oluşturma, doğrulama, yenileme, silme, istemci IP'si) ve 'son kullanım saatte bir yazılır' kararı. Küfür listesi için SAFE-013 eklendi. Testler %97,8 + fuzz (geçerli her ad DB kısıtını sağlar ve kararlıdır).
 - **AUTH-002a:** `auth.Service`: CreateGuest (takma ad doğrulama → tek transaction'da users + sessions; ham token yalnızca yanıtta), Authenticate (biçim → 60 sn önbellek → `sessions ⨝ users`; süresi dolmuş / iptal / silinmiş kullanıcı → nedeni ayrıştırılmayan UNAUTHORIZED; son kullanım en fazla saatte bir), Refresh (tek transaction'da eskiyi iptal + yeni; eşzamanlı yenilemelerden yalnız biri başarılı), Me (aktif oda), ForgetUser. Önbellek yalnızca geçerli oturumları, oturum süresini aşmadan, üst sınırla tutar. `internal/testdb`: tüm migration'ları uygulanmış yalıtılmış şema + uygulama rolüyle DB (sonraki modüllerin testleri için). Kapsama %91,8.
 - **AUTH-002b:** `POST /v1/sessions/guest` (201; IP başına 5/dk, sınır gövde doğrulamasından önce, IPv6 /64), `POST /v1/sessions/refresh` (boş gövde veya {}), `GET /v1/me` (active_room_id null/uuid); token yanıtları `Cache-Control: no-store`; `auth.Require` middleware (401 + `WWW-Authenticate: Bearer`, bağlama oturum sahibi ve user_id'li logger). `internal/ratelimit` (anahtar başına token bucket, bellek üst sınırlı; %100), `httpapi.ClientIP` + `RateKey`, `TRUSTED_PROXY_HOPS`. Uçtan uca testler (tam middleware zinciri + gerçek DB): sözleşme alanları, token'ın loglanmaması, sahte XFF ile sınırın atlatılamaması.
+- **AUTH-003:** `auth.Require` artık kullanıcı başına genel REST sınırını uygular (10 sn'de 30 → 429 + Retry-After; kimlik doğrulamasından sonra, kullanıcı başına); token yalnızca başlıktan (sorgu dizesindeki token yok sayılır, testli). WebSocket kararı: yetki/üyelik/sürüm hataları HTTP durumu değil, yükseltmeden sonra kapanış kodu (4001/4003/4026) — mobil istemcinin beklediği davranış; `/v1/ws` sürüm middleware'inden muaf, `httpapi.CheckAppVersion`, `VersionCloseCode`, `CloseCodeFor` ve kapanış kodu sabitleri WS işleyicisi (RT) için hazır. Kapsam notu: oda/oyun üyeliği denetimi oda modülüyle (ROOM, SAFE-003), kullanıcı başına 2 WS bağlantısı hub ile (RT-009) gelir.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -147,8 +148,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | DB-005 | Bağlantı havuzu ve limitleri | P0 | Done |
 | AUTH-001 | Misafir oturumu tasarımı | P0 | Done |
 | AUTH-002a | Oturum servisi: oluşturma, doğrulama, yenileme, önbellek | P0 | Done |
-| AUTH-002b | Oturum uç noktaları (guest, refresh, me) ve IP sınırı | P0 | Awaiting User Approval |
-| AUTH-003 | REST ve WebSocket yetkilendirmesi | P0 | Backlog |
+| AUTH-002b | Oturum uç noktaları (guest, refresh, me) ve IP sınırı | P0 | Done |
+| AUTH-003 | REST ve WebSocket yetkilendirmesi | P0 | Awaiting User Approval |
 
 ## Faz 4 — Gerçek zamanlı altyapı
 

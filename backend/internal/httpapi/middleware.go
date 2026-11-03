@@ -97,29 +97,41 @@ const AppVersionHeader = "X-App-Version"
 // RequireAppVersion, /v1 altındaki isteklerde X-App-Version başlığını denetler.
 //   - Eksik veya biçimsiz → 400 VALIDATION_FAILED
 //   - min'den eski → 426 UPGRADE_REQUIRED
+//
+// /v1/ws hariç: WebSocket'te sürüm hatası yükseltmeden sonra 4026 kapanış
+// koduyla bildirilir (docs/api.md §5).
 func RequireAppVersion(min Version) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !isAPIPath(r.URL.Path) {
+			// WebSocket: istemci HTTP hata durumunu okuyamaz; sürüm WS
+			// işleyicisinde CheckAppVersion ile denetlenir ve 4026 ile kapatılır.
+			if !isAPIPath(r.URL.Path) || isWebSocketPath(r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			raw := r.Header.Get(AppVersionHeader)
-			v, err := ParseVersion(raw)
-			if err != nil {
-				e := apperr.Field(AppVersionHeader, apperr.FieldInvalid)
-				e.Message = "X-App-Version eksik veya geçersiz"
-				WriteAppError(w, r, e)
-				return
-			}
-			if v.Less(min) {
-				WriteAppError(w, r, apperr.New(apperr.UpgradeRequired, "uygulama sürümü desteklenmiyor").
-					WithDetail("min_version", min.String()))
+			if err := CheckAppVersion(r, min); err != nil {
+				WriteAppError(w, r, err)
 				return
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// CheckAppVersion, X-App-Version başlığını denetler: eksik/biçimsiz →
+// VALIDATION_FAILED, min'den eski → UPGRADE_REQUIRED (details.min_version).
+func CheckAppVersion(r *http.Request, min Version) error {
+	v, err := ParseVersion(r.Header.Get(AppVersionHeader))
+	if err != nil {
+		e := apperr.Field(AppVersionHeader, apperr.FieldInvalid)
+		e.Message = "X-App-Version eksik veya geçersiz"
+		return e
+	}
+	if v.Less(min) {
+		return apperr.New(apperr.UpgradeRequired, "uygulama sürümü desteklenmiyor").
+			WithDetail("min_version", min.String())
+	}
+	return nil
 }
 
 // LimitBody, /v1 REST isteklerinin gövdesini sınırlar (docs/api.md §1: 4 KB).

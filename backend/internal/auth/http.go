@@ -11,23 +11,34 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/ratelimit"
 )
 
-// Misafir oturumu sınırı: IP başına dakikada 5 (security.md §5).
+// Sıklık sınırları (security.md §5).
 const (
+	// Misafir oturumu: IP başına dakikada 5.
 	GuestLimit    = 5
 	GuestPer      = time.Minute
 	guestLimitMax = 100_000 // izlenen IP üst sınırı (bellek)
+	// Genel REST: kullanıcı başına 10 sn'de 30 (yetkili tüm uç noktalar).
+	UserLimit    = 30
+	UserPer      = 10 * time.Second
+	userLimitMax = 100_000
 )
 
 // HTTP, auth uç noktalarıdır (docs/api.md "Oturum ve kullanıcı").
 type HTTP struct {
 	svc         *Service
 	guestLimit  *ratelimit.Limiter
+	userLimit   *ratelimit.Limiter
 	trustedHops int
 }
 
 // NewHTTP, uç noktaları kurar. trustedHops: config.TrustedProxyHops.
 func NewHTTP(svc *Service, trustedHops int) *HTTP {
-	return &HTTP{svc: svc, guestLimit: ratelimit.New(GuestLimit, GuestPer, guestLimitMax), trustedHops: trustedHops}
+	return &HTTP{
+		svc:         svc,
+		guestLimit:  ratelimit.New(GuestLimit, GuestPer, guestLimitMax),
+		userLimit:   ratelimit.New(UserLimit, UserPer, userLimitMax),
+		trustedHops: trustedHops,
+	}
 }
 
 // Register, rotaları ekler.
@@ -46,8 +57,12 @@ func PrincipalFrom(ctx context.Context) (Principal, bool) {
 }
 
 // Require, Authorization: Bearer token'ını doğrular; geçersizse 401
-// UNAUTHORIZED + WWW-Authenticate. Geçerliyse oturum sahibini ve user_id'li
-// logger'ı bağlama koyar.
+// UNAUTHORIZED + WWW-Authenticate. Token yalnızca başlıktan okunur (URL'de
+// asla, security.md §1). Geçerliyse kullanıcı başına genel sınırı uygular
+// (aşılırsa 429 + Retry-After), oturum sahibini ve user_id'li logger'ı
+// bağlama koyar. Diğer modüller yetkili rotalarını bununla sarar:
+//
+//	mux.Handle("POST /v1/rooms", authHTTP.Require(httpapi.Handle(rooms.create)))
 func (h *HTTP) Require(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := BearerToken(r.Header.Get("Authorization"))
@@ -57,6 +72,10 @@ func (h *HTTP) Require(next http.Handler) http.Handler {
 				w.Header().Set("WWW-Authenticate", `Bearer realm="siginak"`)
 			}
 			httpapi.WriteAppError(w, r, err)
+			return
+		}
+		if ok, wait := h.userLimit.Allow(p.UserID); !ok {
+			httpapi.WriteAppError(w, r, apperr.RateLimit(wait))
 			return
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
