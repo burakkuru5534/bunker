@@ -41,6 +41,7 @@ backend/
 | `GCP_PROJECT_ID` | boş | Doluysa loglara Cloud Trace bağlantısı (`logging.googleapis.com/trace`) eklenir; gizli değildir |
 | `DATABASE_URL` | boş | **Gizli.** PostgreSQL adresi. test/prod'da zorunlu; yerelde boşsa servis veritabanısız başlar |
 | `DB_MAX_CONNS` | prod `5`, diğer `3` | Havuz üst sınırı (1–20, ADR-0010) |
+| `DB_ACQUIRE_TIMEOUT` | `3s` | Havuzdan bağlantı için en uzun bekleme (100ms–10s); dolarsa istek hızlıca `500` alır ve `veritabanı havuzu dolu` uyarısı loglanır |
 | `DB_SCHEMA` | prod `bunker_prod`, diğer `bunker_test` | Rolün `search_path`'inde beklenen şema; açılışta doğrulanır |
 
 Geçersiz değerde servis başlamaz ve tüm hataları birlikte yazar. Örnek: [.env.example](.env.example).
@@ -138,6 +139,18 @@ Açılışta (en çok 15 sn) doğrulananlar; biri başarısızsa servis **başla
 
 `/health/ready`, `database` denetimiyle havuzdan ping atar. Kapanışta HTTP sunucusu durduktan sonra havuz kapatılır.
 
+**Erişim (`persistence.DB`, DB-005):** Kod havuza doğrudan değil, iki yardımcıyla erişir; bağlantı fonksiyon dışına sızmaz:
+
+```go
+err := db.Tx(ctx, func(tx pgx.Tx) error {        // READ COMMITTED; hata/panic → rollback
+	// select ... for update; insert ...; (yayın commit'ten SONRA)
+	return nil
+})
+err := db.Read(ctx, func(q persistence.Querier) error { ... })  // transaction'sız
+```
+
+Bağlantı `DB_ACQUIRE_TIMEOUT` içinde alınamazsa `persistence.ErrPoolExhausted` döner (`context.DeadlineExceeded`'ı sarar → 500, WARNING). 500 ms'den uzun beklemeler "geç alındı" uyarısıyla loglanır.
+
 ### Supabase kurulumu (`cmd/dbsetup`, DB-001b)
 
 Her ortam (test, prod) kendi şeması ve uygulama rolüyle çalışır (ADR-0009). `dbsetup` bu kurulumu yapar:
@@ -154,8 +167,9 @@ cd backend
 # 2) Kurulum SQL'ini üretip panoya alın (.env'e adres yazılır)
 go run ./cmd/dbsetup init -env test -ref <proje-ref> -host <session-pooler-host> | Set-Clipboard
 # 3) Supabase > SQL Editor: yapıştırın, çalıştırın (snippet olarak kaydetmeyin)
-# 4) Doğrulayın: verify-full TLS, rol, şema, zaman sınırları, yetki yalıtımı
-go run ./cmd/dbsetup check
+# 4) Doğrulayın: verify-full TLS, rol, şema, zaman sınırları, yetki yalıtımı, bağlantılar
+#    (-pool-size: Database Settings'teki Supavisor "Pool Size"; verilirse ihtiyaçla karşılaştırılır)
+go run ./cmd/dbsetup check -pool-size <panel değeri>
 ```
 
 `check` yalnızca durum yazdırır (✓ / ! / ✗); adres veya şifre yazdırmaz. Herhangi bir ✗ varsa çıkış kodu 1'dir.

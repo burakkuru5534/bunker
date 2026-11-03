@@ -129,6 +129,7 @@ func runCheck(args []string, getenv func(string) string, stdout, stderr io.Write
 	roleName := fs.String("role", "app", "rol: app | migrator")
 	envFile := fs.String("env-file", "", "adresin okunacağı dosya (varsayılan: test → .env, prod → .env.prod)")
 	strict := fs.Bool("strict", true, "verify-full TLS ve rol denetimleri (yalnızca yerel testte false)")
+	poolSize := fs.Int("pool-size", 0, "Supabase panelindeki Supavisor Pool Size (Database Settings); verilirse rolün ihtiyacıyla karşılaştırılır")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -174,6 +175,9 @@ func runCheck(args []string, getenv func(string) string, stdout, stderr io.Write
 		return errors.New("denetim başarısız")
 	}
 	results := dbsetup.Check(ctx, pool, env.Schema(), spec)
+	if *poolSize > 0 {
+		results = append(results, dbsetup.CheckPoolSize(*poolSize, spec))
+	}
 	for _, r := range results {
 		fmt.Fprintf(stdout, "%s %s: %s\n", r.Status.Symbol(), r.Name, r.Detail)
 	}

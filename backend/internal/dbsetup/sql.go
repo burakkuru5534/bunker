@@ -18,6 +18,15 @@ const (
 func (e Env) Schema() string { return "bunker_" + string(e) }
 func (e Env) Role() string   { return e.Spec(KindApp).Name }
 
+// MaxConns, sunucunun bu ortamdaki havuz üst sınırıdır (config varsayılanı,
+// ADR-0010).
+func (e Env) MaxConns() int {
+	if e == EnvProd {
+		return 5
+	}
+	return 3
+}
+
 // ParseEnv, test veya prod kabul eder.
 func ParseEnv(s string) (Env, error) {
 	switch Env(s) {
@@ -58,6 +67,11 @@ type RoleSpec struct {
 	IdleInTxTimeout  string
 	ConnectionLimit  int
 	SchemaPrivileges string // "usage" | "usage, create"
+	// PoolNeed, Supavisor session mode'da bu rolün aynı anda açabileceği en
+	// fazla istemci bağlantısıdır; paneldeki "Pool Size" bundan küçük olmamalı
+	// (pool size rol + veritabanı başınadır). Uygulama: havuz üst sınırı ×2
+	// (Cloud Run yeni sürüme geçerken iki instance kısa süre birlikte çalışabilir).
+	PoolNeed int
 }
 
 // CanCreate, rol şemada nesne oluşturabilir mi?
@@ -80,13 +94,13 @@ func (e Env) Spec(k Kind) RoleSpec {
 			// gösterir ve check birebir karşılaştırır). Kilit beklemesi kısa tutulur
 			// ki canlı trafiği uzun süre bloklamasın.
 			StatementTimeout: "1min", LockTimeout: "5s", IdleInTxTimeout: "1min",
-			ConnectionLimit: 2, SchemaPrivileges: "usage, create",
+			ConnectionLimit: 2, SchemaPrivileges: "usage, create", PoolNeed: 2,
 		}
 	}
 	return RoleSpec{
 		Kind: KindApp, Name: "bunker_" + string(e) + "_app", EnvKey: "DATABASE_URL",
 		StatementTimeout: StatementTimeout, LockTimeout: LockTimeout, IdleInTxTimeout: IdleInTxSessionTimeout,
-		ConnectionLimit: ConnectionLimit, SchemaPrivileges: "usage",
+		ConnectionLimit: ConnectionLimit, SchemaPrivileges: "usage", PoolNeed: 2 * e.MaxConns(),
 	}
 }
 

@@ -42,6 +42,19 @@ func Check(ctx context.Context, pool *pgxpool.Pool, schema string, spec RoleSpec
 	}
 	add(OK, "sunucu", "%s, rol %s, şema %s", version, user, cur)
 
+	// Bağlantı sınırları (bilgi): veritabanı geneli ve bu rolün açık bağlantıları.
+	var maxConns, open, roleLimit int
+	if err := pool.QueryRow(ctx, `select current_setting('max_connections')::int,
+		(select count(*) from pg_stat_activity where usename = current_user),
+		(select rolconnlimit from pg_roles where rolname = current_user)`).Scan(&maxConns, &open, &roleLimit); err != nil {
+		add(Fail, "bağlantılar", "%v", err)
+	} else {
+		add(OK, "bağlantılar", "rolün açık bağlantısı %d / rol sınırı %d; veritabanı max_connections %d", open, roleLimit, maxConns)
+		if roleLimit != spec.ConnectionLimit {
+			add(Fail, "rol bağlantı sınırı", "%d (beklenen %d; kurulum SQL'ini yeniden çalıştırın)", roleLimit, spec.ConnectionLimit)
+		}
+	}
+
 	// Rol düzeyi sınırlar.
 	for _, s := range []struct{ name, want string }{
 		{"statement_timeout", spec.StatementTimeout},
@@ -139,4 +152,13 @@ func Failed(rs []Result) bool {
 		}
 	}
 	return false
+}
+
+// CheckPoolSize, paneldeki Supavisor "Pool Size" değerinin rolün ihtiyacını
+// karşılayıp karşılamadığını değerlendirir (SQL'den okunamaz; kullanıcı girer).
+func CheckPoolSize(poolSize int, spec RoleSpec) Result {
+	if poolSize >= spec.PoolNeed {
+		return Result{OK, "pool size", fmt.Sprintf("%d ≥ gereken %d", poolSize, spec.PoolNeed)}
+	}
+	return Result{Fail, "pool size", fmt.Sprintf("%d < gereken %d: session mode'da fazladan bağlantılar bekler ve 'Max client connections reached' ile reddedilir", poolSize, spec.PoolNeed)}
 }

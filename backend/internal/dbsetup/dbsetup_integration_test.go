@@ -99,7 +99,7 @@ func TestIntegrationSetupAndCheck(t *testing.T) {
 	if Failed(results) {
 		t.Fatalf("denetimler geçmeli: %+v", results)
 	}
-	want := map[string]bool{"statement_timeout": false, "şemada DDL": false, "ortam yalıtımı": false, "Data API: anon": false}
+	want := map[string]bool{"bağlantılar": false, "statement_timeout": false, "şemada DDL": false, "ortam yalıtımı": false, "Data API: anon": false}
 	for _, r := range results {
 		if _, ok := want[r.Name]; ok && r.Status == OK {
 			want[r.Name] = true

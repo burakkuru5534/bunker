@@ -50,6 +50,10 @@ type Config struct {
 	// DBMaxConns: bağlantı havuzu üst sınırı (DB_MAX_CONNS; varsayılan prod 5,
 	// test/local 3; 1-20). ADR-0010.
 	DBMaxConns int
+	// DBAcquireTimeout: havuzdan bağlantı için en uzun bekleme
+	// (DB_ACQUIRE_TIMEOUT, varsayılan 3s; 100ms–10s). Havuz doluysa istek
+	// bu süreden sonra hızlıca hata alır (architecture.md §11).
+	DBAcquireTimeout time.Duration
 	// DBSchema: rolün search_path'inde beklenen şema (DB_SCHEMA; varsayılan
 	// prod → bunker_prod, test/local → bunker_test). Açılışta doğrulanır.
 	DBSchema string
@@ -147,7 +151,7 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	// Veritabanı varsayılanları ortama bağlıdır; APP_ENV yukarıda okundu.
-	cfg.DBMaxConns, cfg.DBSchema = 3, "bunker_test"
+	cfg.DBMaxConns, cfg.DBSchema, cfg.DBAcquireTimeout = 3, "bunker_test", 3*time.Second
 	if cfg.Env == EnvProd {
 		cfg.DBMaxConns, cfg.DBSchema = 5, "bunker_prod"
 	}
@@ -164,6 +168,15 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("DB_MAX_CONNS geçersiz: %q (1-20)", v))
 		} else {
 			cfg.DBMaxConns = n
+		}
+	}
+
+	if v := getenv("DB_ACQUIRE_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < 100*time.Millisecond || d > 10*time.Second {
+			errs = append(errs, fmt.Errorf("DB_ACQUIRE_TIMEOUT geçersiz: %q (100ms–10s)", v))
+		} else {
+			cfg.DBAcquireTimeout = d
 		}
 	}
 

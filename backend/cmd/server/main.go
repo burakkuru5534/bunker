@@ -29,7 +29,6 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -65,7 +64,7 @@ const dbStartupTimeout = 15 * time.Second
 
 // deps, handler'ların bağımlılıklarıdır.
 type deps struct {
-	DB *pgxpool.Pool // DATABASE_URL yoksa (yalnızca yerel) nil
+	DB *persistence.DB // DATABASE_URL yoksa (yalnızca yerel) nil
 }
 
 // run, servisi ctx iptal edilene kadar çalıştırır. Test edilebilirlik için
@@ -86,12 +85,12 @@ func run(
 
 	var d deps
 	if cfg.DatabaseURL.IsSet() {
-		pool, err := openDB(ctx, cfg, logger)
+		db, err := openDB(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}
-		defer pool.Close()
-		d.DB = pool
+		defer db.Close()
+		d.DB = db
 	} else {
 		logger.Warn("DATABASE_URL tanımlı değil; veritabanısız çalışılıyor (yalnızca yerel)")
 	}
@@ -142,7 +141,7 @@ func run(
 
 // openDB, havuzu kurar ve doğrular (persistence.Open). Test/prod'da TLS ve
 // rol denetimleri katıdır.
-func openDB(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgxpool.Pool, error) {
+func openDB(ctx context.Context, cfg config.Config, logger *slog.Logger) (*persistence.DB, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, dbStartupTimeout)
 	defer cancel()
 	pool, err := persistence.Open(dbCtx, persistence.Options{
@@ -155,8 +154,9 @@ func openDB(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgxpo
 	if err != nil {
 		return nil, fmt.Errorf("veritabanı: %w", err)
 	}
-	logger.Info("veritabanı bağlandı", "schema", cfg.DBSchema, "max_conns", cfg.DBMaxConns)
-	return pool, nil
+	logger.Info("veritabanı bağlandı", "schema", cfg.DBSchema, "max_conns", cfg.DBMaxConns,
+		"acquire_timeout", cfg.DBAcquireTimeout.String())
+	return persistence.NewDB(pool, cfg.DBAcquireTimeout, logger), nil
 }
 
 // newLogger, yapılandırmaya göre logger kurar (yerelde metin, bulutta JSON).

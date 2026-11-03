@@ -282,3 +282,15 @@ func TestResultHelpers(t *testing.T) {
 		t.Fatal("simgeler yanlış")
 	}
 }
+
+func TestPoolNeedAndCheckPoolSize(t *testing.T) {
+	if EnvTest.Spec(KindApp).PoolNeed != 6 || EnvProd.Spec(KindApp).PoolNeed != 10 || EnvProd.Spec(KindMigrator).PoolNeed != 2 {
+		t.Fatal("havuz ihtiyaçları: test 3×2, prod 5×2, migrator 2")
+	}
+	if r := CheckPoolSize(15, EnvProd.Spec(KindApp)); r.Status != OK {
+		t.Fatalf("15 yeterli: %+v", r)
+	}
+	if r := CheckPoolSize(8, EnvProd.Spec(KindApp)); r.Status != Fail || !strings.Contains(r.Detail, "Max client connections") {
+		t.Fatalf("8 yetersiz: %+v", r)
+	}
+}

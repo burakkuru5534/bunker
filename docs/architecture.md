@@ -247,14 +247,25 @@ Ayrıntı: [ADR-0010](decisions/0010-supavisor-session-mode.md).
 | `MaxConnIdleTime` | 5 dk | 5 dk | |
 | `MaxConnLifetime` | 30 dk | 30 dk | Pooler yeniden dengelemesi |
 | `HealthCheckPeriod` | 1 dk | 1 dk | |
-| Havuz bekleme | İstek bağlamının zaman aşımı (≤ 3 sn) | | Havuz doluysa hızlı hata |
+| Havuz bekleme | `DB_ACQUIRE_TIMEOUT` 3 sn | 3 sn | Havuz doluysa hızlı hata (`persistence.ErrPoolExhausted` → 500, WARNING); 500 ms üstü bekleme uyarı olarak loglanır (DB-005) |
 
 Rol düzeyinde sınırlar (migration ile):
 - `statement_timeout = 5s`
 - `idle_in_transaction_session_timeout = 10s`
 - `lock_timeout = 3s`
 
-Limitler (Nano/Micro): en fazla 60 doğrudan bağlantı, 200 pooler istemci bağlantısı; pooler arka uç havuz boyutu panelden okunur ve DB-005'te doğrulanır. Diğer Supabase projeniz ayrı projede olduğu için bu limitleri paylaşmaz.
+Limitler (Nano/Micro): en fazla 60 doğrudan bağlantı (`max_connections`), 200 pooler istemci bağlantısı. Session mode'da **her rol + veritabanı çifti en fazla paneldeki "Pool Size" kadar** istemci bağlantısı açabilir; fazlası bekler ve "Max client connections reached" ile reddedilir. Diğer Supabase projeniz ayrı projede olduğu için bu limitleri paylaşmaz.
+
+**Bağlantı bütçesi (DB-005):**
+
+| Rol | Havuz | En kötü an | Rol sınırı | Pool Size ihtiyacı |
+|---|---|---|---|---|
+| `bunker_prod_app` | 5 | 10 (Cloud Run sürüm geçişinde iki instance kısa süre birlikte) | 10 | ≥ 10 |
+| `bunker_test_app` | 3 | 6 | 10 | ≥ 6 |
+| `bunker_<ortam>_migrator` | 1 | 2 (migrate + dbsetup check) | 2 | ≥ 2 |
+| **Toplam arka uç** | | ≤ 18 | | `max_connections` 60 içinde; Supabase'in kendi servisleri için pay kalır |
+
+`go run ./cmd/dbsetup check -pool-size <panel değeri>` bu karşılaştırmayı yapar ve rolün açık bağlantılarını gösterir. Kod havuza yalnızca `persistence.DB.Tx` / `Read` ile erişir (bağlantı sızmaz).
 
 **Migration'lar:** `backend/cmd/migrate` ile, yerelden aynı session pooler üzerinden ayrı migration rolüyle (`bunker_<ortam>_migrator`, `MIGRATION_DATABASE_URL`) uygulanır; önce test, sonra prod (`-yes-prod`). Yalnızca ileri yönlü; sürüm tablosu `schema_migrations`, şemaya özgü advisory lock, dosya başına transaction, sağlama denetimi. Her `up` sonunda uygulama rolünün yetkileri ve RLS politikası eşitlenir ([ADR-0012](decisions/0012-migration-role-and-rls-policy.md)). Kurallar: `migrations/postgres/README.md` (DB-002).
 

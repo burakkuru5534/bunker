@@ -60,11 +60,11 @@ func TestLoadValues(t *testing.T) {
 
 func TestDatabaseDefaultsAndOverrides(t *testing.T) {
 	cfg, err := Load(env(nil))
-	if err != nil || cfg.DatabaseURL.IsSet() || cfg.DBMaxConns != 3 || cfg.DBSchema != "bunker_test" {
+	if err != nil || cfg.DatabaseURL.IsSet() || cfg.DBMaxConns != 3 || cfg.DBSchema != "bunker_test" || cfg.DBAcquireTimeout != 3*time.Second {
 		t.Fatalf("yerel varsayılanlar: %v %+v", err, cfg)
 	}
-	cfg, err = Load(env(map[string]string{"APP_ENV": "test", "DATABASE_URL": "x", "DB_MAX_CONNS": "7", "DB_SCHEMA": "bunker_dev_1"}))
-	if err != nil || cfg.DBMaxConns != 7 || cfg.DBSchema != "bunker_dev_1" {
+	cfg, err = Load(env(map[string]string{"APP_ENV": "test", "DATABASE_URL": "x", "DB_MAX_CONNS": "7", "DB_SCHEMA": "bunker_dev_1", "DB_ACQUIRE_TIMEOUT": "500ms"}))
+	if err != nil || cfg.DBMaxConns != 7 || cfg.DBSchema != "bunker_dev_1" || cfg.DBAcquireTimeout != 500*time.Millisecond {
 		t.Fatalf("geçersiz kılma: %v %+v", err, cfg)
 	}
 }
@@ -106,6 +106,9 @@ func TestLoadInvalid(t *testing.T) {
 		{"sıfır bağlantı", map[string]string{"DB_MAX_CONNS": "0"}, "DB_MAX_CONNS"},
 		{"çok bağlantı", map[string]string{"DB_MAX_CONNS": "21"}, "DB_MAX_CONNS"},
 		{"bozuk şema", map[string]string{"DB_SCHEMA": "public; drop"}, "DB_SCHEMA"},
+		{"kısa acquire", map[string]string{"DB_ACQUIRE_TIMEOUT": "10ms"}, "DB_ACQUIRE_TIMEOUT"},
+		{"uzun acquire", map[string]string{"DB_ACQUIRE_TIMEOUT": "30s"}, "DB_ACQUIRE_TIMEOUT"},
+		{"bozuk acquire", map[string]string{"DB_ACQUIRE_TIMEOUT": "üç"}, "DB_ACQUIRE_TIMEOUT"},
 		{"büyük harf şema", map[string]string{"DB_SCHEMA": "Bunker"}, "DB_SCHEMA"},
 	}
 	for _, tc := range tests {
