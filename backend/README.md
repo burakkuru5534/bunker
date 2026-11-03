@@ -134,6 +134,28 @@ Açılışta (en çok 15 sn) doğrulananlar; biri başarısızsa servis **başla
 
 `/health/ready`, `database` denetimiyle havuzdan ping atar. Kapanışta HTTP sunucusu durduktan sonra havuz kapatılır.
 
+### Supabase kurulumu (`cmd/dbsetup`, DB-001b)
+
+Her ortam (test, prod) kendi şeması ve uygulama rolüyle çalışır (ADR-0009). `dbsetup` bu kurulumu yapar:
+
+- Güçlü bir şifre üretir ve `DATABASE_URL`'i doğrudan `.env`'e yazar (prod için `.env.prod`). **Şifre ekrana basılmaz.**
+- Supabase SQL editöründe çalıştırılacak SQL'i üretir. Şifre bu SQL'de yalnızca **SCRAM-SHA-256 doğrulayıcısı** (tek yönlü hash) olarak bulunur; düz şifre Supabase'e, SQL geçmişine veya sunucu loglarına hiç gitmez.
+- Rol: yalnızca `LOGIN`, bağlantı sınırı 10; süper kullanıcı / `BYPASSRLS` / `CREATEROLE` yok (yeni rol varsayılanı). `search_path`, `statement_timeout 5s`, `lock_timeout 3s`, `idle_in_transaction_session_timeout 10s`.
+- Şema: `PUBLIC`, `anon`, `authenticated`, `service_role` erişemez; uygulama rolü yalnızca `USAGE` alır. Tabloları migration rolü kurar (DB-002).
+- SQL tekrar çalıştırılabilir; `-force` ile şifre yenilenir.
+
+```powershell
+cd backend
+# 1) Sertifikayı certs/supabase-ca.crt olarak kaydedin (certs/README.md)
+# 2) Kurulum SQL'ini üretip panoya alın (.env'e adres yazılır)
+go run ./cmd/dbsetup init -env test -ref <proje-ref> -host <session-pooler-host> | Set-Clipboard
+# 3) Supabase > SQL Editor: yapıştırın, çalıştırın (snippet olarak kaydetmeyin)
+# 4) Doğrulayın: verify-full TLS, rol, şema, zaman sınırları, yetki yalıtımı
+go run ./cmd/dbsetup check
+```
+
+`check` yalnızca durum yazdırır (✓ / ! / ✗); adres veya şifre yazdırmaz. Herhangi bir ✗ varsa çıkış kodu 1'dir.
+
 ### Entegrasyon testleri
 
 `TEST_DATABASE_ADMIN_URL` tanımlıysa gerçek PostgreSQL'e karşı çalışır: her test rastgele adlı rol ve şema kurar, sonunda siler. Tanımlı değilse atlanır. CI'da geçici bir `postgres:17` servisiyle çalışır. **Supabase adresini buraya vermeyin**; yerel veya tek kullanımlık bir PostgreSQL kullanın.

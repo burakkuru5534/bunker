@@ -1,4 +1,4 @@
-# Backend CI — BE-001
+# Backend CI — BE-001, DB-001a (PostgreSQL entegrasyon + govulncheck)
 # backend/ veya docs/api.md değişince format, vet ve yarış dedektörlü testleri çalıştırır.
 # (Hata kodu tablosu testi docs/api.md'yi okur.)
 name: backend
@@ -33,13 +33,29 @@ jobs:
     name: gofmt, vet, test
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Entegrasyon testleri için geçici PostgreSQL (Supabase ile aynı ana sürüm).
+    # Yalnızca bu iş süresince yaşar; gizli değer değildir.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.mod
+          cache-dependency-path: backend/go.sum
 
       - name: gofmt
         run: |
@@ -53,3 +69,19 @@ jobs:
 
       - name: go test
         run: go test -race -count=1 ./...
+
+  vulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # Go ve bağımlılıklardaki bilinen açıklar (yalnızca kodun çağırdıkları).
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

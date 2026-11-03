@@ -135,7 +135,7 @@ apps/mobile/lib/
 
 - Tek Supabase projesi, test/prod şema + rol izolasyonuyla ayrılır ([ADR-0009](decisions/0009-single-supabase-schema-isolation.md)). Supabase planı: Free (Pro'ya geçiş ileride, onayla).
 - Bölgeler: Cloud Run `europe-west1` (Belçika, Tier 1 fiyat), Supabase `eu-central-1` (Frankfurt). Bağlantı ayrıntıları ARCH-005.
-- Testler bulut çalışma alanında da aynı sürümlerle çalıştırılır (Go 1.27.0, Flutter 3.47.1, PostgreSQL).
+- Testler bulut çalışma alanında da aynı sürümlerle çalıştırılır (Go 1.27.3, Flutter 3.47.1, PostgreSQL).
 - Bulut kaynakları ve ücretli değişiklikler ayrıca kullanıcı onayı gerektirir.
 
 ## 9. Bilinen sınırlamalar
@@ -234,8 +234,9 @@ Ayrıntı: [ADR-0010](decisions/0010-supavisor-session-mode.md).
 | Neden doğrudan bağlantı değil | Doğrudan bağlantı Free/Pro'da yalnızca IPv6; Cloud Run varsayılan çıkışı IPv4. IPv4 eklentisi ücretli |
 | Neden transaction mode değil | Prepared statement desteklemiyor; uzun ömürlü sunucu için session mode öneriliyor |
 | Kullanıcı adı | `<rol>.<proje-ref>` (ör. `bunker_prod_app.<ref>`); host Supabase panelindeki Connect ekranından alınır |
-| TLS | Zorunlu. Hedef `sslmode=verify-full` (Supabase CA sertifikası imaja eklenir); DB-001'de doğrulanır |
-| Sürücü | `pgx/v5` + `pgxpool`; prepared statement açık |
+| TLS | Zorunlu. test/prod'da `sslmode=verify-full` + `sslrootcert` (Supabase CA sertifikası imaja eklenir) değilse servis başlamaz (DB-001a). Gerçek bağlantıyla doğrulandı (DB-001b, 2026-11-03): Supavisor session mode (5432) + `prod-ca-2021` ile `verify-full` çalışıyor |
+| Sürücü | `pgx/v5` (v5.11.0) + `pgxpool`; prepared statement açık |
+| Açılış denetimi | Rol süper kullanıcı / `BYPASSRLS` / Supabase yönetim rolü değil; `current_schema()` = beklenen şema. Başarısızsa servis başlamaz (test/prod) |
 
 ### Bağlantı havuzu (pgxpool)
 

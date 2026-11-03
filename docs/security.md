@@ -24,7 +24,9 @@ Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgRE
 
 - Tek Supabase projesinde iki şema: **`bunker_test`** ve **`bunker_prod`** ([ADR-0009](decisions/0009-single-supabase-schema-isolation.md)). Bu şemalar Data API'ye açılmaz.
 - Tüm tablolarda **RLS etkin, politika yok** (varsayılan reddet) — ikinci savunma hattı.
-- Supabase panelinde Data API kapatılır veya yalnızca boş bir şemaya bakar (MANUAL — DB-001).
+- Supabase panelinde Data API kapatılır (**Integrations → Data API → Enable Data API** kapalı) veya en azından "Exposed schemas" listesinde `bunker_*` yoktur (MANUAL — DB-001b). Ayrıca şemalarda `anon`, `authenticated`, `service_role` ve `PUBLIC` yetkisi kaldırılır; `dbsetup check` bunu doğrular.
+- **Database Settings → SSL Configuration → Enforce SSL on incoming connections** açıktır (MANUAL — DB-001b). Backend test/prod'da `sslmode=verify-full` + Supabase CA (`backend/certs/supabase-ca.crt`) olmadan başlamaz.
+- Rol şifresi Supabase'e düz metin gitmez: `cmd/dbsetup` şifreyi yerelde üretir, `.env`'e yazar, SQL'e yalnızca **SCRAM-SHA-256 doğrulayıcısı** koyar. Rol: yalnızca `LOGIN`, bağlantı sınırı 10, `statement_timeout 5s`, `lock_timeout 3s`, `idle_in_transaction_session_timeout 10s`; şemada `CREATE` yetkisi yoktur (DDL migration rolünde, DB-002).
 - Her ortam yalnızca kendi şemasında yetkili **ayrı bir veritabanı rolü** ile bağlanır (`bunker_test_app`, `bunker_prod_app`); roller birbirinin şemasına erişemez. `postgres`/service-role kullanılmaz.
 - Supabase `anon` / `service_role` anahtarları mobil uygulamaya **asla** konmaz; backend'in de bunlara ihtiyacı yoktur.
 - Tüm sorgular parametreli (pgx/sqlc) → SQL injection yok.

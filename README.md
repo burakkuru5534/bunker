@@ -60,7 +60,7 @@ dart format --set-exit-if-changed . && flutter analyze --fatal-infos && flutter 
 |---|---|
 | Flutter | 3.47.1 (stable) |
 | Dart | 3.13.1 |
-| Go | 1.27.0 |
+| Go | 1.27.3 |
 | Android SDK | 36.0.0 |
 
 Yerel geliştirme, yapılandırma ve test talimatları ilgili görevlerde eklenecektir.
