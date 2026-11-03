@@ -46,6 +46,8 @@ type api struct {
 	handler http.Handler
 	starter *Starter
 	svc     *Service
+	timers  *Timers
+	logger  *slog.Logger
 	ip      atomic.Int64
 }
 
@@ -59,14 +61,18 @@ func newAPI(t *testing.T, seed bool) *api {
 	rec := &recorder{}
 	starter := NewStarter(logger)
 	authHTTP := auth.NewHTTP(auth.NewService(env.DB, nil, logger), 1)
-	roomHTTP := room.NewHTTP(room.NewService(env.DB, nil, rec, logger).WithGames(starter), authHTTP.Require)
-	svc := NewService(env.DB, rec, logger)
+	timers := NewTimers(logger)
+	t.Cleanup(func() { _ = timers.Stop(context.Background()) })
+	pub := timers.Publisher(rec)
+	roomHTTP := room.NewHTTP(room.NewService(env.DB, nil, pub, logger).WithGames(starter), authHTTP.Require)
+	svc := NewService(env.DB, pub, logger)
+	timers.Bind(svc)
 	gameHTTP := NewHTTP(svc, authHTTP.Require)
 	h := httpapi.NewRouter(httpapi.Options{
 		Logger: logger, MinAppVersion: httpapi.Version{Minor: 1}, RequestTimeout: 5 * time.Second,
 		Register: func(mux *http.ServeMux) { authHTTP.Register(mux); roomHTTP.Register(mux); gameHTTP.Register(mux) },
 	})
-	return &api{t: t, env: env, events: rec, handler: h, starter: starter, svc: svc}
+	return &api{t: t, env: env, events: rec, handler: h, starter: starter, svc: svc, timers: timers, logger: logger}
 }
 
 // seedCatalog: 3 senaryo; kategori başına 12 kart, her kategoride 4 olumsuz.

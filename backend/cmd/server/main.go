@@ -67,7 +67,8 @@ const dbStartupTimeout = 15 * time.Second
 
 // deps, handler'ların bağımlılıklarıdır.
 type deps struct {
-	DB *persistence.DB // DATABASE_URL yoksa (yalnızca yerel) nil
+	DB     *persistence.DB // DATABASE_URL yoksa (yalnızca yerel) nil
+	Timers *game.Timers    // DB varsa; aşama süre dolumları (ADR-0005)
 }
 
 // run, servisi ctx iptal edilene kadar çalıştırır. Test edilebilirlik için
@@ -94,6 +95,7 @@ func run(
 		}
 		defer db.Close()
 		d.DB = db
+		d.Timers = game.NewTimers(logger)
 	} else {
 		logger.Warn("DATABASE_URL tanımlı değil; veritabanısız çalışılıyor (yalnızca yerel)")
 	}
@@ -120,6 +122,8 @@ func run(
 
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(ln) }()
+	// Açılış kurtarması: bitmemiş oyunların süreleri yüklenir; geçmişler hemen işlenir.
+	d.Timers.Start()
 
 	select {
 	case err := <-serveErr:
@@ -138,6 +142,10 @@ func run(
 		return fmt.Errorf("kapanış zaman aşımı: %w", err)
 	}
 	<-serveErr
+	// Zamanlayıcılar HTTP'den sonra durur (son istekler süre dolumu tetikleyebilir).
+	if err := d.Timers.Stop(shutdownCtx); err != nil {
+		logger.Warn("zamanlayıcılar zamanında durmadı", "error", err)
+	}
 	logger.Info("sunucu durdu")
 	return nil
 }
@@ -190,8 +198,13 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		health.Checks = append(health.Checks, httpapi.ReadinessCheck{Name: "database", Check: d.DB.Ping})
 		// Küfür denetimi SAFE-013'te bağlanır.
 		authHTTP := auth.NewHTTP(auth.NewService(d.DB, nil, logger), cfg.TrustedProxyHops)
-		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, nil, logger).WithGames(game.NewStarter(logger)), authHTTP.Require)
-		gameHTTP := game.NewHTTP(game.NewService(d.DB, nil, logger), authHTTP.Require)
+		// Tüm olaylar zamanlayıcıdan geçer: phase_changed bitişi planlar (RT gelince
+		// gerçek yayıncı buraya bağlanır).
+		publisher := d.Timers.Publisher(nil)
+		gameSvc := game.NewService(d.DB, publisher, logger)
+		d.Timers.Bind(gameSvc)
+		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, publisher, logger).WithGames(game.NewStarter(logger)), authHTTP.Require)
+		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
 		modules = append(modules, authHTTP.Register, roomHTTP.Register, gameHTTP.Register)
 	} else {
 		logger.Warn("veritabanı yok: /v1 uç noktaları kayıtlı değil (yalnızca yerel)")

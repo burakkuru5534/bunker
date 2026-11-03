@@ -30,6 +30,7 @@ type Service struct {
 	db        *persistence.DB
 	engine    engine.Engine
 	publisher room.Publisher
+	rng       engine.Rand
 	now       func() time.Time
 	logger    *slog.Logger
 }
@@ -42,7 +43,8 @@ func NewService(db *persistence.DB, publisher room.Publisher, logger *slog.Logge
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, engine: engine.New(engine.DefaultDurations), publisher: publisher, now: time.Now, logger: logger}
+	return &Service{db: db, engine: engine.New(engine.DefaultDurations), publisher: publisher,
+		rng: engine.CryptoRand{}, now: time.Now, logger: logger}
 }
 
 // ActionRequest, POST /v1/games/{id}/actions gövdesidir.
@@ -131,6 +133,11 @@ func strictUnmarshal(raw json.RawMessage, dst any) error {
 // işlendiyse kaydedilen sürüm duplicate=true ile döner; değilse motor
 // uygulanır, fark ve eylem kaydı yazılır, olaylar commit sonrası yayınlanır.
 // Reddedilen eylemler kaydedilmez (aynı action_id ile yeniden denenebilir).
+//
+// Aşamanın süresi dolmuşsa (zamanlayıcı henüz işlemediyse; ör. instance
+// uyuyordu) önce süre dolumu kendi transaction'ında işlenip commit edilir,
+// eylem sonra güncel duruma uygulanır (ADR-0005 "ek güvence"). Böylece eylem
+// reddedilse de süre dolumu kaybolmaz.
 func (s *Service) Act(ctx context.Context, p auth.Principal, gameID string, req ActionRequest) (ActionResult, error) {
 	notFound := apperr.New(apperr.NotFound, "oyun bulunamadı")
 	if !validUUID(gameID) {
@@ -140,54 +147,64 @@ func (s *Service) Act(ctx context.Context, p auth.Principal, gameID string, req 
 	if err != nil {
 		return ActionResult{}, err
 	}
-	var (
-		res    ActionResult
-		events []room.Event
-	)
-	err = s.db.Tx(ctx, func(tx pgx.Tx) error {
-		old, g, err := loadState(ctx, tx, gameID, true)
-		if errors.Is(err, errGameNotFound) {
-			return notFound
-		}
+	for attempt := 0; ; attempt++ {
+		var (
+			res      ActionResult
+			events   []room.Event
+			timedOut bool
+		)
+		err = s.db.Tx(ctx, func(tx pgx.Tx) error {
+			old, g, err := loadState(ctx, tx, gameID, true)
+			if errors.Is(err, errGameNotFound) {
+				return notFound
+			}
+			if err != nil {
+				return err
+			}
+			if old.Player(p.UserID) == nil {
+				return notFound
+			}
+			var prev int64
+			err = tx.QueryRow(ctx, `select state_version from game_actions where game_id = $1 and actor_id = $2 and action_id = $3`,
+				gameID, p.UserID, req.ActionID).Scan(&prev)
+			if err == nil {
+				res = ActionResult{StateVersion: prev, Duplicate: true}
+				return nil
+			}
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			now := s.clock()
+			if attempt == 0 && overdue(old, now) {
+				_, events, err = s.applyDue(ctx, tx, g, old, now)
+				timedOut = true
+				return err
+			}
+			next, engineEvents, err := act.apply(s.engine, old, p.UserID, now)
+			if err != nil {
+				return err
+			}
+			if err := saveState(ctx, tx, gameID, old, next, now); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `insert into game_actions (game_id, actor_id, action_id, type, payload, state_version)
+				values ($1, $2, $3, $4, $5, $6)`, gameID, p.UserID, req.ActionID, act.typ, act.payload, next.Version); err != nil {
+				return err
+			}
+			events, err = s.wireEvents(ctx, tx, g, engineEvents, next.Version, now)
+			res = ActionResult{StateVersion: next.Version}
+			return err
+		})
 		if err != nil {
-			return err
+			return ActionResult{}, err
 		}
-		if old.Player(p.UserID) == nil {
-			return notFound
+		for _, e := range events {
+			s.publisher.Publish(e)
 		}
-		var prev int64
-		err = tx.QueryRow(ctx, `select state_version from game_actions where game_id = $1 and actor_id = $2 and action_id = $3`,
-			gameID, p.UserID, req.ActionID).Scan(&prev)
-		if err == nil {
-			res = ActionResult{StateVersion: prev, Duplicate: true}
-			return nil
+		if !timedOut {
+			return res, nil
 		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		now := s.now().UTC().Truncate(time.Microsecond)
-		next, engineEvents, err := act.apply(s.engine, old, p.UserID, now)
-		if err != nil {
-			return err
-		}
-		if err := saveState(ctx, tx, gameID, old, next, now); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `insert into game_actions (game_id, actor_id, action_id, type, payload, state_version)
-			values ($1, $2, $3, $4, $5, $6)`, gameID, p.UserID, req.ActionID, act.typ, act.payload, next.Version); err != nil {
-			return err
-		}
-		events, err = s.wireEvents(ctx, tx, g, engineEvents, next.Version, now)
-		res = ActionResult{StateVersion: next.Version}
-		return err
-	})
-	if err != nil {
-		return ActionResult{}, err
 	}
-	for _, e := range events {
-		s.publisher.Publish(e)
-	}
-	return res, nil
 }
 
 // wireEvents, motor olaylarını istemci biçimine çevirir: kart kimliği
@@ -213,7 +230,7 @@ func (s *Service) wireEvents(ctx context.Context, tx pgx.Tx, g gameRow, evs []en
 	out := make([]room.Event, 0, len(evs))
 	for _, e := range evs {
 		w := wireEvent(e, version, now)
-		w.RoomID = roomID
+		w.RoomID, w.GameID = roomID, g.ID
 		if e.Type == engine.EventCardRevealed {
 			payload := w.Payload.(map[string]any)
 			payload["text"] = texts[e.Payload["card_id"].(int)]

@@ -19,6 +19,7 @@ const (
 // oyun sürümü (api.md §5).
 type Event struct {
 	RoomID  string
+	GameID  string // oyun olaylarında dolu (zamanlayıcı bunu izler); istemciye gitmez
 	Type    string
 	Version int64
 	To      string

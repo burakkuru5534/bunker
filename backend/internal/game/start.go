@@ -119,6 +119,9 @@ func (s *Starter) StartGame(ctx context.Context, tx pgx.Tx, in room.GameStart) (
 	for _, e := range engineEvents {
 		events = append(events, wireEvent(e, v, now))
 	}
+	for i := range events {
+		events[i].GameID = gameID
+	}
 	return room.GameStarted{GameID: gameID, Events: events}, nil
 }
 

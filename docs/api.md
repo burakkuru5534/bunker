@@ -192,7 +192,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 
 **Ayrılma kuralları:** Lobide (ve sonuç ekranında) üyelik silinir. Oyunda üyelik `left_at` ile kapanır, katılımcı "ayrıldı" olur ve elenmiş sayılır. Oda sahibi ayrılırsa sahiplik **en eski aktif oyuncuya**, oyuncu yoksa en eski üyeye geçer (`room.member_left` + `room.host_changed`, aynı sürüm). Son üye ayrılırsa oda kapanır (olay yok; kodu yeniden kullanılabilir).
 
-**Başlatma:** Oda sahibi, `lobby`, 4–10 oyuncu ve **oda sahibi dahil** tüm oyuncular hazır (izleyiciler sayılmaz). Değilse `409 START_CONDITIONS_NOT_MET` + `details.reason` ∈ `too_few_players`, `not_all_ready` (+ `details.players`). **Tekrar oyna:** tüm aktif üyeler oyuncu olur, hazırlar sıfırlanır.
+**Başlatma:** Oda sahibi, `lobby`, 4–10 oyuncu ve **oda sahibi dahil** tüm oyuncular hazır (izleyiciler sayılmaz). Değilse `409 START_CONDITIONS_NOT_MET` + `details.reason` ∈ `too_few_players`, `not_all_ready` (+ `details.players`); oda sahibi değilse `403 FORBIDDEN`, oyun zaten başladıysa `409 INVALID_PHASE` (eşzamanlı başlatmalardan yalnızca biri başarılı olur). Başarılı başlatma tek transaction’dır (koltuk, senaryo ve kartlar sunucuda rastgele; oda `in_game`, oda sürümü +1); commit sonrası sırasıyla `game.started` (oda), her oyuncuya `game.your_cards` (özel) ve `game.phase_changed` (`SCENARIO_INTRO`) yayınlanır, hepsi oyunun `state_version`’ı (1) ile. Kart kataloğu yetersizse `500 INTERNAL` (hiçbir şey yazılmaz). **Tekrar oyna:** tüm aktif üyeler oyuncu olur, hazırlar sıfırlanır.
 
 **Atma:** Oda sahibi kendini atamaz (`VALIDATION_FAILED`); aktif olmayan hedef `NOT_FOUND`.
 
@@ -220,6 +220,11 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 { "state_version": 43, "duplicate": false }
 ```
 `duplicate: true` → aynı `action_id` daha önce işlenmiş; durum değişmedi. Ekran WS olaylarından güncellenir.
+
+- `action_id` oyuncu başına tekildir (iki oyuncu aynı kimliği kullanabilir). Yalnızca **başarılı** eylemler kaydedilir; reddedilen eylem (ör. `NOT_YOUR_TURN`) aynı `action_id` ile yeniden denenebilir.
+- Çağıran oyunun katılımcısı değilse — oyun yoksa veya kimlik bozuksa da — `404 NOT_FOUND` (oyunun varlığı sızdırılmaz).
+- Gövde katıdır: `payload` nesne olmalı, bilinmeyen alan reddedilir (`VALIDATION_FAILED`, `details.fields`: `payload.category` vb.). Henüz desteklenmeyen türler (`discussion_ready`, `vote`, `tiebreak_vote`; ENG-006/008/009) `type: not_allowed` döner.
+- `game.card_revealed` olayı kart metnini taşır; kart kimliği ve denge etiketi istemciye gitmez.
 
 **GET `/v1/games/{gameId}/result`** — Yalnızca `FINISHED` oyunlar; yetki: oyunun katılımcısı.
 ```json
