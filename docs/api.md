@@ -170,7 +170,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 |---|---|---|---|---|---|
 | POST | `/v1/rooms` | `{ "capacity": 2 }` (ops., varsayılan 2) | Kullanıcı başka aktif odada değil | `201 RoomView` (oluşturan = oda sahibi, oyuncu) | `ALREADY_IN_ROOM` (`details.room_id` = mevcut aktif oda), `VALIDATION_FAILED` (`fields.capacity = not_allowed`) |
 | POST | `/v1/rooms/join` | `{ "invite_code": "K7M2QX" }` | Sınır 10/dk | `200 RoomView` | `INVITE_CODE_NOT_FOUND`, `ROOM_FULL`, `GAME_IN_PROGRESS`, `KICKED`, `NICKNAME_TAKEN_IN_ROOM`, `ALREADY_IN_ROOM` |
-| GET | `/v1/rooms/{roomId}` | — | Üye | `200 RoomView` | `NOT_FOUND` |
+| GET | `/v1/rooms/{roomId}` | — | Aktif üye | `200 RoomView` | `NOT_FOUND` (üye olmayan, olmayan oda ve bozuk kimlik aynı yanıtı alır; varlık sızdırılmaz) |
 | POST | `/v1/rooms/{roomId}/leave` | — | Üye | `204` | — |
 | POST | `/v1/rooms/{roomId}/ready` | `{ "ready": true }` | Oyuncu, `lobby` | `204` | `INVALID_PHASE` |
 | PATCH | `/v1/rooms/{roomId}/settings` | `{ "capacity": 1 }` | Oda sahibi, `lobby` | `200 RoomView` | `FORBIDDEN`, `INVALID_PHASE` |

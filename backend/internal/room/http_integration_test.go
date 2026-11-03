@@ -25,22 +25,37 @@ type api struct {
 	t       *testing.T
 	env     *testdb.Env
 	svc     *Service
+	events  *recorder
 	handler http.Handler
 	ip      int
+}
+
+// recorder, yayınlanan olayları kaydeder.
+type recorder struct {
+	mu     sync.Mutex
+	events []Event
+}
+
+func (r *recorder) Publish(e Event) { r.mu.Lock(); defer r.mu.Unlock(); r.events = append(r.events, e) }
+func (r *recorder) all() []Event {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]Event(nil), r.events...)
 }
 
 func newAPI(t *testing.T) *api {
 	t.Helper()
 	env := testdb.New(t)
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	rec := &recorder{}
 	authHTTP := auth.NewHTTP(auth.NewService(env.DB, nil, logger), 1)
-	svc := NewService(env.DB, nil, logger)
+	svc := NewService(env.DB, nil, rec, logger)
 	roomHTTP := NewHTTP(svc, authHTTP.Require)
 	h := httpapi.NewRouter(httpapi.Options{
 		Logger: logger, MinAppVersion: httpapi.Version{Minor: 1}, RequestTimeout: 5 * time.Second,
 		Register: func(mux *http.ServeMux) { authHTTP.Register(mux); roomHTTP.Register(mux) },
 	})
-	return &api{t: t, env: env, svc: svc, handler: h}
+	return &api{t: t, env: env, svc: svc, events: rec, handler: h}
 }
 
 type resp struct {
