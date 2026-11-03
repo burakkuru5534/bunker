@@ -27,7 +27,11 @@
 ## Her `up` sonunda (ADR-0012)
 
 - Uygulama rolü (`bunker_<ortam>_app`): tüm tablolarda `SELECT, INSERT, UPDATE, DELETE`, dizilerde `USAGE, SELECT`. `TRUNCATE`, DDL ve `schema_migrations` erişimi yok.
-- Her tabloda RLS açık; yalnızca uygulama rolüne `app_access` politikası. Supabase'in `anon` / `authenticated` / `service_role` rolleri hiçbir satır göremez.
+- **Salt okunur tablolar:** tablo yorumunda `@app:readonly` varsa uygulama rolü yalnızca `SELECT` alır ve politika `for select` olur. Kataloglar (senaryolar, kartlar) böyledir; içerikleri yalnızca migration'larla değişir:
+  ```sql
+  comment on table scenarios is '@app:readonly Senaryo kataloğu';
+  ```
+- Her tabloda RLS açık; yalnızca uygulama rolüne `app_access` politikası. Komutu veya rolü yanlış bir politika bulunursa yeniden kurulur. Supabase'in `anon` / `authenticated` / `service_role` rolleri hiçbir satır göremez.
 
 ## Komutlar (`backend/` klasöründe)
 

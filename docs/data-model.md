@@ -42,6 +42,15 @@ Migration'lar: [`migrations/postgres`](../migrations/postgres/README.md). Tüm t
 | `room_members` | PK `(room_id, user_id)`. `role` player/spectator; izleyici hazır olamaz; atılan (`kicked_at`) aynı zamanda ayrılmıştır. **Aktif üyelik = `left_at` boş.** Kullanıcı başına tek aktif üyelik (ALREADY_IN_ROOM) ve oda içinde aktif üyeler arasında büyük/küçük harf duyarsız tekil `nickname` (NICKNAME_TAKEN_IN_ROOM) veritabanında garanti edilir; bunun için katılma anındaki takma adın kopyası `room_members.nickname`'de tutulur (PATCH /me lobi üyeliğini de günceller). Oda silinince üyelikler silinir. |
 | `blocks` | PK `(blocker_id, blocked_id)`, kendini engelleme yok; ters yön için `blocked_id` indeksi. |
 
+### 0002 — katalog (DB-003b)
+
+| Tablo | Kesin kararlar |
+|---|---|
+| `scenarios` | `id` metin anahtar (ör. `nuclear_winter`); `title` ≤ 40, `disaster` 20–600, `duration_label` (ör. "3 yıl"), `shelter_features` tam 3 madde, `outside_world` 20–400 karakter. |
+| `card_definitions` | `id` içerik migration'larında açıkça verilir ve değişmez (öneri: meslek 1xxx, sağlık 2xxx, hobi 3xxx, eşya 4xxx, sır 5xxx). `category` 5 değerden biri, `text` 2–120 karakter ve kategori içinde tekil, `balance` ∈ {−1, 0, +1} (gizli denge etiketi, istemciye gönderilmez). İndeks: aktif kartlar `(category, balance)`. |
+
+Her iki tablo **salt okunur** (`@app:readonly`): uygulama rolü yalnızca okur; içerik CARD-002…007'de migration'larla yüklenir. Kayıtlar silinmez, `active = false` ile emekliye ayrılır (geçmiş oyunlar başvurur).
+
 ## Tutarlılık kuralları
 
 - Her oyun eylemi `games` satırı `FOR UPDATE` ile kilitlenmiş kısa bir transaction içinde işlenir; `state_version` her değişiklikte +1 ([ADR-0004](decisions/0004-db-authoritative-state.md)).

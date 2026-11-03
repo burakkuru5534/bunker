@@ -288,3 +288,83 @@ func TestIntegrationRepositoryMigrationsApply(t *testing.T) {
 		t.Fatalf("ikinci çalıştırma: %v", err)
 	}
 }
+
+func (e *env) policyCmd(t *testing.T, table string) string {
+	t.Helper()
+	var cmd string
+	if err := e.admin.QueryRow(context.Background(),
+		"select cmd from pg_policies where schemaname = $1 and tablename = $2 and policyname = 'app_access'", e.schema, table).Scan(&cmd); err != nil {
+		t.Fatalf("%s politikası: %v", table, err)
+	}
+	return cmd
+}
+
+func TestIntegrationReadOnlyMarker(t *testing.T) {
+	e := setup(t)
+	ctx := ctx10(t)
+	dir := writeFiles(t, map[string]string{
+		"0001_catalog.sql": "create table catalog (id int primary key, name text not null);\n" +
+			"comment on table catalog is '@app:readonly katalog';\n" +
+			"insert into catalog values (1, 'a');\n",
+	})
+	migs, _ := Load(dir)
+	_, rep, err := Up(ctx, e.migPool, e.opts(), migs, false)
+	if err != nil || len(rep.ReadOnly) != 1 || rep.ReadOnly[0] != "catalog" {
+		t.Fatalf("salt okunur: %+v %v", rep, err)
+	}
+	if cmd := e.policyCmd(t, "catalog"); cmd != "SELECT" {
+		t.Fatalf("politika SELECT olmalı: %s", cmd)
+	}
+	var n int
+	if err := e.appPool.QueryRow(ctx, "select count(*) from catalog").Scan(&n); err != nil || n != 1 {
+		t.Fatalf("uygulama okuyabilmeli: %d %v", n, err)
+	}
+	for _, q := range []string{"insert into catalog values (2, 'b')", "update catalog set name = 'x'", "delete from catalog"} {
+		if _, err := e.appPool.Exec(ctx, q); err == nil {
+			t.Errorf("salt okunur tabloda yapılamamalı: %s", q)
+		}
+	}
+
+	// İşaret kaldırılırsa (yeni migration), politika ALL'a döner ve yazma açılır.
+	if err := os.WriteFile(filepath.Join(dir, "0002_writable.sql"), []byte("comment on table catalog is 'artık yazılabilir';\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	migs, _ = Load(dir)
+	_, rep, err = Up(ctx, e.migPool, e.opts(), migs, false)
+	if err != nil || len(rep.PoliciesReplaced) != 1 || len(rep.ReadOnly) != 0 {
+		t.Fatalf("politika değişmeli: %+v %v", rep, err)
+	}
+	if cmd := e.policyCmd(t, "catalog"); cmd != "ALL" {
+		t.Fatalf("politika ALL olmalı: %s", cmd)
+	}
+	if _, err := e.appPool.Exec(ctx, "insert into catalog values (2, 'b')"); err != nil {
+		t.Fatalf("yazma açılmalı: %v", err)
+	}
+}
+
+func TestIntegrationPolicyWithWrongRoleIsReplaced(t *testing.T) {
+	e := setup(t)
+	ctx := ctx10(t)
+	migs, _ := Load(writeFiles(t, map[string]string{"0001_create_items.sql": m1}))
+	if _, _, err := Up(ctx, e.migPool, e.opts(), migs, false); err != nil {
+		t.Fatal(err)
+	}
+	// Biri politikayı anon'a açacak şekilde değiştirse bile düzeltilir.
+	for _, q := range []string{
+		"drop policy app_access on " + e.schema + ".items",
+		"create policy app_access on " + e.schema + ".items for all to anon using (true)",
+	} {
+		if _, err := e.admin.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, rep, err := Up(ctx, e.migPool, e.opts(), migs, false)
+	if err != nil || len(rep.PoliciesReplaced) != 1 {
+		t.Fatalf("yanlış rollü politika düzeltilmeli: %+v %v", rep, err)
+	}
+	var roles string
+	_ = e.admin.QueryRow(ctx, "select roles::text from pg_policies where schemaname = $1 and tablename = 'items'", e.schema).Scan(&roles)
+	if roles != "{"+e.app+"}" {
+		t.Fatalf("politika yalnızca uygulama rolüne olmalı: %s", roles)
+	}
+}

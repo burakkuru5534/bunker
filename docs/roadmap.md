@@ -118,6 +118,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **DB-002:** `internal/migrate` + `cmd/migrate` (status, up, up -dry-run, new, lint); harici araç yok. Dosyalar `migrations/postgres/NNNN_ad.sql`, yalnızca ileri yönlü; SHA-256 sağlaması (CRLF/BOM'dan bağımsız), silinen/yeniden adlandırılan/sıra dışı dosya reddi, şemaya özgü advisory lock (session mode), dosya başına transaction (`-- migrate:no-transaction` tek ifade için), hata mesajında dosya + satır. Lint: şema/ortam adı, search_path/rol, GRANT/REVOKE, şema DDL'i, BEGIN/COMMIT, RLS kapatma yasak. Migration rolü `bunker_<ortam>_migrator` (`dbsetup -role migrator`; USAGE+CREATE, 1min/5s, limit 2). Her `up` sonunda yetki eşitleme: uygulama rolüne DML, RLS her tabloda açık + yalnızca uygulama rolüne `app_access` politikası; anon/Data API erişemez (ADR-0012 — eski 'RLS açık, politika yok' kuralı uygulamanın kendisini de kilitlerdi). Testler: gerçek PostgreSQL'de up/dry-run/idempotentlik, uygulama rolü yetki sınırları, anon erişimi yok, hatalı dosyada tam geri alma, kilit, elle bozulan yetkilerin düzelmesi, depo migration'larının boş şemaya uygulanması; yerelde verify-full TLS ve süper kullanıcı olmayan yöneticiyle uçtan uca prova. Kapsama: migrate %88,3, dbsetup %90,3.
 - **DB-002 (Supabase):** `bunker_test_migrator` kuruldu, `dbsetup check -role migrator` 12/12 ✓; ilk `migrate up` sürüm tablosunu kurdu ve yetkileri eşitledi; uygulama rolü denetimi hâlâ 12/12 ✓ (2026-11-03).
 - **DB-003a:** `0001_identity_and_rooms.sql`: users, sessions, rooms, room_members, blocks. Veritabanında garanti edilenler: davet kodu biçimi ve açık odalar arasında tekilliği, kapasite {1,2}, durum/kapanış tutarlılığı, açık odanın sahibi, kullanıcı başına tek aktif oda, oda içi büyük/küçük harf duyarsız tekil takma ad (üyelikte takma ad kopyası), izleyicinin hazır olamaması, token hash'inin 32 bayt ve tekil olması, kendini engelleme yok. Kısıt testleri uygulama rolüyle gerçek PostgreSQL'de; her tabloda RLS + app_access doğrulandı. data-model.md'ye 'Kesinleşen tablolar' bölümü eklendi.
+- **DB-003b:** `0002_catalog.sql`: scenarios (metin anahtar, tam 3 sığınak özelliği, uzunluk sınırları), card_definitions (açık tamsayı id, 5 kategori, kategori içinde tekil metin, gizli balance −1/0/+1, aktif kart indeksi). İçerik ayrı (CARD görevleri). Yetki eşitleme genişletildi: `@app:readonly` yorumlu tablolarda uygulama rolüne yalnızca SELECT + `for select` politikası; yanlış komut/rollü politika yeniden kurulur (ADR-0012 eki). Testler: salt okunur davranışı, işaretin kaldırılınca yazmanın açılması, anon'a açılan politikanın düzeltilmesi, katalog kısıtları.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -131,8 +132,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | DB-001a | PostgreSQL bağlantı kodu, güvenlik denetimleri, CI entegrasyon testi | P0 | Done |
 | DB-001b | Supabase kurulumu (şema/rol, Data API, gerçek bağlantı ve TLS doğrulaması) | P0 | Done |
 | DB-002 | Migration altyapısı | P0 | Done |
-| DB-003a | Şema: kimlik ve odalar (users, sessions, rooms, room_members, blocks) | P0 | Awaiting User Approval |
-| DB-003b | Şema: katalog (scenarios, card_definitions) ve başlangıç verisi | P0 | Backlog |
+| DB-003a | Şema: kimlik ve odalar (users, sessions, rooms, room_members, blocks) | P0 | Done |
+| DB-003b | Şema: katalog (scenarios, card_definitions); içerik CARD-002…007'de | P0 | Awaiting User Approval |
 | DB-003c | Şema: oyun (games, game_participants, player_cards, votes, round_results, game_actions) | P0 | Backlog |
 | DB-003d | Şema: sohbet ve moderasyon (chat_messages, reports) | P0 | Backlog |
 | DB-004 | Sorgu ve indeks tasarımı | P0 | Backlog |

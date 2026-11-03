@@ -187,9 +187,15 @@ func TestIntegrationSchemaRLSOnEveryTable(t *testing.T) {
 			t.Errorf("%s: app_access politikası = %v", name, pol)
 		}
 	}
-	for _, want := range []string{"users", "sessions", "rooms", "room_members", "blocks"} {
+	for _, want := range []string{"users", "sessions", "rooms", "room_members", "blocks", "scenarios", "card_definitions"} {
 		if !seen[want] {
 			t.Errorf("%s tablosu yok (görülen: %s)", want, strings.Join(keys(seen), ","))
+		}
+	}
+	// Kataloglar salt okunur, diğerleri okuma/yazma.
+	for table, want := range map[string]string{"scenarios": "SELECT", "card_definitions": "SELECT", "users": "ALL", "rooms": "ALL"} {
+		if got := e.policyCmd(t, table); got != want {
+			t.Errorf("%s politikası %s olmalı: %s", table, want, got)
 		}
 	}
 }
@@ -200,4 +206,63 @@ func keys(m map[string]bool) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// mig, migration rolüyle çalıştırır (katalog verisini yalnızca o yazabilir).
+func (e *env) asMigrator(t *testing.T, wantConstraint, sql string, args ...any) {
+	t.Helper()
+	_, err := e.migPool.Exec(context.Background(), sql, args...)
+	if wantConstraint == "" {
+		if err != nil {
+			t.Fatalf("başarılı olmalı: %s: %v", sql, err)
+		}
+		return
+	}
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.ConstraintName != wantConstraint {
+		t.Fatalf("%s kısıtı bekleniyordu: %s: %v", wantConstraint, sql, err)
+	}
+}
+
+func TestIntegrationSchemaCatalog(t *testing.T) {
+	e := schemaEnv(t)
+	insScenario := `insert into scenarios (id, title, disaster, duration_label, shelter_features, outside_world)
+		values ($1, $2, $3, $4, $5, $6)`
+	disaster := "Gökyüzü aylardır kül rengi; güneş ışığı yere ulaşmıyor."
+	outside := "Dışarıda sıcaklık eksi kırkın altında; yollar kapalı."
+	feats := []string{"Erzak tam", "Isıtma bakım istiyor", "Tıbbi malzeme az"}
+
+	e.asMigrator(t, "", insScenario, "nuclear_winter", "Nükleer Kış", disaster, "3 yıl", feats, outside)
+	e.asMigrator(t, "scenarios_pkey", insScenario, "nuclear_winter", "Başka", disaster, "3 yıl", feats, outside)
+	e.asMigrator(t, "scenarios_id_shape", insScenario, "Nuclear-Winter", "Nükleer Kış", disaster, "3 yıl", feats, outside)
+	e.asMigrator(t, "scenarios_title_shape", insScenario, "x1", " Nükleer", disaster, "3 yıl", feats, outside)
+	e.asMigrator(t, "scenarios_disaster_len", insScenario, "x2", "Başlık", "kısa", "3 yıl", feats, outside)
+	e.asMigrator(t, "scenarios_three_features", insScenario, "x3", "Başlık", disaster, "3 yıl", feats[:2], outside)
+	e.asMigrator(t, "scenarios_three_features", insScenario, "x4", "Başlık", disaster, "3 yıl", []*string{&feats[0], nil, &feats[1]}, outside)
+	e.asMigrator(t, "scenarios_outside_len", insScenario, "x5", "Başlık", disaster, "3 yıl", feats, "kısa")
+
+	insCard := "insert into card_definitions (id, category, text, balance) values ($1, $2, $3, $4)"
+	e.asMigrator(t, "", insCard, 1001, "profession", "Elektrik mühendisi", 1)
+	e.asMigrator(t, "", insCard, 5001, "secret", "Ehliyeti sahte", -1)
+	e.asMigrator(t, "card_definitions_pkey", insCard, 1001, "profession", "Doktor", 1)
+	e.asMigrator(t, "card_definitions_category_text_key", insCard, 1002, "profession", "Elektrik mühendisi", 0)
+	e.asMigrator(t, "card_definitions_category_valid", insCard, 6001, "action", "Kapıyı kilitle", 0)
+	e.asMigrator(t, "card_definitions_balance_valid", insCard, 1003, "profession", "Aşçı", 2)
+	e.asMigrator(t, "card_definitions_text_shape", insCard, 1004, "profession", "Aşçı ", 0)
+	e.asMigrator(t, "card_definitions_id_positive", insCard, 0, "profession", "Aşçı", 0)
+
+	// Uygulama rolü okur, yazamaz.
+	var n int
+	if err := e.appPool.QueryRow(context.Background(), "select count(*) from card_definitions where active").Scan(&n); err != nil || n != 2 {
+		t.Fatalf("uygulama kataloğu okuyabilmeli: %d %v", n, err)
+	}
+	for _, q := range []string{
+		"insert into card_definitions (id, category, text, balance) values (9, 'item', 'Fener', 1)",
+		"update card_definitions set balance = 1",
+		"delete from scenarios",
+	} {
+		if _, err := e.appPool.Exec(context.Background(), q); err == nil {
+			t.Errorf("uygulama katalogu değiştirememeli: %s", q)
+		}
+	}
 }

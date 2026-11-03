@@ -166,8 +166,8 @@ func run(args []string, getenv func(string) string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "%d migration uygulandı; yetkiler eşitlendi: %d tablo, RLS açılan %d, politika eklenen %d\n",
-		len(applied), rep.Tables, len(rep.RLSEnabled), len(rep.PoliciesCreated))
+	fmt.Fprintf(stdout, "%d migration uygulandı; yetkiler eşitlendi: %d tablo (%d salt okunur), RLS açılan %d, politika eklenen %d, düzeltilen %d\n",
+		len(applied), rep.Tables, len(rep.ReadOnly), len(rep.RLSEnabled), len(rep.PoliciesCreated), len(rep.PoliciesReplaced))
 	return nil
 }
 

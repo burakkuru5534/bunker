@@ -46,10 +46,18 @@ type Status struct {
 
 // SyncReport, yetki eşitlemesinin özetidir.
 type SyncReport struct {
-	Tables          int
-	RLSEnabled      []string
-	PoliciesCreated []string
+	Tables           int
+	RLSEnabled       []string
+	PoliciesCreated  []string
+	PoliciesReplaced []string // komutu/rolü yanlış olup yeniden kurulanlar
+	ReadOnly         []string // @app:readonly işaretli tablolar
 }
+
+// ReadOnlyMarker, tablo yorumunda bulunursa uygulama rolü o tabloyu yalnızca
+// okuyabilir (SELECT + "for select" politikası). Katalog tabloları içindir:
+//
+//	comment on table scenarios is '@app:readonly Senaryo kataloğu';
+const ReadOnlyMarker = "@app:readonly"
 
 func (o Options) table() string { return pgx.Identifier{o.Schema, TrackingTable}.Sanitize() }
 
@@ -282,7 +290,10 @@ func lock(ctx context.Context, c *pgx.Conn, opts Options) (func(), error) {
 //   - Uygulama rolü: tablolarda SELECT/INSERT/UPDATE/DELETE, dizilerde
 //     USAGE/SELECT; ileride oluşacaklar için varsayılan yetkiler. TRUNCATE,
 //     REFERENCES, TRIGGER ve DDL yok.
-//   - Her tabloda RLS açık; uygulama rolüne tek politika (app_access).
+//   - Yorumunda @app:readonly olan tablolarda yalnızca SELECT ve "for select"
+//     politikası (katalog verisini uygulama değiştiremez).
+//   - Her tabloda RLS açık; uygulama rolüne tek politika (app_access); komutu
+//     veya rolü yanlışsa yeniden kurulur.
 //     anon/authenticated/service_role için politika yoktur → erişemez.
 //   - schema_migrations: uygulama rolü erişemez, RLS açık, politika yok.
 func SyncPrivileges(ctx context.Context, c *pgx.Conn, opts Options) (SyncReport, error) {
@@ -308,24 +319,32 @@ func SyncPrivileges(ctx context.Context, c *pgx.Conn, opts Options) (SyncReport,
 		}
 	}
 
+	// Her tablo: RLS açık mı, salt okunur işareti var mı, mevcut app_access
+	// politikası hangi komut ve rollerle tanımlı.
 	rows, err := tx.Query(ctx, `
-		select c.relname::text, c.relrowsecurity,
-		       exists (select 1 from pg_catalog.pg_policies p
-		                where p.schemaname = n.nspname and p.tablename = c.relname and p.policyname = $2)
+		select c.relname::text,
+		       c.relrowsecurity,
+		       coalesce(obj_description(c.oid, 'pg_class'), '') like '%`+ReadOnlyMarker+`%',
+		       p.cmd,
+		       coalesce(p.roles = array[$3]::name[], false)
 		  from pg_catalog.pg_class c
 		  join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+		  left join pg_catalog.pg_policies p
+		         on p.schemaname = n.nspname and p.tablename = c.relname and p.policyname = $2
 		 where n.nspname = $1 and c.relkind in ('r', 'p')
-		 order by 1`, opts.Schema, PolicyName)
+		 order by 1`, opts.Schema, PolicyName, opts.AppRole)
 	if err != nil {
 		return rep, err
 	}
 	type tbl struct {
-		name     string
-		rls, pol bool
+		name          string
+		rls, readOnly bool
+		cmd           *string
+		rolesMatch    bool
 	}
 	tables, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (tbl, error) {
 		var t tbl
-		err := r.Scan(&t.name, &t.rls, &t.pol)
+		err := r.Scan(&t.name, &t.rls, &t.readOnly, &t.cmd, &t.rolesMatch)
 		return t, err
 	})
 	if err != nil {
@@ -341,14 +360,33 @@ func SyncPrivileges(ctx context.Context, c *pgx.Conn, opts Options) (SyncReport,
 			}
 			rep.RLSEnabled = append(rep.RLSEnabled, t.name)
 		}
-		if t.name == TrackingTable || t.pol {
+		if t.name == TrackingTable {
 			continue
 		}
+
+		wantCmd, forClause, using := "ALL", "for all", " using (true) with check (true)"
+		if t.readOnly {
+			rep.ReadOnly = append(rep.ReadOnly, t.name)
+			if _, err := tx.Exec(ctx, `revoke insert, update, delete on `+qualified+` from `+app); err != nil {
+				return rep, fmt.Errorf("%s salt okunur: %w", t.name, err)
+			}
+			wantCmd, forClause, using = "SELECT", "for select", " using (true)"
+		}
+		if t.cmd != nil && *t.cmd == wantCmd && t.rolesMatch {
+			continue // politika doğru
+		}
+		if t.cmd != nil {
+			if _, err := tx.Exec(ctx, `drop policy `+PolicyName+` on `+qualified); err != nil {
+				return rep, fmt.Errorf("%s politika: %w", t.name, err)
+			}
+			rep.PoliciesReplaced = append(rep.PoliciesReplaced, t.name)
+		} else {
+			rep.PoliciesCreated = append(rep.PoliciesCreated, t.name)
+		}
 		if _, err := tx.Exec(ctx, `create policy `+PolicyName+` on `+qualified+
-			` as permissive for all to `+app+` using (true) with check (true)`); err != nil {
+			` as permissive `+forClause+` to `+app+using); err != nil {
 			return rep, fmt.Errorf("%s politika: %w", t.name, err)
 		}
-		rep.PoliciesCreated = append(rep.PoliciesCreated, t.name)
 	}
 	return rep, tx.Commit(ctx)
 }

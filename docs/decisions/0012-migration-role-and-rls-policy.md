@@ -12,6 +12,8 @@ security.md "tüm tablolarda RLS etkin, politika yok" diyordu. Ancak uygulama ro
   - Her tabloda RLS açık. Yalnızca uygulama rolüne izin veren tek politika `app_access` (`using (true) with check (true)`).
   - `anon`, `authenticated`, `service_role` ve `PUBLIC` için yetki ve politika yoktur, yani hiçbir satır göremezler.
   - `schema_migrations` uygulama rolüne kapalıdır (RLS açık, politika yok).
+  - **Salt okunur tablolar** (ek, 2026-11-03, DB-003b): tablo yorumunda `@app:readonly` varsa uygulama rolü yalnızca `SELECT` alır, politika `for select`. Kataloglar (senaryo, kart) böyledir; içerik yalnızca migration ile değişir.
+  - Politikası yanlış komut veya rolle tanımlanmış tablo (ör. elle `anon`'a açılmış) bir sonraki `up`'ta yeniden kurulur.
 - Migration dosyalarında `GRANT/REVOKE`, şema adı, `search_path`, `DISABLE ROW LEVEL SECURITY` yasaktır (`migrate lint`, CI).
 
 ## Alternatifler
