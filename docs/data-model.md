@@ -51,6 +51,19 @@ Migration'lar: [`migrations/postgres`](../migrations/postgres/README.md). Tüm t
 
 Her iki tablo **salt okunur** (`@app:readonly`): uygulama rolü yalnızca okur; içerik CARD-002…007'de migration'larla yüklenir. Kayıtlar silinmez, `active = false` ile emekliye ayrılır (geçmiş oyunlar başvurur).
 
+### 0003 — oyun (DB-003c)
+
+| Tablo | Kesin kararlar |
+|---|---|
+| `games` | `phase` ∈ dealing, scenario_intro, reveal, discussion, voting, tie_break, elimination, finished (ayrı `status` yok; aktif oyun = `phase <> 'finished'`). `round` 0 (dağıtım/giriş), REVEAL yalnızca tur 1–5, `round ≤ total_rounds` (2–9). `turn_seat` yalnızca REVEAL'da. `phase_deadline_at` bitmemiş her aşamada dolu (ADR-0005). `finished_at` ve `end_reason` (capacity_reached / abandoned) yalnızca bitince. **Odada tek aktif oyun** (kısmi tekil indeks). Oda silinirse oyun kalır (`room_id` boşalır). `rooms.current_game_id` → `games` yabancı anahtarı burada eklendi. İndeks: aktif oyunların deadline'ı (açılışta kurtarma). |
+| `game_participants` | PK `(game_id, user_id)`; `seat` 0–9 oyunda tekil = rastgele açıklama sırası. `status` alive/eliminated/left; elenen/ayrılanın `eliminated_round`'u dolu (oyun başlamadan ayrılma = 0). Kazanan hayatta olmalı. "Hazırım" için `discussion_ready_round` (tur başına sıfırlama gerekmez). Takma ad kopyalanmaz (silinen hesap geçmişte de anonim görünür). |
+| `player_cards` | PK `(game_id, user_id, category)`. **Kart kategorisi yuvayla eşleşir** (`card_definitions (id, category)` bileşik yabancı anahtarı). **Oyunda her kart en fazla bir kez** (`(game_id, card_id)` tekil). Açılış: `revealed_round`, `reveal_method` (player / timeout / elimination), `revealed_at` birlikte dolu. Dağıtılmış kart katalogdan silinemez. |
+| `votes` | PK `(game_id, round, kind, voter_id)` → oy değiştirilemez; `kind` regular/tiebreak; kendine oy yok; oy veren ve hedef oyunun katılımcısı. Yalnızca sunucuda okunur. |
+| `round_results` | PK `(game_id, round)`; `method` vote/spectators/lottery/left; `left` dışında elenen dolu; `tally` JSON dizi; `lottery_candidates` yalnızca kurada ve en az 2 aday. |
+| `game_actions` | Idempotency: `(game_id, actor_id, action_id)` tekil; tekrar gelen istek kaydedilen `state_version`'ı döndürür. Sistem eylemleri `actor_id = null` (zamanlayıcı; sürüm denetimi korur). `type`: reveal_card, discussion_ready, vote, tiebreak_vote, leave, disconnect_timeout, phase_timeout. |
+
+Oyun silinirse (yalnızca bakım) bağlı tüm kayıtlar silinir.
+
 ## Tutarlılık kuralları
 
 - Her oyun eylemi `games` satırı `FOR UPDATE` ile kilitlenmiş kısa bir transaction içinde işlenir; `state_version` her değişiklikte +1 ([ADR-0004](decisions/0004-db-authoritative-state.md)).

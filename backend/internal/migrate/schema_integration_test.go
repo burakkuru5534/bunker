@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -187,7 +188,8 @@ func TestIntegrationSchemaRLSOnEveryTable(t *testing.T) {
 			t.Errorf("%s: app_access politikası = %v", name, pol)
 		}
 	}
-	for _, want := range []string{"users", "sessions", "rooms", "room_members", "blocks", "scenarios", "card_definitions"} {
+	for _, want := range []string{"users", "sessions", "rooms", "room_members", "blocks", "scenarios", "card_definitions",
+		"games", "game_participants", "player_cards", "votes", "round_results", "game_actions"} {
 		if !seen[want] {
 			t.Errorf("%s tablosu yok (görülen: %s)", want, strings.Join(keys(seen), ","))
 		}
@@ -263,6 +265,172 @@ func TestIntegrationSchemaCatalog(t *testing.T) {
 	} {
 		if _, err := e.appPool.Exec(context.Background(), q); err == nil {
 			t.Errorf("uygulama katalogu değiştirememeli: %s", q)
+		}
+	}
+}
+
+// gameFixture: senaryo, kartlar, oda ve 4 kullanıcılı bir oyun kurar.
+type gameFixture struct {
+	game, room string
+	users      []string
+}
+
+func (e *env) newGame(t *testing.T) gameFixture {
+	t.Helper()
+	ctx := context.Background()
+	e.asMigrator(t, "", `insert into scenarios (id, title, disaster, duration_label, shelter_features, outside_world)
+		values ('nuclear_winter', 'Nükleer Kış', 'Gökyüzü aylardır kül rengi; güneş ışığı yere ulaşmıyor.', '3 yıl',
+		        array['Erzak tam', 'Isıtma bakım istiyor', 'Tıbbi malzeme az'], 'Dışarıda sıcaklık eksi kırkın altında.')`)
+	e.asMigrator(t, "", `insert into card_definitions (id, category, text, balance) values
+		(1001, 'profession', 'Elektrik mühendisi', 1), (1002, 'profession', 'Aşçı', 0),
+		(2001, 'health', 'Sağlıklı', 1), (5001, 'secret', 'Ehliyeti sahte', -1)`)
+	var f gameFixture
+	for _, n := range []string{"Burak", "Ayşe", "Mehmet", "Zeynep"} {
+		f.users = append(f.users, e.newUser(t, n))
+	}
+	f.room = e.newRoom(t, "GGGGGG", f.users[0])
+	if err := e.appPool.QueryRow(ctx, `insert into games (room_id, scenario_id, capacity, total_rounds, phase_deadline_at)
+		values ($1, 'nuclear_winter', 2, 2, now() + interval '5 seconds') returning id`, f.room).Scan(&f.game); err != nil {
+		t.Fatal(err)
+	}
+	for i, u := range f.users {
+		e.expect(t, "", "insert into game_participants (game_id, user_id, seat) values ($1, $2, $3)", f.game, u, i)
+	}
+	e.expect(t, "", "update rooms set status = 'in_game', current_game_id = $2 where id = $1", f.room, f.game)
+	return f
+}
+
+func TestIntegrationSchemaGames(t *testing.T) {
+	e := schemaEnv(t)
+	f := e.newGame(t)
+	g := f.game
+	ins := `insert into games (room_id, scenario_id, capacity, total_rounds, phase_deadline_at) values ($1, $2, $3, $4, now())`
+
+	// Odada tek aktif oyun.
+	e.expect(t, "games_room_active_key", ins, f.room, "nuclear_winter", 2, 2)
+	e.expect(t, "games_scenario_id_fkey", ins, nil, "yok_boyle", 2, 2)
+	e.expect(t, "games_capacity_range", ins, nil, "nuclear_winter", 3, 2)
+	e.expect(t, "games_total_rounds_range", ins, nil, "nuclear_winter", 2, 1)
+	e.expect(t, "games_deadline_unless_finished", `insert into games (scenario_id, capacity, total_rounds) values ('nuclear_winter', 2, 2)`)
+
+	upd := "update games set phase = $2, round = $3, turn_seat = $4 where id = $1"
+	e.expect(t, "games_phase_valid", upd, g, "lobby", 0, nil)
+	e.expect(t, "games_round_phase", upd, g, "scenario_intro", 1, nil)
+	e.expect(t, "games_turn_only_in_reveal", upd, g, "reveal", 1, nil)
+	e.expect(t, "games_turn_only_in_reveal", upd, g, "discussion", 1, 0)
+	e.expect(t, "games_round_range", upd, g, "voting", 3, nil)
+	e.expect(t, "", upd, g, "reveal", 1, 0)
+	e.expect(t, "", upd, g, "voting", 2, nil)
+	e.expect(t, "games_state_version_nonnegative", "update games set state_version = -1 where id = $1", g)
+
+	// Bitiş: deadline yok, zaman ve neden dolu.
+	e.expect(t, "games_deadline_unless_finished", "update games set phase = 'finished', finished_at = now(), end_reason = 'abandoned' where id = $1", g)
+	e.expect(t, "games_finished_consistent", "update games set phase = 'finished', phase_deadline_at = null where id = $1", g)
+	e.expect(t, "games_end_reason_valid", "update games set phase = 'finished', phase_deadline_at = null, finished_at = now(), end_reason = 'won' where id = $1", g)
+	e.expect(t, "", "update games set phase = 'finished', phase_deadline_at = null, finished_at = now(), end_reason = 'capacity_reached' where id = $1", g)
+	// Bitince odada yeni oyun açılabilir.
+	e.expect(t, "", ins, f.room, "nuclear_winter", 1, 3)
+
+	// Oda silinse de oyun kalır (sonuç kalıcı).
+	e.expect(t, "", "update rooms set status = 'closed', closed_at = now(), current_game_id = null where id = $1", f.room)
+	e.expect(t, "", "delete from rooms where id = $1", f.room)
+	var room *string
+	if err := e.appPool.QueryRow(context.Background(), "select room_id from games where id = $1", g).Scan(&room); err != nil || room != nil {
+		t.Fatalf("oyun kalmalı, oda bağı boşalmalı: %v %v", room, err)
+	}
+	e.expect(t, "rooms_current_game_id_fkey", "insert into rooms (invite_code, host_user_id, current_game_id) values ('HHHHHH', $1, gen_random_uuid())", f.users[0])
+}
+
+func TestIntegrationSchemaParticipantsAndCards(t *testing.T) {
+	e := schemaEnv(t)
+	f := e.newGame(t)
+	g, u := f.game, f.users
+	extra := e.newUser(t, "Can")
+
+	e.expect(t, "game_participants_seat_key", "insert into game_participants (game_id, user_id, seat) values ($1, $2, 0)", g, extra)
+	e.expect(t, "game_participants_seat_range", "insert into game_participants (game_id, user_id, seat) values ($1, $2, 10)", g, extra)
+	e.expect(t, "game_participants_eliminated_round", "update game_participants set status = 'eliminated' where game_id = $1 and user_id = $2", g, u[3])
+	e.expect(t, "game_participants_eliminated_round", "update game_participants set eliminated_round = 1 where game_id = $1 and user_id = $2", g, u[3])
+	e.expect(t, "game_participants_status_valid", "update game_participants set status = 'dead', eliminated_round = 1 where game_id = $1 and user_id = $2", g, u[3])
+	e.expect(t, "", "update game_participants set status = 'left', eliminated_round = 0 where game_id = $1 and user_id = $2", g, u[3])
+	e.expect(t, "game_participants_winner_alive", "update game_participants set is_winner = true where game_id = $1 and user_id = $2", g, u[3])
+	e.expect(t, "", "update game_participants set is_winner = true where game_id = $1 and user_id = $2", g, u[0])
+
+	deal := "insert into player_cards (game_id, user_id, category, card_id) values ($1, $2, $3, $4)"
+	e.expect(t, "", deal, g, u[0], "profession", 1001)
+	e.expect(t, "player_cards_pkey", deal, g, u[0], "profession", 1002)
+	// Aynı kart oyunda ikinci kez dağıtılamaz.
+	e.expect(t, "player_cards_card_once_per_game_key", deal, g, u[1], "profession", 1001)
+	// Kart, yuvanın kategorisinde olmalı.
+	e.expect(t, "player_cards_card_fkey", deal, g, u[1], "health", 1002)
+	e.expect(t, "player_cards_card_fkey", deal, g, u[1], "profession", 9999)
+	e.expect(t, "player_cards_participant_fkey", deal, g, extra, "profession", 1002)
+	e.expect(t, "", deal, g, u[1], "profession", 1002)
+
+	reveal := "update player_cards set revealed_round = $3, reveal_method = $4, revealed_at = $5 where game_id = $1 and user_id = $2 and category = 'profession'"
+	e.expect(t, "player_cards_reveal_consistent", reveal, g, u[0], 1, "player", nil)
+	e.expect(t, "player_cards_reveal_method_valid", reveal, g, u[0], 1, "magic", time.Now())
+	e.expect(t, "player_cards_revealed_round_range", reveal, g, u[0], 0, "player", time.Now())
+	e.expect(t, "", reveal, g, u[0], 1, "player", time.Now())
+
+	// Katalogdaki kart, dağıtılmışken silinemez (geçmiş korunur).
+	e.asMigrator(t, "player_cards_card_fkey", "delete from card_definitions where id = 1001")
+}
+
+func TestIntegrationSchemaVotesResultsActions(t *testing.T) {
+	e := schemaEnv(t)
+	f := e.newGame(t)
+	g, u := f.game, f.users
+	outsider := e.newUser(t, "Yabancı")
+
+	vote := "insert into votes (game_id, round, kind, voter_id, target_id) values ($1, $2, $3, $4, $5)"
+	e.expect(t, "", vote, g, 1, "regular", u[0], u[1])
+	// Oy değiştirilemez / tekrar edilemez.
+	e.expect(t, "votes_pkey", vote, g, 1, "regular", u[0], u[2])
+	e.expect(t, "votes_not_self", vote, g, 1, "regular", u[1], u[1])
+	e.expect(t, "votes_kind_valid", vote, g, 1, "secret", u[1], u[0])
+	e.expect(t, "votes_round_range", vote, g, 0, "regular", u[1], u[0])
+	e.expect(t, "votes_voter_fkey", vote, g, 1, "regular", outsider, u[0])
+	e.expect(t, "votes_target_fkey", vote, g, 1, "regular", u[1], outsider)
+	// Aynı turda eşitlik oyu ayrı türdür.
+	e.expect(t, "", vote, g, 1, "tiebreak", u[0], u[2])
+
+	res := "insert into round_results (game_id, round, eliminated_id, method, tally, lottery_candidates) values ($1, $2, $3, $4, $5, $6)"
+	tally := `[{"user_id": "` + u[1] + `", "votes": 3}]`
+	e.expect(t, "", res, g, 1, u[1], "vote", tally, nil)
+	e.expect(t, "round_results_pkey", res, g, 1, u[2], "vote", tally, nil)
+	e.expect(t, "round_results_method_valid", res, g, 2, u[2], "dice", tally, nil)
+	e.expect(t, "round_results_eliminated_unless_left", res, g, 2, nil, "vote", tally, nil)
+	e.expect(t, "round_results_tally_array", res, g, 2, u[2], "vote", `{"a": 1}`, nil)
+	e.expect(t, "round_results_lottery_candidates", res, g, 2, u[2], "lottery", tally, nil)
+	e.expect(t, "round_results_lottery_candidates", res, g, 2, u[2], "lottery", tally, []string{u[2]})
+	e.expect(t, "round_results_lottery_candidates", res, g, 2, u[2], "vote", tally, []string{u[2], u[3]})
+	e.expect(t, "round_results_eliminated_fkey", res, g, 2, outsider, "vote", tally, nil)
+	e.expect(t, "", res, g, 2, u[2], "lottery", tally, []string{u[2], u[3]})
+
+	act := "insert into game_actions (game_id, actor_id, action_id, type, payload, state_version) values ($1, $2, $3, $4, $5, $6)"
+	aid := "6f1c2c1e-6a0b-4b39-9d6e-0c5f8b6f6a01"
+	e.expect(t, "", act, g, u[0], aid, "vote", `{"target_user_id": "x"}`, 3)
+	// Tekrarlanan istek: aynı (oyun, oyuncu, action_id).
+	e.expect(t, "game_actions_idempotency_key", act, g, u[0], aid, "vote", `{}`, 4)
+	// Başka oyuncu aynı action_id'yi kullanabilir.
+	e.expect(t, "", act, g, u[1], aid, "vote", `{}`, 4)
+	// Sistem eylemleri (actor yok) tekrarlanabilir; sürüm denetimi korur.
+	e.expect(t, "", act, g, nil, aid, "phase_timeout", `{}`, 5)
+	e.expect(t, "", act, g, nil, aid, "phase_timeout", `{}`, 6)
+	e.expect(t, "game_actions_type_valid", act, g, u[0], "6f1c2c1e-6a0b-4b39-9d6e-0c5f8b6f6a02", "cheat", `{}`, 7)
+	e.expect(t, "game_actions_payload_object", act, g, u[0], "6f1c2c1e-6a0b-4b39-9d6e-0c5f8b6f6a03", "vote", `[1]`, 7)
+	e.expect(t, "game_actions_state_version_positive", act, g, u[0], "6f1c2c1e-6a0b-4b39-9d6e-0c5f8b6f6a04", "vote", `{}`, 0)
+	e.expect(t, "game_actions_actor_fkey", act, g, outsider, aid, "vote", `{}`, 7)
+
+	// Oyun silinirse (yalnızca bakım) bağlı kayıtlar da gider.
+	e.expect(t, "", "update rooms set current_game_id = null where id = $1", f.room)
+	e.expect(t, "", "delete from games where id = $1", g)
+	for _, table := range []string{"game_participants", "player_cards", "votes", "round_results", "game_actions"} {
+		var n int
+		_ = e.appPool.QueryRow(context.Background(), "select count(*) from "+table+" where game_id = $1", g).Scan(&n)
+		if n != 0 {
+			t.Errorf("%s oyunla silinmeli", table)
 		}
 	}
 }

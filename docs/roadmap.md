@@ -119,6 +119,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **DB-002 (Supabase):** `bunker_test_migrator` kuruldu, `dbsetup check -role migrator` 12/12 ✓; ilk `migrate up` sürüm tablosunu kurdu ve yetkileri eşitledi; uygulama rolü denetimi hâlâ 12/12 ✓ (2026-11-03).
 - **DB-003a:** `0001_identity_and_rooms.sql`: users, sessions, rooms, room_members, blocks. Veritabanında garanti edilenler: davet kodu biçimi ve açık odalar arasında tekilliği, kapasite {1,2}, durum/kapanış tutarlılığı, açık odanın sahibi, kullanıcı başına tek aktif oda, oda içi büyük/küçük harf duyarsız tekil takma ad (üyelikte takma ad kopyası), izleyicinin hazır olamaması, token hash'inin 32 bayt ve tekil olması, kendini engelleme yok. Kısıt testleri uygulama rolüyle gerçek PostgreSQL'de; her tabloda RLS + app_access doğrulandı. data-model.md'ye 'Kesinleşen tablolar' bölümü eklendi.
 - **DB-003b:** `0002_catalog.sql`: scenarios (metin anahtar, tam 3 sığınak özelliği, uzunluk sınırları), card_definitions (açık tamsayı id, 5 kategori, kategori içinde tekil metin, gizli balance −1/0/+1, aktif kart indeksi). İçerik ayrı (CARD görevleri). Yetki eşitleme genişletildi: `@app:readonly` yorumlu tablolarda uygulama rolüne yalnızca SELECT + `for select` politikası; yanlış komut/rollü politika yeniden kurulur (ADR-0012 eki). Testler: salt okunur davranışı, işaretin kaldırılınca yazmanın açılması, anon'a açılan politikanın düzeltilmesi, katalog kısıtları.
+- **DB-003c:** `0003_game.sql`: games (aşama/tur/sıra/deadline/state_version tutarlılık kısıtları, odada tek aktif oyun, oda silinse de oyun kalır), game_participants (koltuk sırası, durum ve eleme turu tutarlılığı, kazanan hayatta), player_cards (kart–kategori bileşik yabancı anahtarı, oyunda kart tekilliği, açılış alanları birlikte), votes (oy değiştirilemez, kendine oy yok), round_results, game_actions (idempotency anahtarı, sistem eylemleri actor_id null). `rooms.current_game_id` yabancı anahtarı eklendi. Tüm kısıtlar uygulama rolüyle gerçek PostgreSQL'de test edildi.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -133,8 +134,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | DB-001b | Supabase kurulumu (şema/rol, Data API, gerçek bağlantı ve TLS doğrulaması) | P0 | Done |
 | DB-002 | Migration altyapısı | P0 | Done |
 | DB-003a | Şema: kimlik ve odalar (users, sessions, rooms, room_members, blocks) | P0 | Done |
-| DB-003b | Şema: katalog (scenarios, card_definitions); içerik CARD-002…007'de | P0 | Awaiting User Approval |
-| DB-003c | Şema: oyun (games, game_participants, player_cards, votes, round_results, game_actions) | P0 | Backlog |
+| DB-003b | Şema: katalog (scenarios, card_definitions); içerik CARD-002…007'de | P0 | Done |
+| DB-003c | Şema: oyun (games, game_participants, player_cards, votes, round_results, game_actions) | P0 | Awaiting User Approval |
 | DB-003d | Şema: sohbet ve moderasyon (chat_messages, reports) | P0 | Backlog |
 | DB-004 | Sorgu ve indeks tasarımı | P0 | Backlog |
 | DB-005 | Bağlantı havuzu ve limitleri | P0 | Backlog |
