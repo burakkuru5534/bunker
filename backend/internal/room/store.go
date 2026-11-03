@@ -132,3 +132,29 @@ func bumpVersion(ctx context.Context, tx pgx.Tx, roomID string) (int64, error) {
 	err := tx.QueryRow(ctx, `update rooms set version = version + 1, updated_at = now() where id = $1 returning version`, roomID).Scan(&v)
 	return v, err
 }
+
+// deleteMember, lobide/sonuçta ayrılan üyenin satırını siler.
+func deleteMember(ctx context.Context, tx pgx.Tx, roomID, userID string) error {
+	_, err := tx.Exec(ctx, `delete from room_members where room_id = $1 and user_id = $2`, roomID, userID)
+	return err
+}
+
+// markLeft, oyunda ayrılan üyenin satırını kapatır (satır kalır: eski
+// katılımcı izleyici olarak dönebilir).
+func markLeft(ctx context.Context, tx pgx.Tx, roomID, userID string) error {
+	_, err := tx.Exec(ctx, `update room_members set left_at = now(), is_ready = false
+		 where room_id = $1 and user_id = $2 and left_at is null`, roomID, userID)
+	return err
+}
+
+func setHost(ctx context.Context, tx pgx.Tx, roomID, userID string) error {
+	_, err := tx.Exec(ctx, `update rooms set host_user_id = $2 where id = $1`, roomID, userID)
+	return err
+}
+
+// closeRoom, son üye ayrılınca odayı kapatır; kapalı odanın kodu yeniden
+// kullanılabilir (kısmi tekil indeks).
+func closeRoom(ctx context.Context, tx pgx.Tx, roomID string) error {
+	_, err := tx.Exec(ctx, `update rooms set status = 'closed', closed_at = now(), updated_at = now() where id = $1`, roomID)
+	return err
+}

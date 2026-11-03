@@ -171,7 +171,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 | POST | `/v1/rooms` | `{ "capacity": 2 }` (ops., varsayılan 2) | Kullanıcı başka aktif odada değil | `201 RoomView` (oluşturan = oda sahibi, oyuncu) | `ALREADY_IN_ROOM` (`details.room_id` = mevcut aktif oda), `VALIDATION_FAILED` (`fields.capacity = not_allowed`) |
 | POST | `/v1/rooms/join` | `{ "invite_code": "K7M2QX" }` | Sınır 10/dk | `200 RoomView` | `INVITE_CODE_NOT_FOUND`, `ROOM_FULL`, `GAME_IN_PROGRESS`, `KICKED`, `NICKNAME_TAKEN_IN_ROOM`, `ALREADY_IN_ROOM` |
 | GET | `/v1/rooms/{roomId}` | — | Aktif üye | `200 RoomView` | `NOT_FOUND` (üye olmayan, olmayan oda ve bozuk kimlik aynı yanıtı alır; varlık sızdırılmaz) |
-| POST | `/v1/rooms/{roomId}/leave` | — | Üye | `204` | — |
+| POST | `/v1/rooms/{roomId}/leave` | — | Üye | `204` | — (**idempotent**: üye olmayan, zaten ayrılmış veya olmayan oda da `204`, değişiklik yok) |
 | POST | `/v1/rooms/{roomId}/ready` | `{ "ready": true }` | Oyuncu, `lobby` | `204` | `INVALID_PHASE` |
 | PATCH | `/v1/rooms/{roomId}/settings` | `{ "capacity": 1 }` | Oda sahibi, `lobby` | `200 RoomView` | `FORBIDDEN`, `INVALID_PHASE` |
 | POST | `/v1/rooms/{roomId}/kick` | `{ "user_id": "uuid" }` | Oda sahibi, `lobby` | `204` | `FORBIDDEN`, `INVALID_PHASE` |
@@ -190,7 +190,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 - Ayrılmış (atılmamış) kullanıcı lobiye yeniden katılabilir.
 - Davet kodu girişi büyük/küçük harf duyarsızdır; boşluk ve tire yok sayılır. Biçimi bozuk kod `400 VALIDATION_FAILED` (`fields.invite_code = invalid`), geçerli biçimde ama açık odası olmayan kod `404 INVITE_CODE_NOT_FOUND`.
 
-**Ayrılma kuralları:** Lobide (ve sonuç ekranında) üyelik silinir. Oyunda üyelik `left_at` ile kapanır, katılımcı "ayrıldı" olur ve elenmiş sayılır. Oda sahibi ayrılırsa sahiplik **en eski aktif oyuncuya**, oyuncu yoksa en eski üyeye geçer. Son üye ayrılırsa oda kapanır.
+**Ayrılma kuralları:** Lobide (ve sonuç ekranında) üyelik silinir. Oyunda üyelik `left_at` ile kapanır, katılımcı "ayrıldı" olur ve elenmiş sayılır. Oda sahibi ayrılırsa sahiplik **en eski aktif oyuncuya**, oyuncu yoksa en eski üyeye geçer (`room.member_left` + `room.host_changed`, aynı sürüm). Son üye ayrılırsa oda kapanır (olay yok; kodu yeniden kullanılabilir).
 
 **Başlatma:** Oda sahibi, `lobby`, 4–10 oyuncu ve **oda sahibi dahil** tüm oyuncular hazır (izleyiciler sayılmaz). Değilse `409 START_CONDITIONS_NOT_MET` + `details.reason` ∈ `too_few_players`, `not_all_ready` (+ `details.players`). **Tekrar oyna:** tüm aktif üyeler oyuncu olur, hazırlar sıfırlanır.
 

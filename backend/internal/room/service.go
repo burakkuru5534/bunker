@@ -201,3 +201,71 @@ func validUUID(s string) bool {
 	}
 	return true
 }
+
+// Leave, kullanıcıyı odadan çıkarır (api.md "Ayrılma kuralları").
+// İdempotenttir: kullanıcı zaten üye değilse veya oda yoksa değişiklik
+// yapmadan başarılı döner (ağ tekrarı; odanın varlığı sızdırılmaz).
+//
+// Oyun sürerken ayrılma: üyelik left_at ile kapanır; katılımcının oyundaki
+// "ayrıldı" durumu oyun modülünde işlenir (GAME).
+func (s *Service) Leave(ctx context.Context, p auth.Principal, roomID string) error {
+	if !validUUID(roomID) {
+		return nil
+	}
+	var events []Event
+	var closed bool
+	err := s.db.Tx(ctx, func(tx pgx.Tx) error {
+		r, err := loadForUpdate(ctx, tx, roomID)
+		if errors.Is(err, errRoomNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out, err := Leave(r, p.UserID)
+		if apperr.CodeOf(err) == apperr.NotAMember {
+			return nil // zaten ayrılmış
+		}
+		if err != nil {
+			return err
+		}
+		if out.DeleteMembership {
+			err = deleteMember(ctx, tx, r.ID, p.UserID)
+		} else {
+			err = markLeft(ctx, tx, r.ID, p.UserID)
+		}
+		if err != nil {
+			return err
+		}
+		if out.CloseRoom {
+			closed = true
+			return closeRoom(ctx, tx, r.ID)
+		}
+		if out.NewHost != nil {
+			if err := setHost(ctx, tx, r.ID, *out.NewHost); err != nil {
+				return err
+			}
+		}
+		v, err := bumpVersion(ctx, tx, r.ID)
+		if err != nil {
+			return err
+		}
+		events = append(events, Event{RoomID: r.ID, Type: EventMemberLeft, Version: v,
+			Payload: map[string]any{"user_id": p.UserID}})
+		if out.NewHost != nil {
+			events = append(events, Event{RoomID: r.ID, Type: EventHostChanged, Version: v,
+				Payload: map[string]any{"host_user_id": *out.NewHost}})
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, e := range events {
+		s.publisher.Publish(e) // yalnızca commit sonrası
+	}
+	if closed {
+		s.logger.Info("oda kapandı (son üye ayrıldı)", "room_id", roomID)
+	}
+	return nil
+}

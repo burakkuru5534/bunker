@@ -34,6 +34,17 @@ func (h *HTTP) Register(mux *http.ServeMux) {
 	mux.Handle("POST /v1/rooms", h.require(httpapi.Handle(h.create)))
 	mux.Handle("POST /v1/rooms/join", h.require(httpapi.Handle(h.join)))
 	mux.Handle("GET /v1/rooms/{roomId}", h.require(httpapi.Handle(h.get)))
+	mux.Handle("POST /v1/rooms/{roomId}/leave", h.require(httpapi.Handle(h.leave)))
+}
+
+// POST /v1/rooms/{roomId}/leave → 204 (idempotent)
+func (h *HTTP) leave(w http.ResponseWriter, r *http.Request) error {
+	p, _ := auth.PrincipalFrom(r.Context())
+	if err := h.svc.Leave(r.Context(), p, r.PathValue("roomId")); err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // POST /v1/rooms/join {"invite_code": "K7M2QX"} → 200 RoomView

@@ -130,6 +130,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **ROOM-001/002:** `internal/room` saf model (DB/HTTP bilmez; ADR-0002): Join (kapalı/atılmış/zaten üye/oyun sürüyor/eski katılımcı izleyici/10 dolu/Türkçe duyarsız takma ad çakışması), Leave (lobide sil, oyunda left_at; sahiplik en eski aktif oyuncuya; son üye → kapat), SetReady (yalnız lobide, izleyici olamaz, aynı değer değişiklik değil), ChangeCapacity / Kick / CanStart (oda sahibi dahil herkes hazır, 4–10; details.reason) / Rematch. Davet kodu: kriptografik, modulo yanlılığı olmadan 31 karakterlik alfabe; giriş büyük/küçük harf, boşluk ve tire duyarsız. 20 bin kodla dağılım testi. api.md katılma/ayrılma/başlatma/atma kuralları netleşti. Kapsama %97,7.
 - **ROOM-003:** `POST /v1/rooms` (kapasite ops., varsayılan 2; bilinmeyen alan reddi) → `201 RoomView` (+ `version`). Oda + sahibin oyuncu üyeliği tek transaction; `ALREADY_IN_ROOM` veritabanının 'tek aktif oda' kısıtından (yarışsız; 5 eşzamanlı istekte 1 oda) ve `details.room_id` ile; davet kodu çakışmasında en fazla 5 deneme. `room.Service`, `loadForUpdate` (satır kilidiyle oda + üyeler, sonraki işlemler için), `View`/`Presence` (connected RT gelene kadar false), `persistence.UniqueViolation`. Kapsama %95,8.
 - **ROOM-004:** `POST /v1/rooms/join` (kullanıcı başına 10/dk, sınır kod denetiminden önce; kod büyük/küçük harf, boşluk, tire duyarsız) ve `GET /v1/rooms/{id}` (yalnız aktif üye; üye olmayan / olmayan / bozuk kimlik aynı 404). Katılma: açık oda kodla bulunup satır kilidiyle okunur → saf `room.Join` kararı → üyelik upsert (ayrılmış üye yeniden açılır) → sürüm +1 → commit sonrası `room.member_joined` (Publisher; RT gelene kadar yok sayılır). Yarış koruması: 14 eşzamanlı katılmada tam 9 kişi girer (10 oyuncu), sürüm ve olay sayısı tutarlı; takma ad / tek aktif oda yarışları DB kısıtından doğru hataya çevrilir. Oyun sürerken eski katılımcı izleyici olarak döner, yabancı GAME_IN_PROGRESS. Kapsama %94,2.
+- **ROOM-005 + ROOM-009:** `POST /v1/rooms/{id}/leave` → 204, idempotent (üye olmayan / zaten ayrılmış / olmayan oda / bozuk kimlik: değişiklik yok, varlık sızmaz). Lobide satır silinir, oyunda `left_at` (eski katılımcı izleyici dönebilir; oyundaki 'ayrıldı' durumu GAME modülünde). Sahip ayrılırsa sahiplik en eski aktif oyuncuya; `room.member_left` + `room.host_changed` aynı sürümde, commit sonrası. Son üye → oda kapanır (kod yeniden kullanılabilir, olay yok). 5 üyenin eşzamanlı ayrılmasında oda tek kez, tutarlı kapanır. Kapsama %93,1.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -178,12 +179,12 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ROOM-001 | Oda modeli | P0 | Done |
 | ROOM-002 | Davet kodu üretimi | P0 | Done |
 | ROOM-003 | Oda oluşturma API'si | P0 | Done |
-| ROOM-004 | Odaya katılma API'si | P0 | Awaiting User Approval |
-| ROOM-005 | Odadan ayrılma | P0 | Backlog |
+| ROOM-004 | Odaya katılma API'si | P0 | Done |
+| ROOM-005 | Odadan ayrılma | P0 | Awaiting User Approval |
 | ROOM-006 | Oda üyeliği ve yetkilendirme | P0 | Backlog |
 | ROOM-007 | Hazır ol mekanizması | P0 | Backlog |
 | ROOM-008 | Oda ayarlarının senkronizasyonu (kapasite 1/2) | P0 | Backlog |
-| ROOM-009 | Oda sahibi ayrıldığında yetki devri | P0 | Backlog |
+| ROOM-009 | Oda sahibi ayrıldığında yetki devri | P0 | Awaiting User Approval (ROOM-005 ile) |
 | ROOM-010 | Boş oda temizliği | P1 | Backlog |
 | ROOM-011 | Flutter oda akışları | P0 | Backlog |
 | ROOM-012 | Çoklu oyuncu testleri | P0 | Backlog |
