@@ -17,6 +17,19 @@ Ayrıntı: [ADR-0008](decisions/0008-opaque-session-tokens.md).
 | Doğrulama maliyeti | Bellekte kısa ömürlü (≤60 sn) önbellek; iptal edilen oturum en geç 60 sn içinde geçersiz olur |
 | Taşıma | REST: `Authorization: Bearer`. WS: `Authorization` başlığı. **Token URL'de asla yer almaz.** |
 | Kurtarma | Uygulama silinirse / cihaz değişirse misafir hesabı kurtarılamaz; kullanıcıya ilk açılışta bildirilir |
+| Token biçimi (AUTH-001) | 32 bayt → base64url **dolgusuz, 43 karakter**. Hash ham 32 bayt üzerinden SHA-256. Biçimi bozuk token veritabanına sorulmadan `401` alır (`auth.HashToken`). `Bearer` şema adı büyük/küçük harf duyarsız |
+| Takma ad (AUTH-001) | NFC + kırpma; 3–16 karakter; **yalnızca Latin alfabesi** harfleri (Türkçe dahil), 0–9, boşluk, `_`; en az bir harf; ardışık boşluk yok; ayrılmış adlar yok; küfür filtresi (SAFE-013). Latin'e benzeyen başka alfabe harfleriyle (ör. Kiril "а") başkasını taklit etme ve birleşik işaret yığınları engellenir. Karşılaştırma Türkçe kurallarıyla (`IŞIK` = `ışık`, `I` ≠ `i`) |
+| Son kullanım yazımı (AUTH-001) | `sessions.last_used_at` ve `users.last_seen_at` her istekte değil, **en fazla saatte bir** güncellenir (istek başına yazma olmasın) |
+
+### Akışlar (AUTH-001; uygulama AUTH-002/003)
+
+| Akış | Adımlar |
+|---|---|
+| Oluşturma `POST /v1/sessions/guest` | IP sınırı (5/dk) → takma ad doğrula → tek transaction: `users` + `sessions` (hash, `expires_at = now + 90 gün`) → `201 { token, expires_at, user }`. Ham token yalnızca bu yanıtta bulunur |
+| Doğrulama (her istek) | `Bearer` al → biçim → hash → önbellek (≤ 60 sn) veya `sessions ⨝ users` (`token_hash`): süresi dolmuş, iptal edilmiş ya da kullanıcısı silinmiş → `401 UNAUTHORIZED`. Hata nedeni istemciye ayrıştırılmaz |
+| Yenileme `POST /v1/sessions/refresh` | Geçerli oturumla: tek transaction'da eskisini iptal et + yenisini oluştur → `200 { token, expires_at }`. Ağ hatasında istemci eski token'la tekrar dener; eski token iptal edildiyse yeniden misafir oturumu açar |
+| Hesap silme `DELETE /v1/me` | Aktif odadan ayrıl → takma ad `Silinmiş oyuncu`, `deleted_at` → tüm oturumlar silinir → `204` |
+| İstemci IP'si | Yerelde `RemoteAddr`. Cloud Run'da `X-Forwarded-For` başlığının Google ön ucu tarafından eklenen değeri; istemcinin yazdığı önceki değerlere güvenilmez. Kesin biçim ilk dağıtımda doğrulanır (SAFE-002) |
 
 ## 2. Veritabanı erişimi (Supabase)
 

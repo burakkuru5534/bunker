@@ -97,7 +97,7 @@
 
 | Alan | Kural |
 |---|---|
-| `nickname` | Baştaki/sondaki boşluk kırpılır; 3–16 karakter; harf (Türkçe dahil), rakam, boşluk, `_`; ardışık boşluk yok; küfür filtresi |
+| `nickname` | Unicode NFC'ye çevrilir, baştaki/sondaki boşluk kırpılır; 3–16 karakter; **Latin alfabesi harfleri (Türkçe ç ğ ı İ ö ş ü dahil)**, 0–9, boşluk, `_`; en az bir harf; ardışık boşluk yok; ayrılmış adlar ("Silinmiş oyuncu", "Sistem", "Admin"…) yok; küfür filtresi. Hata: `NICKNAME_INVALID` + `details.fields.nickname` ∈ `required`, `too_short`, `too_long`, `invalid_chars`, `invalid` (harf yok / ardışık boşluk), `not_allowed`, `profanity`. Oda içi tekillik Türkçe büyük/küçük harf duyarsızdır ("IŞIK" = "ışık") |
 | `invite_code` | 6 karakter, alfabe `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (31 karakter; 0/O, 1/I/L yok). Büyük/küçük harf duyarsız |
 | `capacity` | 1 veya 2 |
 | `text` (sohbet) | Kırpılır; 1–200 karakter; küfürler `***` ile maskelenir |

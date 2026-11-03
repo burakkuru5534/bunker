@@ -123,6 +123,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **DB-003d:** `0004_chat_and_moderation.sql`: chat_messages (maskelenmiş metin 1–200, client_msg_id tekrar koruması, son 50 mesaj ve 30 gün temizlik indeksleri), reports (neden/not/durum tutarlılığı, ≤64 KB mesaj anlık görüntüsü, aynı kişi için tek açık rapor). Oda silinince sohbet gider, rapor ve kanıtı kalır. data-model.md'deki 15 tablonun tamamı kesinleşti (DB-003 bitti).
 - **DB-004:** [queries.md](queries.md): 16 sıcak yol + 5 bakım sorgusu; her biri gerçekçi hacimde veriyle (20 bin kullanıcı, 3 bin oda, 2 bin oyun, 100 bin mesaj) uygulama rolüyle EXPLAIN testinde (tam tarama yok, beklenen indeks). Bulunanlar: toplu silmelerde `in (select)` tam tarama yapıyordu → `id = any(array(...))` biçimi; oda temizliği için iki kısmi indeks eksikti; yeni yabancı anahtar indeks testi `reports.room_id` eksiğini buldu → `0005_cleanup_indexes.sql`. Bilinçli indekssiz yabancı anahtarlar gerekçeli izin listesinde (liste eskirse test kırılır).
 - **DB-005:** `persistence.DB` (Tx / Read yardımcıları; bağlantı fonksiyon dışına sızmaz, hata/panic → rollback). Havuzdan bağlantı `DB_ACQUIRE_TIMEOUT` (3 sn) ile sınırlı: önceden isteğin 10 sn'lik süresi boyunca bekliyordu → artık `ErrPoolExhausted` ile hızlı hata + WARNING; 500 ms üstü bekleme uyarısı. Supabase sınırları kaynaktan doğrulandı (Nano: 60 doğrudan, 200 pooler; session mode'da rol başına Pool Size). Bağlantı bütçesi architecture.md §11'de; `dbsetup check` artık rolün açık bağlantılarını, rol sınırını ve `-pool-size` ile panel değerinin yeterliliğini raporluyor. Testler: commit/rollback/panic, bağlantı sızıntısı yok, havuz doluyken 200 ms'de hata (istek 10 sn olsa da), iptal edilen isteğin ayrı hatası, geç alma uyarısı.
+- **AUTH-001:** `internal/auth`: takma ad kuralları (NFC, 3–16, yalnızca Latin alfabesi + Türkçe harfler, rakam, boşluk, _; en az bir harf; ardışık boşluk yok; ayrılmış adlar; küfür kancası) ve Türkçe büyük/küçük harf duyarsız karşılaştırma (`IŞIK` = `ışık`, `I` ≠ `i`); opak token (32 bayt, base64url 43 karakter, SHA-256), biçimi bozuk token'ın DB'ye gitmeden reddi, `Bearer` ayrıştırma. security.md §1'e akışlar (oluşturma, doğrulama, yenileme, silme, istemci IP'si) ve 'son kullanım saatte bir yazılır' kararı. Küfür listesi için SAFE-013 eklendi. Testler %97,8 + fuzz (geçerli her ad DB kısıtını sağlar ve kararlıdır).
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -141,8 +142,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | DB-003c | Şema: oyun (games, game_participants, player_cards, votes, round_results, game_actions) | P0 | Done |
 | DB-003d | Şema: sohbet ve moderasyon (chat_messages, reports) | P0 | Done |
 | DB-004 | Sorgu ve indeks tasarımı | P0 | Done |
-| DB-005 | Bağlantı havuzu ve limitleri | P0 | Awaiting User Approval |
-| AUTH-001 | Misafir oturumu tasarımı | P0 | Backlog |
+| DB-005 | Bağlantı havuzu ve limitleri | P0 | Done |
+| AUTH-001 | Misafir oturumu tasarımı | P0 | Awaiting User Approval |
 | AUTH-002 | Oturum oluşturma ve doğrulama | P0 | Backlog |
 | AUTH-003 | REST ve WebSocket yetkilendirmesi | P0 | Backlog |
 
@@ -251,6 +252,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | SAFE-010 | Secret yönetimi | P0 | Backlog |
 | SAFE-011 | Güvenlik logları | P1 | Backlog |
 | SAFE-012 | Mağaza güvenlik ve yaş derecelendirmesi | P0 | Backlog |
+| SAFE-013 | Küfür filtresi: Türkçe kelime listesi, takma ad reddi ve sohbet maskeleme (`auth.ProfanityChecker`) | P0 | Backlog |
 
 ## Faz 10 — Test, beta ve yayın
 
