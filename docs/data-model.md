@@ -28,6 +28,20 @@
 | `reports` | Raporlar | `reporter_id`, `reported_id`, `room_id`, `reason`, `messages_snapshot`, `status` | Yalnızca sunucu/moderasyon | SAFE-009'da belirlenir |
 | `blocks` | Engellemeler | PK `(blocker_id, blocked_id)` | Sahibi | Kaldırılana kadar |
 
+## Kesinleşen tablolar
+
+Migration'lar: [`migrations/postgres`](../migrations/postgres/README.md). Tüm tablolarda RLS açık; yalnızca uygulama rolüne `app_access` politikası (ADR-0012). Kimlikler `uuid` (`gen_random_uuid()`), zamanlar `timestamptz`; zaman damgaları uygulama tarafından güncellenir (tetikleyici yok).
+
+### 0001 — kimlik ve odalar (DB-003a)
+
+| Tablo | Kesin kararlar |
+|---|---|
+| `users` | `nickname` 3–16 karakter, baş/son boşluk yok (ayrıntılı kural ve küfür filtresi uygulamada). Hesap silinince satır kalır: takma ad "Silinmiş oyuncu", `deleted_at` dolu. |
+| `sessions` | `token_hash bytea` = SHA-256 (32 bayt, tekil). `expires_at > created_at`. Kullanıcı silinirse oturumlar silinir. İndeks: `user_id`, `expires_at` (temizlik). |
+| `rooms` | `invite_code` 31 karakterlik alfabeden 6 büyük harf; **yalnızca açık odalar arasında tekil** (kapanan odanın kodu yeniden kullanılabilir). `capacity` ∈ {1,2}, varsayılan 2. `status` ∈ lobby/in_game/finished/closed; `closed_at` yalnızca `closed`'da dolu; açık odanın sahibi olmak zorunda. `version` = lobi olaylarının sürümü. `current_game_id`'nin yabancı anahtarı `games` ile gelir (DB-003c). |
+| `room_members` | PK `(room_id, user_id)`. `role` player/spectator; izleyici hazır olamaz; atılan (`kicked_at`) aynı zamanda ayrılmıştır. **Aktif üyelik = `left_at` boş.** Kullanıcı başına tek aktif üyelik (ALREADY_IN_ROOM) ve oda içinde aktif üyeler arasında büyük/küçük harf duyarsız tekil `nickname` (NICKNAME_TAKEN_IN_ROOM) veritabanında garanti edilir; bunun için katılma anındaki takma adın kopyası `room_members.nickname`'de tutulur (PATCH /me lobi üyeliğini de günceller). Oda silinince üyelikler silinir. |
+| `blocks` | PK `(blocker_id, blocked_id)`, kendini engelleme yok; ters yön için `blocked_id` indeksi. |
+
 ## Tutarlılık kuralları
 
 - Her oyun eylemi `games` satırı `FOR UPDATE` ile kilitlenmiş kısa bir transaction içinde işlenir; `state_version` her değişiklikte +1 ([ADR-0004](decisions/0004-db-authoritative-state.md)).
