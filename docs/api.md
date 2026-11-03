@@ -192,7 +192,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 
 **Ayrılma kuralları:** Lobide (ve sonuç ekranında) üyelik silinir. Oyunda üyelik `left_at` ile kapanır, katılımcı "ayrıldı" olur ve elenmiş sayılır. Oda sahibi ayrılırsa sahiplik **en eski aktif oyuncuya**, oyuncu yoksa en eski üyeye geçer (`room.member_left` + `room.host_changed`, aynı sürüm). Son üye ayrılırsa oda kapanır (olay yok; kodu yeniden kullanılabilir).
 
-**Başlatma:** Oda sahibi, `lobby`, 4–10 oyuncu ve **oda sahibi dahil** tüm oyuncular hazır (izleyiciler sayılmaz). Değilse `409 START_CONDITIONS_NOT_MET` + `details.reason` ∈ `too_few_players`, `not_all_ready` (+ `details.players`); oda sahibi değilse `403 FORBIDDEN`, oyun zaten başladıysa `409 INVALID_PHASE` (eşzamanlı başlatmalardan yalnızca biri başarılı olur). Başarılı başlatma tek transaction’dır (koltuk, senaryo ve kartlar sunucuda rastgele; oda `in_game`, oda sürümü +1); commit sonrası sırasıyla `game.started` (oda), her oyuncuya `game.your_cards` (özel) ve `game.phase_changed` (`SCENARIO_INTRO`) yayınlanır, hepsi oyunun `state_version`’ı (1) ile. Kart kataloğu yetersizse `500 INTERNAL` (hiçbir şey yazılmaz). **Tekrar oyna:** tüm aktif üyeler oyuncu olur, hazırlar sıfırlanır.
+**Başlatma:** Oda sahibi, `lobby`, 4–10 oyuncu ve **oda sahibi dahil** tüm oyuncular hazır (izleyiciler sayılmaz). Değilse `409 START_CONDITIONS_NOT_MET` + `details.reason` ∈ `too_few_players`, `not_all_ready` (+ `details.players`); oda sahibi değilse `403 FORBIDDEN`, oyun zaten başladıysa `409 INVALID_PHASE` (eşzamanlı başlatmalardan yalnızca biri başarılı olur). Başarılı başlatma tek transaction’dır (koltuk, senaryo ve kartlar sunucuda rastgele; oda `in_game`, oda sürümü +1); commit sonrası sırasıyla `game.started` (oda), her oyuncuya `game.your_cards` (özel) ve `game.phase_changed` (`SCENARIO_INTRO`) yayınlanır, hepsi oyunun `state_version`’ı (1) ile. Kart kataloğu yetersizse `500 INTERNAL` (hiçbir şey yazılmaz). **Tekrar oyna:** tüm aktif üyeler (izleyiciler dahil) oyuncu olur, hazırlar sıfırlanır, `current_game_id` boşalır; yanıt ve `room.returned_to_lobby` aynı `RoomView`’ı (yeni sürümle) taşır. Biten oyunun sonucu okunmaya devam eder. Bitmiş odaya katılan yeni oyuncularla 10’u aşılırsa başlatma `too_many_players` ile reddedilir.
 
 **Atma:** Oda sahibi kendini atamaz (`VALIDATION_FAILED`); aktif olmayan hedef `NOT_FOUND`.
 
@@ -230,7 +230,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 - `tiebreak_vote`: yalnızca izleyiciler (elenen/ayrılan katılımcılar; hayattaki oyuncu `NOT_SPECTATOR`), yalnızca eşit oy alan ve hâlâ hayattaki adaylardan birine (`INVALID_TARGET`), bir kez (`ALREADY_VOTED`). Tüm izleyiciler oy verince sonuç hemen: hepsi aynı aday → o elenir (`method: spectators`), farklıysa kura. Hedef yine yalnızca `votes` tablosunda.
 - Aday listesi (`candidates`, `lottery_candidates`) koltuk sırasındadır.
 
-**GET `/v1/games/{gameId}/result`** — Yalnızca `FINISHED` oyunlar; yetki: oyunun katılımcısı.
+**GET `/v1/games/{gameId}/result`** — Yalnızca `FINISHED` oyunlar (sürerken `409 INVALID_PHASE`); yetki: oyunun katılımcısı (değilse, oyun yoksa veya kimlik bozuksa `404`). `game.finished` olayının payload’ı bu yanıtla birebir aynıdır. Oyuncular koltuk sırasında, kartlar kategori sırasında; takma ad güncel `users` kaydından (silinmiş hesap "Silinmiş oyuncu"). Oyun bitince oda `finished` olur (oda sürümü +1; ayrı oda olayı yok, `game.finished` bildirir).
 ```json
 {
   "game_id": "uuid", "finished_at": "…", "end_reason": "capacity_reached | abandoned",

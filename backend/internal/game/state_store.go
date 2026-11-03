@@ -26,9 +26,18 @@ type gameRow struct {
 	ScenarioID string
 }
 
-// loadState, oyunu okur; lock ise games satırı FOR UPDATE ile kilitlenir
-// (aynı oyundaki eylemler ve zamanlayıcı sıraya girer).
+// loadState, oyunu okur; lock ise önce odanın, sonra oyunun satırı FOR
+// UPDATE ile kilitlenir (aynı oyundaki eylemler ve zamanlayıcı sıraya girer).
+//
+// Kilit sırası her yerde oda → oyundur (oyun başlatma ve oyundan ayrılma
+// odayı kilitleyip oyuna dokunur; oyun bitişi oyunu kilitleyip odayı
+// günceller). Sıra sabit olduğu için iki işlem birbirini kilitleyemez.
 func loadState(ctx context.Context, q persistence.Querier, gameID string, lock bool) (engine.State, gameRow, error) {
+	if lock {
+		if err := lockRoomOf(ctx, q, gameID); err != nil {
+			return engine.State{}, gameRow{ID: gameID}, err
+		}
+	}
 	var (
 		s        engine.State
 		g        = gameRow{ID: gameID}
@@ -89,6 +98,20 @@ func loadState(ctx context.Context, q persistence.Querier, gameID string, lock b
 		}
 	}
 	return s, g, nil
+}
+
+// lockRoomOf, oyunun odasını kilitler (oda silinmişse kilit yok).
+func lockRoomOf(ctx context.Context, q persistence.Querier, gameID string) error {
+	var roomID *string
+	err := q.QueryRow(ctx, `select room_id::text from games where id = $1`, gameID).Scan(&roomID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return errGameNotFound
+	}
+	if err != nil || roomID == nil {
+		return err
+	}
+	_, err = q.Exec(ctx, `select 1 from rooms where id = $1 for update`, *roomID)
+	return err
 }
 
 func loadPlayers(ctx context.Context, q persistence.Querier, gameID string, s *engine.State) error {
@@ -263,6 +286,16 @@ func saveState(ctx context.Context, tx pgx.Tx, gameID string, old, next engine.S
 		}
 		if int(tag.RowsAffected()) != len(cardUsers) {
 			return fmt.Errorf("game: %d kart açılacaktı, %d açıldı", len(cardUsers), tag.RowsAffected())
+		}
+	}
+
+	// Oyun bittiyse oda "finished" olur (oda satırı loadState'te kilitlendi);
+	// oda sahibi buradan "Tekrar oyna" ile lobiye döner. Oda sürümü artar;
+	// istemciye ayrı oda olayı gitmez, game.finished bunu bildirir.
+	if next.Phase == engine.PhaseFinished && old.Phase != engine.PhaseFinished {
+		if _, err := tx.Exec(ctx, `update rooms set status = 'finished', version = version + 1, updated_at = now()
+			where current_game_id = $1 and status = 'in_game'`, gameID); err != nil {
+			return err
 		}
 	}
 

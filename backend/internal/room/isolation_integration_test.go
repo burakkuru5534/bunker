@@ -24,6 +24,7 @@ func sampleBodies(targetUserID string) map[string]string {
 		"PATCH /v1/rooms/{roomId}/settings": `{"capacity":1}`,
 		"POST /v1/rooms/{roomId}/kick":      `{"user_id":"` + targetUserID + `"}`,
 		"POST /v1/rooms/{roomId}/start":     ``,
+		"POST /v1/rooms/{roomId}/rematch":   ``,
 	}
 }
 

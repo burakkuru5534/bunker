@@ -290,6 +290,16 @@ func (s *Service) wireEvents(ctx context.Context, tx pgx.Tx, g gameRow, evs []en
 		case engine.EventCardRevealed:
 			payload["text"] = texts[e.Payload["card_id"].(int)]
 			delete(payload, "card_id")
+		case engine.EventFinished:
+			// game.finished, GET /result ile aynı yapıyı taşır (api.md);
+			// fark bu transaction'da yazıldı, sonuç buradan okunur.
+			result, err := loadResult(ctx, tx, g.ID)
+			if err != nil {
+				return nil, err
+			}
+			w.Payload = result
+			out = append(out, w)
+			continue
 		case engine.EventPlayerEliminated:
 			// Elenenin tüm kartları metinle (kimlik ve denge etiketi yok).
 			var cards []map[string]any
