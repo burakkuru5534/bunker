@@ -45,6 +45,15 @@ bunker/
 - [Tasarım sistemi](docs/ui/design-system.md)
 - [Yol haritası ve görevler](docs/roadmap.md)
 
+## CI
+
+GitHub Actions — [.github/workflows/mobile.yml](.github/workflows/mobile.yml): mobil dosyalar değişince format, l10n, analiz ve testler; `main`'e push'ta Android debug derlemesi. Yerelde aynı kontrol:
+
+```bash
+cd apps/mobile
+dart format --set-exit-if-changed . && flutter analyze --fatal-infos && flutter test
+```
+
 ## Geliştirme ortamı
 
 | Araç | Sürüm |

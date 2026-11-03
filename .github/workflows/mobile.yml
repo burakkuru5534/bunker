@@ -1,0 +1,91 @@
+# Mobil uygulama CI — MOB-012
+# Her push / PR'da (yalnızca mobil dosyalar değiştiyse) format, l10n, analiz ve
+# testleri çalıştırır. Android debug derlemesi yalnızca main'e push'ta yapılır
+# (dakika tasarrufu).
+name: mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - "docs/api.md"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "docs/api.md"
+      - ".github/workflows/mobile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.47.1"
+
+defaults:
+  run:
+    working-directory: apps/mobile
+
+jobs:
+  checks:
+    name: Format, l10n, analiz, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Bağımlılıklar
+        run: flutter pub get --enforce-lockfile
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: l10n güncel mi
+        run: |
+          flutter gen-l10n
+          git diff --exit-code -- lib/core/l10n/generated \
+            || (echo "::error::lib/core/l10n/generated güncel değil: 'flutter gen-l10n' çalıştırıp commit edin." && exit 1)
+
+      - name: Analiz
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        run: flutter test --reporter=expanded
+
+  build-android:
+    name: Android debug derlemesi
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Bağımlılıklar
+        run: flutter pub get --enforce-lockfile
+
+      - name: APK (debug)
+        run: flutter build apk --debug --dart-define-from-file=config/test.json

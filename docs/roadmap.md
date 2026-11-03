@@ -90,8 +90,8 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | MOB-008b | Ortak `core/ui` bileşenleri | P1 | Awaiting User Approval |
 | MOB-009 | Hata yönetimi ve l10n altyapısı | P0 | Awaiting User Approval |
 | MOB-010 | Güvenli oturum depolama | P0 | Awaiting User Approval |
-| MOB-011 | Widget testleri | P0 | Backlog |
-| MOB-012 | CI doğrulaması | P1 | Backlog |
+| MOB-011 | Widget testleri | P0 | Awaiting User Approval |
+| MOB-012 | CI doğrulaması (`.github/workflows/mobile.yml`) | P1 | Awaiting User Approval |
 
 - **MOB-001:** `apps/mobile` oluşturuldu (Flutter 3.47.1). Dart paketi `siginak`, **applicationId `com.bunker.app`** (kullanıcı kararı, kalıcı), uygulama adı "Sığınak", yalnızca dikey, sürüm 0.1.0+1. `dart format`, `flutter analyze`, `flutter test` bulut çalışma alanında geçti. Android derlemesi kullanıcı cihazında doğrulanacak.
 - **MOB-002:** `--dart-define-from-file` ile `local`/`test`/`prod` yapılandırması (`apps/mobile/config/`), `AppConfig` doğrulaması (test/prod'da https/wss zorunlu), düz http yalnızca debug derlemede, release manifest'e `INTERNET` izni. `local.json` git dışı. 10 test geçti. `test.json`/`prod.json` adresleri Cloud Run kurulunca güncellenecek.
@@ -104,6 +104,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **MOB-008b:** `core/ui`: `AppButton` (primary/secondary/danger, yükleniyor, devre dışı nedeni), `AppTextField`, `InviteCodeInput` (+ formatter), `PlayerAvatar` (3 boyut, 3 durum, Türkçe baş harf), `StatusBadge` (7 tür), `ConnectionBanner` (4 durum), `showConfirmDialog`, `showAppSnackBar`, `LoadingView`/`ErrorView`/`EmptyState`. Yeni paket yok. 134 test geçti.
 - **MOB-009:** l10n altyapısı (`flutter_localizations` SDK + `intl` ^0.20.2, `l10n.yaml`, `app_tr.arb`, üretilen kod repoda). Uygulama ve Material metinleri Türkçe. `core/ui` metinleri ARB'ye taşındı. `error_messages.dart`: api.md'deki 27 hata kodunun her biri, `ApiException` türleri, 429 bekleme süresi, WS durma nedenleri → Türkçe metin (doküman testle denetleniyor). `installGlobalErrorHandlers` (FlutterError + PlatformDispatcher; release'de sade hata kutusu). 147 test geçti.
 - **MOB-010:** `flutter_secure_storage` ^11.2.0 (Keystore, AES-GCM, minSdk 24). `SecureStore` soyutlaması, `SessionStore` (`session.v1`, önbellek, süresi dolan/bozuk veriyi siler, token loglanmaz). Token okuyucu depoya bağlandı. `SessionController` açılışta depoyu okuyor (unknown → authenticated/unauthenticated), `signIn`/`signOut`; 401 → `signOut` (main override). Android yedekleme/aktarım kapalı (`allowBackup=false`, `data_extraction_rules.xml`). 159 test geçti.
+- **MOB-011 + MOB-012:** Mevcut 159 test (birim + widget + mimari + kontrast) temel olarak kabul edildi; ekran testleri gerçek ekranlarla (ROOM-011, PLAY-*) yazılacak. GitHub Actions `mobile` işi: format, l10n güncelliği, `analyze --fatal-infos`, test; `main`'e push'ta Android debug APK. Flutter 3.47.1 sabit, eşzamanlı çalışmalar iptal, `contents: read`. actionlint temiz; adımlar yerelde simüle edildi.
 
 ## Faz 3 — Go backend ve PostgreSQL
 

@@ -1,0 +1,18 @@
+# Satır sonları: depoda ve çalışma kopyasında her zaman LF.
+# Windows (geliştirici) ile Linux (CI) arasında fark ve sahte "değişti" uyarısı oluşmasın.
+* text=auto eol=lf
+
+# Windows betikleri CRLF kalmalı
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# İkili dosyalar
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.keystore binary
+*.jks binary

@@ -240,6 +240,17 @@ Kurallar:
 - `test/helpers/` test yardımcılarıdır (ör. `pumpWithProviders`).
 - Her görevde: `dart format --set-exit-if-changed .`, `flutter analyze`, `flutter test`.
 
+### CI (`.github/workflows/mobile.yml`)
+
+| İş | Ne zaman | Adımlar |
+|---|---|---|
+| `checks` | Her push (main) ve PR — yalnızca `apps/mobile/**`, `docs/api.md` veya iş dosyası değişince | `pub get --enforce-lockfile` → `dart format --set-exit-if-changed` → `flutter gen-l10n` + üretilen dosyalar güncel mi → `flutter analyze --fatal-infos` → `flutter test` |
+| `build-android` | Yalnızca `main`'e push, `checks` geçince | Java 17 + `flutter build apk --debug --dart-define-from-file=config/test.json` |
+
+- Flutter sürümü CI'da da **3.47.1** sabitlenmiştir; yerel sürüm değişirse iş dosyasındaki `FLUTTER_VERSION` da güncellenir.
+- Aynı dal için yeni push eski çalışmayı iptal eder (dakika tasarrufu).
+- Yerelde CI ile aynı kontrol: `dart format --set-exit-if-changed . && flutter analyze --fatal-infos && flutter test`.
+
 ## 13. Statik analiz
 
 `analysis_options.yaml`: `strict-casts`, `strict-inference`, `strict-raw-types` açık. `always_use_package_imports`, `avoid_print`, `unawaited_futures` **hata** seviyesindedir. Loglama için `print` yerine `debugPrint` / ileride log yardımcısı kullanılır.
