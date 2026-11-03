@@ -29,15 +29,29 @@ func NewHTTP(svc *Service, require func(http.Handler) http.Handler) *HTTP {
 	return &HTTP{svc: svc, require: require, joinLimit: ratelimit.New(JoinLimit, JoinPer, joinLimitMax)}
 }
 
-// Register, rotaları ekler.
+// roomRoute, {roomId} içeren (odaya özgü) bir rotadır. Hepsi
+// roomScopedRoutes'tadır: yalıtım testi (SAFE-003) bu tabloyu dolaşır, bu
+// yüzden yeni oda rotası buraya eklenmelidir.
+type roomRoute struct {
+	pattern string
+	handler func(*HTTP) httpapi.HandlerFunc
+}
+
+var roomScopedRoutes = []roomRoute{
+	{"GET /v1/rooms/{roomId}", func(h *HTTP) httpapi.HandlerFunc { return h.get }},
+	{"POST /v1/rooms/{roomId}/leave", func(h *HTTP) httpapi.HandlerFunc { return h.leave }},
+	{"POST /v1/rooms/{roomId}/ready", func(h *HTTP) httpapi.HandlerFunc { return h.ready }},
+	{"PATCH /v1/rooms/{roomId}/settings", func(h *HTTP) httpapi.HandlerFunc { return h.settings }},
+	{"POST /v1/rooms/{roomId}/kick", func(h *HTTP) httpapi.HandlerFunc { return h.kick }},
+}
+
+// Register, rotaları ekler. Tüm oda rotaları oturum ister.
 func (h *HTTP) Register(mux *http.ServeMux) {
 	mux.Handle("POST /v1/rooms", h.require(httpapi.Handle(h.create)))
 	mux.Handle("POST /v1/rooms/join", h.require(httpapi.Handle(h.join)))
-	mux.Handle("GET /v1/rooms/{roomId}", h.require(httpapi.Handle(h.get)))
-	mux.Handle("POST /v1/rooms/{roomId}/leave", h.require(httpapi.Handle(h.leave)))
-	mux.Handle("POST /v1/rooms/{roomId}/ready", h.require(httpapi.Handle(h.ready)))
-	mux.Handle("PATCH /v1/rooms/{roomId}/settings", h.require(httpapi.Handle(h.settings)))
-	mux.Handle("POST /v1/rooms/{roomId}/kick", h.require(httpapi.Handle(h.kick)))
+	for _, rt := range roomScopedRoutes {
+		mux.Handle(rt.pattern, h.require(httpapi.Handle(rt.handler(h))))
+	}
 }
 
 // POST /v1/rooms/{roomId}/ready {"ready": true} → 204

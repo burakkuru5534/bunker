@@ -60,7 +60,7 @@ Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgRE
 | Tehdit | Önlem | Görev |
 |---|---|---|
 | Token hırsızlığı | Keystore'da saklama, TLS, token loglanmaz, hash'li saklama, döndürme, iptal | AUTH-002 |
-| Başka odanın verisine erişim (IDOR) | Her REST/WS isteğinde oda üyeliği ve oyun katılımı kontrolü | ROOM-006, SAFE-003 |
+| Başka odanın verisine erişim (IDOR) | Her REST/WS isteğinde oda üyeliği ve oyun katılımı kontrolü; üye olmayana yanıt, var olmayan odanınkiyle **aynı** (varlık sızmaz). Oda rotaları tek tabloda (`roomScopedRoutes`) ve yalıtım testi hepsini dolaşır; diğer modüller `room.LoadMembership` kullanır | ROOM-006, SAFE-003 (oda kısmı tamam; oyun/sohbet/WS kendi görevlerinde) |
 | Gizli kart sızıntısı | Genel yayınlarda açılmamış kart yok; özel kanal; snapshot üretimi testli | ENG-015, SAFE-004 |
 | Oy gizliliğinin ihlali | `votes` yalnızca sunucuda; istemciye yalnızca sayılar | ENG-009 |
 | Değiştirilmiş istemciyle hile | Sunucu otoriter; istemci yalnızca niyet gönderir | ENG-002 |

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 )
 
@@ -174,4 +175,39 @@ func kickMember(ctx context.Context, tx pgx.Tx, roomID, userID string) error {
 	_, err := tx.Exec(ctx, `update room_members set left_at = now(), kicked_at = now(), is_ready = false
 		 where room_id = $1 and user_id = $2`, roomID, userID)
 	return err
+}
+
+// Membership, kullanıcının odadaki aktif üyeliğidir. Oyun, sohbet ve
+// gerçek zamanlı katman yetki için bunu kullanır (ROOM-006).
+type Membership struct {
+	RoomID        string
+	UserID        string
+	Role          Role
+	IsHost        bool
+	RoomStatus    Status
+	CurrentGameID *string
+}
+
+// LoadMembership, aktif üyeliği okur (transaction içinde veya dışında).
+// Üye değilse, oda yoksa veya kapalıysa NOT_FOUND döner (varlık sızdırılmaz).
+// Oyun modülü kendi transaction'ında çağırır; satır kilidi almaz.
+func LoadMembership(ctx context.Context, q persistence.Querier, roomID, userID string) (Membership, error) {
+	notFound := apperr.New(apperr.NotFound, "oda bulunamadı")
+	if !validUUID(roomID) || !validUUID(userID) {
+		return Membership{}, notFound
+	}
+	m := Membership{RoomID: roomID, UserID: userID}
+	var role, status string
+	err := q.QueryRow(ctx, `select m.role, r.host_user_id is not distinct from m.user_id, r.status, r.current_game_id::text
+		  from room_members m join rooms r on r.id = m.room_id
+		 where m.room_id = $1 and m.user_id = $2 and m.left_at is null and r.status <> 'closed'`, roomID, userID).
+		Scan(&role, &m.IsHost, &status, &m.CurrentGameID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Membership{}, notFound
+	}
+	if err != nil {
+		return Membership{}, err
+	}
+	m.Role, m.RoomStatus = Role(role), Status(status)
+	return m, nil
 }

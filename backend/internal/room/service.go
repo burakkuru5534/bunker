@@ -386,3 +386,15 @@ func (s *Service) Kick(ctx context.Context, p auth.Principal, roomID, targetID s
 	})
 	return err
 }
+
+// Membership, kullanıcının odadaki aktif üyeliğini döndürür (NOT_FOUND
+// değilse). Oyun, sohbet ve WS katmanının ortak yetki denetimidir.
+func (s *Service) Membership(ctx context.Context, userID, roomID string) (Membership, error) {
+	var m Membership
+	err := s.db.Read(ctx, func(q persistence.Querier) error {
+		var err error
+		m, err = LoadMembership(ctx, q, roomID, userID)
+		return err
+	})
+	return m, err
+}

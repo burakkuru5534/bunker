@@ -132,6 +132,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **ROOM-004:** `POST /v1/rooms/join` (kullanıcı başına 10/dk, sınır kod denetiminden önce; kod büyük/küçük harf, boşluk, tire duyarsız) ve `GET /v1/rooms/{id}` (yalnız aktif üye; üye olmayan / olmayan / bozuk kimlik aynı 404). Katılma: açık oda kodla bulunup satır kilidiyle okunur → saf `room.Join` kararı → üyelik upsert (ayrılmış üye yeniden açılır) → sürüm +1 → commit sonrası `room.member_joined` (Publisher; RT gelene kadar yok sayılır). Yarış koruması: 14 eşzamanlı katılmada tam 9 kişi girer (10 oyuncu), sürüm ve olay sayısı tutarlı; takma ad / tek aktif oda yarışları DB kısıtından doğru hataya çevrilir. Oyun sürerken eski katılımcı izleyici olarak döner, yabancı GAME_IN_PROGRESS. Kapsama %94,2.
 - **ROOM-005 + ROOM-009:** `POST /v1/rooms/{id}/leave` → 204, idempotent (üye olmayan / zaten ayrılmış / olmayan oda / bozuk kimlik: değişiklik yok, varlık sızmaz). Lobide satır silinir, oyunda `left_at` (eski katılımcı izleyici dönebilir; oyundaki 'ayrıldı' durumu GAME modülünde). Sahip ayrılırsa sahiplik en eski aktif oyuncuya; `room.member_left` + `room.host_changed` aynı sürümde, commit sonrası. Son üye → oda kapanır (kod yeniden kullanılabilir, olay yok). 5 üyenin eşzamanlı ayrılmasında oda tek kez, tutarlı kapanır. Kapsama %93,1.
 - **ROOM-007 / ROOM-008 / SAFE-007:** Ortak `Service.mutate` yolu (kilitle → aktif üye değilse NOT_FOUND → saf karar → yaz → değişiklik varsa sürüm +1 → commit sonrası olay). `POST …/ready` (204; aynı değer değişiklik/olay yok; izleyici FORBIDDEN; lobi dışı INVALID_PHASE), `PATCH …/settings` (yalnız sahip; 200 RoomView; settings_changed), `POST …/kick` (yalnız sahip, lobide; atılan geri dönemez, odayı göremez, başka oda kurabilir; member_kicked olayı — atılanın WS'i RT'de 4003 ile kapanacak). Zorunlu alanlar eksikse alan hatası. Kapsama %92,6.
+- **ROOM-006 / SAFE-003 (oda):** `room.LoadMembership` / `Service.Membership` (rol, sahip mi, oda durumu, aktif oyun; üye değil / kapalı / bozuk kimlik → NOT_FOUND) — oyun, sohbet ve WS yetkisi bunu kullanacak. Oda rotaları tek tabloda (`roomScopedRoutes`); yalıtım matrisi her rotada A odası üyelerinin B'ye isteğinin, var olmayan odanınkiyle birebir aynı yanıtı aldığını ve B'nin veritabanı halinin değişmediğini doğrular; örnek gövdesi verilmeyen yeni rota testi kırar. Mutasyon denemesi: üyelik denetimi kaldırılınca test varlık sızıntısını yakaladı.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -182,9 +183,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ROOM-003 | Oda oluşturma API'si | P0 | Done |
 | ROOM-004 | Odaya katılma API'si | P0 | Done |
 | ROOM-005 | Odadan ayrılma | P0 | Done |
-| ROOM-006 | Oda üyeliği ve yetkilendirme | P0 | Backlog |
-| ROOM-007 | Hazır ol mekanizması | P0 | Awaiting User Approval |
-| ROOM-008 | Oda ayarlarının senkronizasyonu (kapasite 1/2) | P0 | Awaiting User Approval |
+| ROOM-006 | Oda üyeliği ve yetkilendirme | P0 | Awaiting User Approval |
+| ROOM-007 | Hazır ol mekanizması | P0 | Done |
+| ROOM-008 | Oda ayarlarının senkronizasyonu (kapasite 1/2) | P0 | Done |
 | ROOM-009 | Oda sahibi ayrıldığında yetki devri | P0 | Done |
 | ROOM-010 | Boş oda temizliği | P1 | Backlog |
 | ROOM-011 | Flutter oda akışları | P0 | Backlog |
@@ -251,11 +252,11 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 |---|---|---|---|
 | SAFE-001 | İstek ve girdi doğrulama | P0 | Backlog |
 | SAFE-002 | Rate limiting | P0 | Backlog |
-| SAFE-003 | Oda izolasyonu | P0 | Backlog |
+| SAFE-003 | Oda izolasyonu | P0 | In Progress (oda rotaları tamam; oyun/sohbet/WS kendi görevlerinde) |
 | SAFE-004 | Gizli kart erişim testleri | P0 | Backlog |
 | SAFE-005 | Oyuncu raporlama | P0 | Backlog |
 | SAFE-006 | Oyuncu engelleme | P0 | Backlog |
-| SAFE-007 | Oda sahibi moderasyonu (lobiden atma) | P0 | Awaiting User Approval |
+| SAFE-007 | Oda sahibi moderasyonu (lobiden atma) | P0 | Done |
 | SAFE-008 | Gizlilik politikası ve kullanım koşulları | P0 | Backlog |
 | SAFE-009 | Veri saklama ve silme (sohbet 30 gün) | P0 | Backlog |
 | SAFE-010 | Secret yönetimi | P0 | Backlog |
