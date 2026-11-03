@@ -45,6 +45,7 @@ type api struct {
 	events  *recorder
 	handler http.Handler
 	starter *Starter
+	svc     *Service
 	ip      atomic.Int64
 }
 
@@ -59,11 +60,13 @@ func newAPI(t *testing.T, seed bool) *api {
 	starter := NewStarter(logger)
 	authHTTP := auth.NewHTTP(auth.NewService(env.DB, nil, logger), 1)
 	roomHTTP := room.NewHTTP(room.NewService(env.DB, nil, rec, logger).WithGames(starter), authHTTP.Require)
+	svc := NewService(env.DB, rec, logger)
+	gameHTTP := NewHTTP(svc, authHTTP.Require)
 	h := httpapi.NewRouter(httpapi.Options{
 		Logger: logger, MinAppVersion: httpapi.Version{Minor: 1}, RequestTimeout: 5 * time.Second,
-		Register: func(mux *http.ServeMux) { authHTTP.Register(mux); roomHTTP.Register(mux) },
+		Register: func(mux *http.ServeMux) { authHTTP.Register(mux); roomHTTP.Register(mux); gameHTTP.Register(mux) },
 	})
-	return &api{t: t, env: env, events: rec, handler: h, starter: starter}
+	return &api{t: t, env: env, events: rec, handler: h, starter: starter, svc: svc}
 }
 
 // seedCatalog: 3 senaryo; kategori başına 12 kart, her kategoride 4 olumsuz.
@@ -82,7 +85,7 @@ func seedCatalog(t *testing.T, env *testdb.Env) {
 		for i := range 12 {
 			balance := []int{-1, 0, 1}[i%3]
 			if _, err := env.Migrate.Exec(ctx, `insert into card_definitions (id, category, text, balance) values ($1, $2, $3, $4)`,
-				(ci+1)*1000+i, string(c), fmt.Sprintf("%s kartı %d", c, i), balance); err != nil {
+				(ci+1)*1000+i, string(c), fmt.Sprintf("%s kartı (%02d)", c, i), balance); err != nil {
 				t.Fatal(err)
 			}
 		}

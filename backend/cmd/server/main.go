@@ -191,7 +191,8 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		// Küfür denetimi SAFE-013'te bağlanır.
 		authHTTP := auth.NewHTTP(auth.NewService(d.DB, nil, logger), cfg.TrustedProxyHops)
 		roomHTTP := room.NewHTTP(room.NewService(d.DB, nil, nil, logger).WithGames(game.NewStarter(logger)), authHTTP.Require)
-		modules = append(modules, authHTTP.Register, roomHTTP.Register)
+		gameHTTP := game.NewHTTP(game.NewService(d.DB, nil, logger), authHTTP.Require)
+		modules = append(modules, authHTTP.Register, roomHTTP.Register, gameHTTP.Register)
 	} else {
 		logger.Warn("veritabanı yok: /v1 uç noktaları kayıtlı değil (yalnızca yerel)")
 	}

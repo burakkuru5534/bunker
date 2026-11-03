@@ -400,7 +400,9 @@ func (st *step) eliminate(userID string, m EliminationMethod, tally []TallyEntry
 	}
 	st.s.Results = append(st.s.Results, RoundResult{Round: st.s.Round, EliminatedID: userID, Method: m,
 		Tally: slices.Clone(tally), LotteryCandidates: slices.Clone(lottery)})
-	st.s.TieCandidates, st.s.TieVotes, st.s.PendingTally = nil, nil, nil
+	// Oylar (normal ve eşitlik) tur sonuna kadar kalır (beginRound temizler);
+	// veritabanından yüklenen durumla aynı olsun diye.
+	st.s.TieCandidates, st.s.PendingTally = nil, nil
 	st.setPhase(PhaseElimination, st.e.D.Elimination)
 	st.emit(EventPlayerEliminated, map[string]any{
 		"round": st.s.Round, "user_id": userID, "method": string(m),
