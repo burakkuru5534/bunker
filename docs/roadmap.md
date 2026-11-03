@@ -79,19 +79,19 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| MOB-001 | Flutter yapılandırması (Android derlemesi doğrulama dahil) | P0 | Awaiting User Approval |
-| MOB-002 | Ortam konfigürasyonları | P0 | Awaiting User Approval |
-| MOB-003 | Feature-first mimari ([apps/mobile/ARCHITECTURE.md](../apps/mobile/ARCHITECTURE.md)) | P0 | Awaiting User Approval |
-| MOB-004 | Riverpod | P0 | Awaiting User Approval |
-| MOB-005 | go_router | P0 | Awaiting User Approval |
-| MOB-006 | Dio | P0 | Awaiting User Approval |
-| MOB-007 | WebSocket istemcisi | P0 | Awaiting User Approval |
-| MOB-008a | Tasarım token'ları, yazı tipleri, tema, GameTheme | P1 | Awaiting User Approval |
-| MOB-008b | Ortak `core/ui` bileşenleri | P1 | Awaiting User Approval |
-| MOB-009 | Hata yönetimi ve l10n altyapısı | P0 | Awaiting User Approval |
-| MOB-010 | Güvenli oturum depolama | P0 | Awaiting User Approval |
-| MOB-011 | Widget testleri | P0 | Awaiting User Approval |
-| MOB-012 | CI doğrulaması (`.github/workflows/mobile.yml`) | P1 | Awaiting User Approval |
+| MOB-001 | Flutter yapılandırması (Android derlemesi doğrulama dahil) | P0 | Done |
+| MOB-002 | Ortam konfigürasyonları | P0 | Done |
+| MOB-003 | Feature-first mimari ([apps/mobile/ARCHITECTURE.md](../apps/mobile/ARCHITECTURE.md)) | P0 | Done |
+| MOB-004 | Riverpod | P0 | Done |
+| MOB-005 | go_router | P0 | Done |
+| MOB-006 | Dio | P0 | Done |
+| MOB-007 | WebSocket istemcisi | P0 | Done |
+| MOB-008a | Tasarım token'ları, yazı tipleri, tema, GameTheme | P1 | Done |
+| MOB-008b | Ortak `core/ui` bileşenleri | P1 | Done |
+| MOB-009 | Hata yönetimi ve l10n altyapısı | P0 | Done |
+| MOB-010 | Güvenli oturum depolama | P0 | Done |
+| MOB-011 | Widget testleri | P0 | Done |
+| MOB-012 | CI doğrulaması (`.github/workflows/mobile.yml`) | P1 | Done |
 
 - **MOB-001:** `apps/mobile` oluşturuldu (Flutter 3.47.1). Dart paketi `siginak`, **applicationId `com.bunker.app`** (kullanıcı kararı, kalıcı), uygulama adı "Sığınak", yalnızca dikey, sürüm 0.1.0+1. `dart format`, `flutter analyze`, `flutter test` bulut çalışma alanında geçti. Android derlemesi kullanıcı cihazında doğrulanacak.
 - **MOB-002:** `--dart-define-from-file` ile `local`/`test`/`prod` yapılandırması (`apps/mobile/config/`), `AppConfig` doğrulaması (test/prod'da https/wss zorunlu), düz http yalnızca debug derlemede, release manifest'e `INTERNET` izni. `local.json` git dışı. 10 test geçti. `test.json`/`prod.json` adresleri Cloud Run kurulunca güncellenecek.
@@ -104,13 +104,17 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **MOB-008b:** `core/ui`: `AppButton` (primary/secondary/danger, yükleniyor, devre dışı nedeni), `AppTextField`, `InviteCodeInput` (+ formatter), `PlayerAvatar` (3 boyut, 3 durum, Türkçe baş harf), `StatusBadge` (7 tür), `ConnectionBanner` (4 durum), `showConfirmDialog`, `showAppSnackBar`, `LoadingView`/`ErrorView`/`EmptyState`. Yeni paket yok. 134 test geçti.
 - **MOB-009:** l10n altyapısı (`flutter_localizations` SDK + `intl` ^0.20.2, `l10n.yaml`, `app_tr.arb`, üretilen kod repoda). Uygulama ve Material metinleri Türkçe. `core/ui` metinleri ARB'ye taşındı. `error_messages.dart`: api.md'deki 27 hata kodunun her biri, `ApiException` türleri, 429 bekleme süresi, WS durma nedenleri → Türkçe metin (doküman testle denetleniyor). `installGlobalErrorHandlers` (FlutterError + PlatformDispatcher; release'de sade hata kutusu). 147 test geçti.
 - **MOB-010:** `flutter_secure_storage` ^11.2.0 (Keystore, AES-GCM, minSdk 24). `SecureStore` soyutlaması, `SessionStore` (`session.v1`, önbellek, süresi dolan/bozuk veriyi siler, token loglanmaz). Token okuyucu depoya bağlandı. `SessionController` açılışta depoyu okuyor (unknown → authenticated/unauthenticated), `signIn`/`signOut`; 401 → `signOut` (main override). Android yedekleme/aktarım kapalı (`allowBackup=false`, `data_extraction_rules.xml`). 159 test geçti.
-- **MOB-011 + MOB-012:** Mevcut 159 test (birim + widget + mimari + kontrast) temel olarak kabul edildi; ekran testleri gerçek ekranlarla (ROOM-011, PLAY-*) yazılacak. GitHub Actions `mobile` işi: format, l10n güncelliği, `analyze --fatal-infos`, test; `main`'e push'ta Android debug APK. Flutter 3.47.1 sabit, eşzamanlı çalışmalar iptal, `contents: read`. actionlint temiz; adımlar yerelde simüle edildi.
+- **MOB-011 + MOB-012:** Mevcut 159 test (birim + widget + mimari + kontrast) temel olarak kabul edildi; ekran testleri gerçek ekranlarla (ROOM-011, PLAY-*) yazılacak. GitHub Actions `mobile` işi: format, l10n güncelliği, `analyze --fatal-infos`, test; `main`'e push'ta Android debug APK. Flutter 3.47.1 sabit, eşzamanlı çalışmalar iptal, `contents: read`. actionlint temiz; adımlar yerelde simüle edildi. GitHub Actions yeşil (Android debug APK derlendi → MOB-001'in cihaz/derleme kriteri karşılandı).
+
+### Faz 3 notları
+
+- **BE-001:** `backend/` Go 1.27.0 modülü (`github.com/burakkuru5534/bunker/backend`), dış bağımlılık yok. `internal/config` (APP_ENV, PORT, SHUTDOWN_TIMEOUT; tüm hatalar birlikte), `cmd/server` (ReadHeaderTimeout 10s, IdleTimeout 120s, 16 KB başlık sınırı; SIGINT/SIGTERM → graceful shutdown, süre aşılırsa zorla kapatma). Testler: yapılandırma %100, sunucu %71 kapsama; açık isteğin kapanışta tamamlanması ve zaman aşımı testli; `-race -count=3` temiz. `.github/workflows/backend.yml` (gofmt, vet, `test -race`).
 
 ## Faz 3 — Go backend ve PostgreSQL
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| BE-001 | Go servis iskeleti | P0 | Backlog |
+| BE-001 | Go servis iskeleti | P0 | Awaiting User Approval |
 | BE-002 | HTTP router ve middleware | P0 | Backlog |
 | BE-003 | Yapılandırılmış loglama | P0 | Backlog |
 | BE-004 | Standart API hata formatı | P0 | Backlog |
