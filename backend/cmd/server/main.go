@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/config"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
@@ -182,8 +183,14 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		panic(err)
 	}
 	health := &httpapi.Health{Timeout: httpapi.DefaultReadinessTimeout}
+	var modules []func(*http.ServeMux)
 	if d.DB != nil {
 		health.Checks = append(health.Checks, httpapi.ReadinessCheck{Name: "database", Check: d.DB.Ping})
+		// Küfür denetimi SAFE-013'te bağlanır.
+		authHTTP := auth.NewHTTP(auth.NewService(d.DB, nil, logger), cfg.TrustedProxyHops)
+		modules = append(modules, authHTTP.Register)
+	} else {
+		logger.Warn("veritabanı yok: /v1 uç noktaları kayıtlı değil (yalnızca yerel)")
 	}
 	return httpapi.NewRouter(httpapi.Options{
 		Logger:         logger,
@@ -192,6 +199,9 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		RequestTimeout: cfg.RequestTimeout,
 		Register: func(mux *http.ServeMux) {
 			health.Register(mux)
+			for _, register := range modules {
+				register(mux)
+			}
 		},
 	})
 }

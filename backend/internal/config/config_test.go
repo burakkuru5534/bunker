@@ -53,18 +53,18 @@ func TestLoadValues(t *testing.T) {
 	if !cfg.IsProduction() {
 		t.Fatal("prod bekleniyordu")
 	}
-	if cfg.DatabaseURL.Reveal() != "postgres://u:p@h/db" || cfg.DBMaxConns != 5 || cfg.DBSchema != "bunker_prod" {
+	if cfg.DatabaseURL.Reveal() != "postgres://u:p@h/db" || cfg.DBMaxConns != 5 || cfg.DBSchema != "bunker_prod" || cfg.TrustedProxyHops != 1 {
 		t.Fatalf("prod veritabanı varsayılanları yanlış: %d %s", cfg.DBMaxConns, cfg.DBSchema)
 	}
 }
 
 func TestDatabaseDefaultsAndOverrides(t *testing.T) {
 	cfg, err := Load(env(nil))
-	if err != nil || cfg.DatabaseURL.IsSet() || cfg.DBMaxConns != 3 || cfg.DBSchema != "bunker_test" || cfg.DBAcquireTimeout != 3*time.Second {
+	if err != nil || cfg.DatabaseURL.IsSet() || cfg.DBMaxConns != 3 || cfg.DBSchema != "bunker_test" || cfg.DBAcquireTimeout != 3*time.Second || cfg.TrustedProxyHops != 0 {
 		t.Fatalf("yerel varsayılanlar: %v %+v", err, cfg)
 	}
-	cfg, err = Load(env(map[string]string{"APP_ENV": "test", "DATABASE_URL": "x", "DB_MAX_CONNS": "7", "DB_SCHEMA": "bunker_dev_1", "DB_ACQUIRE_TIMEOUT": "500ms"}))
-	if err != nil || cfg.DBMaxConns != 7 || cfg.DBSchema != "bunker_dev_1" || cfg.DBAcquireTimeout != 500*time.Millisecond {
+	cfg, err = Load(env(map[string]string{"APP_ENV": "test", "DATABASE_URL": "x", "DB_MAX_CONNS": "7", "DB_SCHEMA": "bunker_dev_1", "DB_ACQUIRE_TIMEOUT": "500ms", "TRUSTED_PROXY_HOPS": "2"}))
+	if err != nil || cfg.DBMaxConns != 7 || cfg.DBSchema != "bunker_dev_1" || cfg.DBAcquireTimeout != 500*time.Millisecond || cfg.TrustedProxyHops != 2 {
 		t.Fatalf("geçersiz kılma: %v %+v", err, cfg)
 	}
 }
@@ -106,6 +106,8 @@ func TestLoadInvalid(t *testing.T) {
 		{"sıfır bağlantı", map[string]string{"DB_MAX_CONNS": "0"}, "DB_MAX_CONNS"},
 		{"çok bağlantı", map[string]string{"DB_MAX_CONNS": "21"}, "DB_MAX_CONNS"},
 		{"bozuk şema", map[string]string{"DB_SCHEMA": "public; drop"}, "DB_SCHEMA"},
+		{"çok vekil", map[string]string{"TRUSTED_PROXY_HOPS": "4"}, "TRUSTED_PROXY_HOPS"},
+		{"negatif vekil", map[string]string{"TRUSTED_PROXY_HOPS": "-1"}, "TRUSTED_PROXY_HOPS"},
 		{"kısa acquire", map[string]string{"DB_ACQUIRE_TIMEOUT": "10ms"}, "DB_ACQUIRE_TIMEOUT"},
 		{"uzun acquire", map[string]string{"DB_ACQUIRE_TIMEOUT": "30s"}, "DB_ACQUIRE_TIMEOUT"},
 		{"bozuk acquire", map[string]string{"DB_ACQUIRE_TIMEOUT": "üç"}, "DB_ACQUIRE_TIMEOUT"},

@@ -29,7 +29,7 @@ Ayrıntı: [ADR-0008](decisions/0008-opaque-session-tokens.md).
 | Doğrulama (her istek) | `Bearer` al → biçim → hash → önbellek (≤ 60 sn) veya `sessions ⨝ users` (`token_hash`): süresi dolmuş, iptal edilmiş ya da kullanıcısı silinmiş → `401 UNAUTHORIZED`. Hata nedeni istemciye ayrıştırılmaz |
 | Yenileme `POST /v1/sessions/refresh` | Geçerli oturumla: tek transaction'da eskisini iptal et + yenisini oluştur → `200 { token, expires_at }`. Ağ hatasında istemci eski token'la tekrar dener; eski token iptal edildiyse yeniden misafir oturumu açar |
 | Hesap silme `DELETE /v1/me` | Aktif odadan ayrıl → takma ad `Silinmiş oyuncu`, `deleted_at` → tüm oturumlar silinir → `204` |
-| İstemci IP'si | Yerelde `RemoteAddr`. Cloud Run'da `X-Forwarded-For` başlığının Google ön ucu tarafından eklenen değeri; istemcinin yazdığı önceki değerlere güvenilmez. Kesin biçim ilk dağıtımda doğrulanır (SAFE-002) |
+| İstemci IP'si | `httpapi.ClientIP`: yerelde `RemoteAddr`; bulutta `X-Forwarded-For`'un **sağdan `TRUSTED_PROXY_HOPS`'uncu** girdisi (varsayılan 1); istemcinin yazdığı soldaki girdilere güvenilmez. IPv6 sınır anahtarı `/64`. Cloud Run'daki kesin biçim ilk dağıtımda doğrulanır |
 
 ## 2. Veritabanı erişimi (Supabase)
 

@@ -130,7 +130,11 @@
 ```
 Hatalar: `VALIDATION_FAILED`, `NICKNAME_INVALID`, `RATE_LIMITED`.
 
-**POST `/v1/sessions/refresh`** — Mevcut token'ı iptal eder, yenisini verir.
+- Token içeren yanıtlar `Cache-Control: no-store` taşır. Token loglanmaz.
+- Sınır, istek gövdesi doğrulanmadan önce uygulanır (geçersiz denemeler de sayılır). IPv6'da sınır `/64` ağı başınadır.
+- Yetki gerektiren her uç nokta geçersiz/eksik token'da `401 UNAUTHORIZED` + `WWW-Authenticate: Bearer realm="siginak"` döner; neden (süresi dolmuş, iptal, bilinmeyen) ayrıştırılmaz.
+
+**POST `/v1/sessions/refresh`** — Yetki: Bearer. Gövde boş veya `{}`. Mevcut token'ı iptal eder, yenisini verir; aynı token'la eşzamanlı ikinci yenileme `401` alır (istemci yeni token'ı kullanmalı).
 ```json
 // 200
 { "token": "…", "expires_at": "…" }

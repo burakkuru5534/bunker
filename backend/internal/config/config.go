@@ -54,6 +54,10 @@ type Config struct {
 	// (DB_ACQUIRE_TIMEOUT, varsayılan 3s; 100ms–10s). Havuz doluysa istek
 	// bu süreden sonra hızlıca hata alır (architecture.md §11).
 	DBAcquireTimeout time.Duration
+	// TrustedProxyHops: önümüzdeki güvenilir vekil sayısı; istemci IP'si
+	// X-Forwarded-For'un sağdan bu kadarıncı girdisidir (TRUSTED_PROXY_HOPS;
+	// varsayılan local 0, test/prod 1 — Cloud Run; 0–3).
+	TrustedProxyHops int
 	// DBSchema: rolün search_path'inde beklenen şema (DB_SCHEMA; varsayılan
 	// prod → bunker_prod, test/local → bunker_test). Açılışta doğrulanır.
 	DBSchema string
@@ -154,6 +158,17 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.DBMaxConns, cfg.DBSchema, cfg.DBAcquireTimeout = 3, "bunker_test", 3*time.Second
 	if cfg.Env == EnvProd {
 		cfg.DBMaxConns, cfg.DBSchema = 5, "bunker_prod"
+	}
+	if cfg.Env != EnvLocal {
+		cfg.TrustedProxyHops = 1
+	}
+	if v := getenv("TRUSTED_PROXY_HOPS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 || n > 3 {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXY_HOPS geçersiz: %q (0-3)", v))
+		} else {
+			cfg.TrustedProxyHops = n
+		}
 	}
 
 	// Değer hata mesajına asla yazılmaz.

@@ -43,6 +43,7 @@ backend/
 | `GCP_PROJECT_ID` | boş | Doluysa loglara Cloud Trace bağlantısı (`logging.googleapis.com/trace`) eklenir; gizli değildir |
 | `DATABASE_URL` | boş | **Gizli.** PostgreSQL adresi. test/prod'da zorunlu; yerelde boşsa servis veritabanısız başlar |
 | `DB_MAX_CONNS` | prod `5`, diğer `3` | Havuz üst sınırı (1–20, ADR-0010) |
+| `TRUSTED_PROXY_HOPS` | local `0`, test/prod `1` | Önümüzdeki güvenilir vekil sayısı; istemci IP'si `X-Forwarded-For`'un sağdan bu kadarıncı girdisi (sıklık sınırı). Cloud Run'da ilk dağıtımda doğrulanır |
 | `DB_ACQUIRE_TIMEOUT` | `3s` | Havuzdan bağlantı için en uzun bekleme (100ms–10s); dolarsa istek hızlıca `500` alır ve `veritabanı havuzu dolu` uyarısı loglanır |
 | `DB_SCHEMA` | prod `bunker_prod`, diğer `bunker_test` | Rolün `search_path`'inde beklenen şema; açılışta doğrulanır |
 
