@@ -78,7 +78,7 @@ Bellek içi token bucket (tek instance olduğu için yeterli).
 | Oyun sonuçları, kartlar, tur sonuçları | Kalıcı (kullanıcı silme talebinde anonimleştirilir) |
 | Oylar (`votes`) | Kalıcı, yalnızca sunucu |
 | Oturumlar | Süresi dolduktan / iptalden sonra temizlenir |
-| Raporlar | SAFE-009'da belirlenir |
+| Raporlar | SAFE-009'da belirlenir. Rapor, odanın son mesajlarının kopyasını içerir; sohbetin 30 günlük silinmesinden etkilenmez |
 
 - Veriler AB bölgesinde (Supabase) tutulur. **KVKK** kapsamında yurt dışına veri aktarımı ve aydınlatma metni gereklilikleri SAFE-008'de ele alınır; hukuki metinler için bir uzmana danışılması önerilir.
 - Google Play "Veri güvenliği" formu SAFE-012 / REL-008'de doldurulur.

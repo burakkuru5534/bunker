@@ -1,6 +1,6 @@
-# Veri Modeli (TASLAK) — Sığınak: Son Kalanlar
+# Veri Modeli — Sığınak: Son Kalanlar
 
-> Kaynak: ARCH-002 (2026-11-02, kullanıcı onaylı taslak). **Kesin şema DB-003'te** belirlenir; sütun tipleri ve indeksler orada netleşir.
+> Kaynak: ARCH-002 (2026-11-02, kullanıcı onaylı taslak); **kesin şema DB-003a–d (2026-11-03)**, aşağıdaki "Kesinleşen tablolar" bölümünde ve `migrations/postgres` dosyalarında. Üstteki tablo genel bakıştır; çelişki olursa migration dosyaları geçerlidir.
 > Tek kalıcı veri kaynağı: Supabase PostgreSQL.
 
 ## Sadeleştirmeler (master prompt listesine göre)
@@ -63,6 +63,13 @@ Her iki tablo **salt okunur** (`@app:readonly`): uygulama rolü yalnızca okur; 
 | `game_actions` | Idempotency: `(game_id, actor_id, action_id)` tekil; tekrar gelen istek kaydedilen `state_version`'ı döndürür. Sistem eylemleri `actor_id = null` (zamanlayıcı; sürüm denetimi korur). `type`: reveal_card, discussion_ready, vote, tiebreak_vote, leave, disconnect_timeout, phase_timeout. |
 
 Oyun silinirse (yalnızca bakım) bağlı tüm kayıtlar silinir.
+
+### 0004 — sohbet ve moderasyon (DB-003d)
+
+| Tablo | Kesin kararlar |
+|---|---|
+| `chat_messages` | `bigint` kimlik (sıralama). `body` küfür filtresinden geçmiş (maskelenmiş) metin, 1–200 karakter, baş/son boşluksuz; maskelenmemiş metin saklanmaz. Tekrar koruması `(room_id, user_id, client_msg_id)`. `game_id` lobide boş. Oda silinince mesajlar silinir. İndeksler: `(room_id, created_at desc, id desc)` son 50 mesaj; `created_at` 30 günlük temizlik (SAFE-009). |
+| `reports` | `reason` harassment/hate/spam/cheating/other; `note` ≤ 200; kendini raporlama yok. `messages_snapshot` rapor anındaki son mesajlar (JSON dizi, ≤ 64 KB) — sohbet silinse ve oda temizlense de kanıt kalır. `status` open → reviewing → actioned/dismissed; kapanınca `resolved_at`. Aynı kişi aynı odada aynı kişi için tek açık rapor. Raporların saklama süresi SAFE-009'da belirlenir. |
 
 ## Tutarlılık kuralları
 

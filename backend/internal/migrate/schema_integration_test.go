@@ -189,7 +189,8 @@ func TestIntegrationSchemaRLSOnEveryTable(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"users", "sessions", "rooms", "room_members", "blocks", "scenarios", "card_definitions",
-		"games", "game_participants", "player_cards", "votes", "round_results", "game_actions"} {
+		"games", "game_participants", "player_cards", "votes", "round_results", "game_actions",
+		"chat_messages", "reports"} {
 		if !seen[want] {
 			t.Errorf("%s tablosu yok (görülen: %s)", want, strings.Join(keys(seen), ","))
 		}
@@ -432,5 +433,63 @@ func TestIntegrationSchemaVotesResultsActions(t *testing.T) {
 		if n != 0 {
 			t.Errorf("%s oyunla silinmeli", table)
 		}
+	}
+}
+
+func TestIntegrationSchemaChatAndReports(t *testing.T) {
+	e := schemaEnv(t)
+	f := e.newGame(t)
+	u := f.users
+	ctx := context.Background()
+
+	msg := "insert into chat_messages (room_id, game_id, user_id, client_msg_id, body) values ($1, $2, $3, $4, $5)"
+	cid := "0c9a7f2e-1b1d-4e63-9a8b-7c1f3e2d4a01"
+	e.expect(t, "", msg, f.room, f.game, u[0], cid, "Merhaba ***")
+	// Ağ tekrarı: aynı client_msg_id ikinci kez kaydedilmez; başka kullanıcı aynı kimliği kullanabilir.
+	e.expect(t, "chat_messages_idempotency_key", msg, f.room, f.game, u[0], cid, "Merhaba ***")
+	e.expect(t, "", msg, f.room, nil, u[1], cid, "Lobi mesajı")
+	e.expect(t, "chat_messages_body_shape", msg, f.room, nil, u[0], "0c9a7f2e-1b1d-4e63-9a8b-7c1f3e2d4a02", "")
+	e.expect(t, "chat_messages_body_shape", msg, f.room, nil, u[0], "0c9a7f2e-1b1d-4e63-9a8b-7c1f3e2d4a03", " boşluklu")
+	e.expect(t, "chat_messages_body_shape", msg, f.room, nil, u[0], "0c9a7f2e-1b1d-4e63-9a8b-7c1f3e2d4a04", strings.Repeat("ğ", 201))
+	e.expect(t, "", msg, f.room, nil, u[0], "0c9a7f2e-1b1d-4e63-9a8b-7c1f3e2d4a05", strings.Repeat("ğ", 200))
+	e.expect(t, "chat_messages_room_id_fkey", msg, "6f1c2c1e-6a0b-4b39-9d6e-0c5f8b6f6aff", nil, u[0], "0c9a7f2e-1b1d-4e63-9a8b-7c1f3e2d4a06", "x")
+
+	// 30 gün saklama: eski mesajlar toplu silinir.
+	e.expect(t, "", "update chat_messages set created_at = now() - interval '31 days' where user_id = $1", u[1])
+	var deleted int64
+	tag, err := e.appPool.Exec(ctx, "delete from chat_messages where created_at < now() - interval '30 days'")
+	if err == nil {
+		deleted = tag.RowsAffected()
+	}
+	if err != nil || deleted != 1 {
+		t.Fatalf("eski mesaj silinmeli: %d %v", deleted, err)
+	}
+
+	rep := "insert into reports (reporter_id, reported_id, room_id, reason, note, messages_snapshot) values ($1, $2, $3, $4, $5, $6)"
+	snap := `[{"id": 1, "user_id": "` + u[1] + `", "nickname": "Ayşe", "text": "…", "created_at": "2026-11-03T12:00:00Z"}]`
+	e.expect(t, "", rep, u[0], u[1], f.room, "harassment", "Sürekli hakaret", snap)
+	// Aynı açık rapor tekrar açılamaz; başka neden olsa da.
+	e.expect(t, "reports_open_once_key", rep, u[0], u[1], f.room, "spam", nil, "[]")
+	e.expect(t, "reports_not_self", rep, u[0], u[0], f.room, "spam", nil, "[]")
+	e.expect(t, "reports_reason_valid", rep, u[0], u[2], f.room, "boring", nil, "[]")
+	e.expect(t, "reports_note_len", rep, u[0], u[2], f.room, "other", strings.Repeat("a", 201), "[]")
+	e.expect(t, "reports_note_len", rep, u[0], u[2], f.room, "other", "", "[]")
+	e.expect(t, "reports_snapshot_array", rep, u[0], u[2], f.room, "other", nil, `{"a": 1}`)
+	e.expect(t, "reports_snapshot_size", rep, u[0], u[2], f.room, "other", nil, `["`+strings.Repeat("a", 70000)+`"]`)
+
+	e.expect(t, "reports_status_valid", "update reports set status = 'closed' where reporter_id = $1", u[0])
+	e.expect(t, "reports_resolved_consistent", "update reports set status = 'dismissed' where reporter_id = $1", u[0])
+	e.expect(t, "", "update reports set status = 'dismissed', resolved_at = now() where reporter_id = $1", u[0])
+	// Kapanan rapordan sonra aynı kişi yeniden raporlanabilir.
+	e.expect(t, "", rep, u[0], u[1], f.room, "spam", nil, "[]")
+
+	// Oda silinince sohbet gider, rapor ve kanıtı kalır.
+	e.expect(t, "", "update rooms set status = 'closed', closed_at = now(), current_game_id = null where id = $1", f.room)
+	e.expect(t, "", "delete from rooms where id = $1", f.room)
+	var msgs, reports int
+	_ = e.appPool.QueryRow(ctx, "select count(*) from chat_messages").Scan(&msgs)
+	_ = e.appPool.QueryRow(ctx, "select count(*) from reports where room_id is null and jsonb_array_length(messages_snapshot) = 1").Scan(&reports)
+	if msgs != 0 || reports != 1 {
+		t.Fatalf("oda silinince: mesaj %d (0 olmalı), kanıtlı rapor %d (1 olmalı)", msgs, reports)
 	}
 }
