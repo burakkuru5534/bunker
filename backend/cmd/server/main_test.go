@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/burakkuru5534/bunker/backend/internal/config"
 )
 
 // syncBuffer, eşzamanlı yazmalar için kilitli tampon.
@@ -121,7 +123,7 @@ func TestShutdownWaitsForInFlightRequest(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	orig := handlerFactory
-	handlerFactory = func() http.Handler {
+	handlerFactory = func(config.Config) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			close(entered)
 			<-release
@@ -172,7 +174,7 @@ func TestShutdownTimesOut(t *testing.T) {
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 	orig := handlerFactory
-	handlerFactory = func() http.Handler {
+	handlerFactory = func(config.Config) http.Handler {
 		return http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 			close(entered)
 			<-release

@@ -15,7 +15,8 @@ func TestLoadDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("beklenmeyen hata: %v", err)
 	}
-	if cfg.Env != EnvLocal || cfg.Port != 8080 || cfg.ShutdownTimeout != 8*time.Second {
+	if cfg.Env != EnvLocal || cfg.Port != 8080 || cfg.ShutdownTimeout != 8*time.Second ||
+		cfg.MinAppVersion != "0.1.0" || cfg.RequestTimeout != 10*time.Second {
 		t.Fatalf("varsayılanlar yanlış: %+v", cfg)
 	}
 	if cfg.Addr() != ":8080" {
@@ -31,11 +32,14 @@ func TestLoadValues(t *testing.T) {
 		"APP_ENV":          "prod",
 		"PORT":             "9090",
 		"SHUTDOWN_TIMEOUT": "5s",
+		"MIN_APP_VERSION":  "1.4.0",
+		"REQUEST_TIMEOUT":  "3s",
 	}))
 	if err != nil {
 		t.Fatalf("beklenmeyen hata: %v", err)
 	}
-	if cfg.Env != EnvProd || cfg.Port != 9090 || cfg.ShutdownTimeout != 5*time.Second {
+	if cfg.Env != EnvProd || cfg.Port != 9090 || cfg.ShutdownTimeout != 5*time.Second ||
+		cfg.MinAppVersion != "1.4.0" || cfg.RequestTimeout != 3*time.Second {
 		t.Fatalf("değerler okunmadı: %+v", cfg)
 	}
 	if !cfg.IsProduction() {
@@ -56,6 +60,9 @@ func TestLoadInvalid(t *testing.T) {
 		{"bozuk süre", map[string]string{"SHUTDOWN_TIMEOUT": "on saniye"}, "SHUTDOWN_TIMEOUT"},
 		{"çok uzun süre", map[string]string{"SHUTDOWN_TIMEOUT": "5m"}, "SHUTDOWN_TIMEOUT"},
 		{"negatif süre", map[string]string{"SHUTDOWN_TIMEOUT": "-1s"}, "SHUTDOWN_TIMEOUT"},
+		{"bozuk sürüm", map[string]string{"MIN_APP_VERSION": "1.2"}, "MIN_APP_VERSION"},
+		{"önde sıfırlı sürüm", map[string]string{"MIN_APP_VERSION": "1.02.0"}, "MIN_APP_VERSION"},
+		{"bozuk istek süresi", map[string]string{"REQUEST_TIMEOUT": "x"}, "REQUEST_TIMEOUT"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

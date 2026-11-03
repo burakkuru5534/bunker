@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/burakkuru5534/bunker/backend/internal/config"
+	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 )
 
 func main() {
@@ -47,7 +48,7 @@ func run(
 	}
 
 	srv := &http.Server{
-		Handler: handlerFactory(),
+		Handler: handlerFactory(cfg),
 		// Başlıklar için üst sınır (Slowloris'e karşı). WebSocket bağlantıları
 		// uzun yaşadığından ReadTimeout / WriteTimeout bilinçli olarak yok;
 		// istek gövdesi sınırları ve zaman aşımları BE-002 middleware'inde.
@@ -93,8 +94,16 @@ func run(
 // değişkendir.
 var handlerFactory = newHandler
 
-// newHandler, HTTP yönlendiricisini döndürür. Rotalar, middleware ve standart
-// hata biçimi BE-002 / BE-004'te; /health BE-005'te eklenecek.
-func newHandler() http.Handler {
-	return http.NewServeMux()
+// newHandler, middleware zinciriyle sarılmış yönlendiriciyi döndürür.
+// Modül rotaları ve /health sonraki görevlerde Register içine eklenecek.
+func newHandler(cfg config.Config) http.Handler {
+	minVersion, err := httpapi.ParseVersion(cfg.MinAppVersion)
+	if err != nil {
+		// config.Load biçimi zaten doğruladı; buraya gelinmemeli.
+		panic(err)
+	}
+	return httpapi.NewRouter(httpapi.Options{
+		MinAppVersion:  minVersion,
+		RequestTimeout: cfg.RequestTimeout,
+	})
 }
