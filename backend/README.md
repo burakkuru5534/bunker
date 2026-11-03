@@ -6,9 +6,9 @@ Mimari: [../docs/architecture.md](../docs/architecture.md), API: [../docs/api.md
 | | |
 |---|---|
 | Modül | `github.com/burakkuru5534/bunker/backend` |
-| Go | 1.27.0 |
+| Go | 1.27.3 (`go.mod`; daha eski yerel Go, `GOTOOLCHAIN=auto` ile bu sürümü kendisi indirir) |
 | Giriş noktası | `cmd/server` |
-| Dış bağımlılık | Yok (şimdilik yalnızca standart kütüphane) |
+| Dış bağımlılık | `github.com/jackc/pgx/v5` v5.11.0 (PostgreSQL sürücüsü + havuz) ve onun dolaylı bağımlılıkları |
 
 ## Yapı
 
@@ -20,7 +20,8 @@ backend/
     config/            ortam değişkenleri ve doğrulama
     httpapi/           yönlendirici, middleware, standart JSON yanıt/hata biçimi, erişim logu
     observability/     slog tabanlı yapılandırılmış log, maskeleme, Cloud Trace kimliği
-    (auth, room, game, cards, chat, moderation, realtime, persistence — sonraki görevlerde)
+    persistence/       pgx bağlantı havuzu ve açılış güvenlik denetimleri
+    (auth, room, game, cards, chat, moderation, realtime — sonraki görevlerde)
 ```
 
 ## Yapılandırma
@@ -34,8 +35,15 @@ backend/
 | `REQUEST_TIMEOUT` | `10s` | REST isteklerinin bağlam süresi (WebSocket hariç) |
 | `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
 | `GCP_PROJECT_ID` | boş | Doluysa loglara Cloud Trace bağlantısı (`logging.googleapis.com/trace`) eklenir; gizli değildir |
+| `DATABASE_URL` | boş | **Gizli.** PostgreSQL adresi. test/prod'da zorunlu; yerelde boşsa servis veritabanısız başlar |
+| `DB_MAX_CONNS` | prod `5`, diğer `3` | Havuz üst sınırı (1–20, ADR-0010) |
+| `DB_SCHEMA` | prod `bunker_prod`, diğer `bunker_test` | Rolün `search_path`'inde beklenen şema; açılışta doğrulanır |
 
 Geçersiz değerde servis başlamaz ve tüm hataları birlikte yazar. Örnek: [.env.example](.env.example).
+
+**Yerel `.env`:** `APP_ENV` boş veya `local` ise çalışma klasöründeki `.env` okunur (`cd backend; go run ./cmd/server`). Gerçek ortam değişkenleri `.env`'den önceliklidir. Bulutta (`test`/`prod`) dosya okunmaz. `.env` git'e girmez.
+
+**Gizli değerler:** `DATABASE_URL`, `config.Secret` türündedir; `fmt`, `slog` ve JSON çıktılarında `[REDACTED]` görünür. Gerçek değer yalnızca `Reveal()` ile sürücüye verilir. Yapılandırma ve bağlantı hataları adresi içermez.
 
 ## HTTP katmanı (`internal/httpapi`)
 
@@ -112,6 +120,30 @@ Kod listesi `docs/api.md` §2 ile test edilerek eşlenir (`TestErrorCodesMatchDo
 - Maskeleme: anahtarı `authorization`, `token`, `password`, `secret`, `database_url`, `dsn`, `cookie`, `api_key`, `credential`, `private_key` içeren alanlar ve `Bearer ` içeren değerler `[REDACTED]` olarak yazılır (gruplar dahil). Bu bir emniyet ağıdır; gizli değerleri hiç loglamamak esastır.
 - Handler içinde: `observability.LoggerFrom(r.Context()).Info(...)` → satır `request_id` taşır.
 
+## Veritabanı (`internal/persistence`)
+
+Supabase'e Supavisor session mode (5432, IPv4) ile `pgxpool` üzerinden bağlanılır (ADR-0009, ADR-0010). Havuz: `MinConns 0`, boşta 5 dk, ömür 30 dk, sağlık 1 dk, bağlantı zaman aşımı 5 sn.
+
+Açılışta (en çok 15 sn) doğrulananlar; biri başarısızsa servis **başlamaz**:
+
+| Denetim | test / prod | local |
+|---|---|---|
+| TLS | `sslmode=verify-full` zorunlu | Yerel makine (localhost / 127.0.0.1 / ::1 / unix soketi): serbest. Uzak sunucu: en az `require` (şifresiz reddedilir), `verify-full` değilse uyarı |
+| Rol | Süper kullanıcı, `BYPASSRLS`, `postgres`, `service_role`, `supabase_*` vb. yönetim rolleri reddedilir | Denetlenmez |
+| Şema | `current_schema()` = `DB_SCHEMA` | Aynı |
+
+`/health/ready`, `database` denetimiyle havuzdan ping atar. Kapanışta HTTP sunucusu durduktan sonra havuz kapatılır.
+
+### Entegrasyon testleri
+
+`TEST_DATABASE_ADMIN_URL` tanımlıysa gerçek PostgreSQL'e karşı çalışır: her test rastgele adlı rol ve şema kurar, sonunda siler. Tanımlı değilse atlanır. CI'da geçici bir `postgres:17` servisiyle çalışır. **Supabase adresini buraya vermeyin**; yerel veya tek kullanımlık bir PostgreSQL kullanın.
+
+```bash
+# Docker ile örnek
+docker run --rm -d -p 55432:5432 -e POSTGRES_PASSWORD=postgres --name pg-test postgres:17-alpine
+TEST_DATABASE_ADMIN_URL="postgres://postgres:postgres@localhost:55432/postgres?sslmode=disable" go test ./...
+```
+
 ## Çalıştırma
 
 ```bash
@@ -134,6 +166,7 @@ cd backend
 gofmt -l .          # çıktı boş olmalı
 go vet ./...
 go test -race ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...   # bilinen açık taraması
 ```
 
 > `-race` Windows'ta cgo (gcc) gerektirir; yoksa `go test ./...` çalıştırın. CI (Linux) her zaman `-race` ile çalışır.

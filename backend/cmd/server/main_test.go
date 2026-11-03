@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -31,6 +32,14 @@ func (b *syncBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String()
+}
+
+// testClient, keep-alive kapalı istemcidir. Varsayılan istemcinin havuzu,
+// hiç istek göndermediği bir bağlantıyı açık bırakabilir; http.Server.Shutdown
+// böyle "yeni" bağlantıları 5 sn bekler ve kapanış testleri kararsızlaşır.
+var testClient = &http.Client{
+	Transport: &http.Transport{DisableKeepAlives: true},
+	Timeout:   5 * time.Second,
 }
 
 func envWith(m map[string]string) func(string) string {
@@ -93,7 +102,7 @@ func localURL(addr, path string) string {
 func TestServerStartsAndShutsDownGracefully(t *testing.T) {
 	cancel, addr, done, out := startServer(t, nil)
 
-	resp, err := http.Get(localURL(addr, "/bilinmeyen"))
+	resp, err := testClient.Get(localURL(addr, "/bilinmeyen"))
 	if err != nil {
 		t.Fatalf("istek başarısız: %v", err)
 	}
@@ -104,7 +113,7 @@ func TestServerStartsAndShutsDownGracefully(t *testing.T) {
 
 	// Sağlık uç noktaları gerçek sunucuda, sürüm başlığı olmadan çalışır.
 	for path, want := range map[string]string{"/health": `{"status":"ok"}`, "/health/ready": `{"status":"ready"}`} {
-		resp, err := http.Get(localURL(addr, path))
+		resp, err := testClient.Get(localURL(addr, path))
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
@@ -138,7 +147,7 @@ func TestShutdownWaitsForInFlightRequest(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	orig := handlerFactory
-	handlerFactory = func(config.Config, *slog.Logger) http.Handler {
+	handlerFactory = func(config.Config, *slog.Logger, deps) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			close(entered)
 			<-release
@@ -155,7 +164,7 @@ func TestShutdownWaitsForInFlightRequest(t *testing.T) {
 	}
 	resCh := make(chan result, 1)
 	go func() {
-		resp, err := http.Get(localURL(addr, "/yavas"))
+		resp, err := testClient.Get(localURL(addr, "/yavas"))
 		if err != nil {
 			resCh <- result{err: err}
 			return
@@ -189,7 +198,7 @@ func TestShutdownTimesOut(t *testing.T) {
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 	orig := handlerFactory
-	handlerFactory = func(config.Config, *slog.Logger) http.Handler {
+	handlerFactory = func(config.Config, *slog.Logger, deps) http.Handler {
 		return http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 			close(entered)
 			<-release
@@ -199,7 +208,7 @@ func TestShutdownTimesOut(t *testing.T) {
 
 	cancel, addr, done, _ := startServer(t, map[string]string{"SHUTDOWN_TIMEOUT": "200ms"})
 	go func() {
-		if resp, err := http.Get(localURL(addr, "/takili")); err == nil {
+		if resp, err := testClient.Get(localURL(addr, "/takili")); err == nil {
 			_ = resp.Body.Close()
 		}
 	}()
@@ -234,5 +243,79 @@ func TestRunFailsWhenPortBusy(t *testing.T) {
 	err = run(context.Background(), envWith(map[string]string{"PORT": itoa(port)}), &syncBuffer{}, nil)
 	if err == nil || !strings.Contains(err.Error(), "dinleme") {
 		t.Fatalf("port meşgul hatası bekleniyordu: %v", err)
+	}
+}
+
+func TestLocalEnvReadsDotEnvOnlyLocally(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/.env"
+	if err := os.WriteFile(path, []byte("LOG_LEVEL=debug\nPORT=1111\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	get, err := localEnv(envWith(map[string]string{"PORT": "2222"}), path)
+	if err != nil || get("LOG_LEVEL") != "debug" || get("PORT") != "2222" {
+		t.Fatalf("yerelde .env okunmalı, gerçek ortam öncelikli: %v", err)
+	}
+	get, err = localEnv(envWith(map[string]string{"APP_ENV": "prod"}), path)
+	if err != nil || get("LOG_LEVEL") != "" {
+		t.Fatal("bulutta .env okunmamalı")
+	}
+	if err := os.WriteFile(path, []byte("bozuk satır\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := localEnv(envWith(nil), path); err == nil {
+		t.Fatal("bozuk .env hata vermeli")
+	}
+}
+
+func TestRunFailsWhenDatabaseUnreachable(t *testing.T) {
+	var out syncBuffer
+	err := run(context.Background(), envWith(map[string]string{
+		"PORT":         "8080",
+		"DATABASE_URL": "postgres://u:cokgizli@127.0.0.1:1/db?sslmode=disable",
+	}), &out, func(net.Addr) { t.Error("veritabanı yokken dinlemeye başlamamalı") })
+	if err == nil || !strings.Contains(err.Error(), "veritabanı") {
+		t.Fatalf("veritabanı hatası bekleniyordu: %v", err)
+	}
+	if strings.Contains(err.Error(), "cokgizli") || strings.Contains(out.String(), "cokgizli") {
+		t.Fatal("şifre sızmamalı")
+	}
+}
+
+func TestRunStrictRejectsPlaintextInTest(t *testing.T) {
+	err := run(context.Background(), envWith(map[string]string{
+		"APP_ENV":      "test",
+		"DATABASE_URL": "postgres://u:p@db.example.com/db?sslmode=require",
+	}), &syncBuffer{}, nil)
+	if err == nil || !strings.Contains(err.Error(), "verify-full") {
+		t.Fatalf("test ortamında verify-full zorunlu olmalı: %v", err)
+	}
+}
+
+// TEST_DATABASE_ADMIN_URL varsa gerçek veritabanıyla açılış + hazırlık.
+func TestRunWithDatabaseReady(t *testing.T) {
+	admin := os.Getenv("TEST_DATABASE_ADMIN_URL")
+	if admin == "" {
+		t.Skip("TEST_DATABASE_ADMIN_URL tanımlı değil")
+	}
+	cancel, addr, done, out := startServer(t, map[string]string{
+		"DATABASE_URL": admin,
+		"DB_SCHEMA":    "public", // yerel modda yönetici rolüyle; katı denetimler persistence testlerinde
+	})
+	resp, err := testClient.Get(localURL(addr, "/health/ready"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("hazır olmalı: %d", resp.StatusCode)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "veritabanı bağlandı") || strings.Contains(out.String(), "postgres:postgres@") {
+		t.Fatalf("log: %s", out.String())
 	}
 }

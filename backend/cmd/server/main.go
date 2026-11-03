@@ -1,10 +1,14 @@
 // Command server, Sığınak backend servisidir (REST + WebSocket).
 //
 // Yaşam döngüsü:
-//  1. Yapılandırma ortam değişkenlerinden okunur (internal/config).
-//  2. HTTP sunucusu PORT üzerinde dinlemeye başlar.
-//  3. SIGINT / SIGTERM gelince yeni bağlantı kabul edilmez, açık istekler
-//     SHUTDOWN_TIMEOUT süresince beklenir, sonra süreç çıkar
+//  1. Yapılandırma ortam değişkenlerinden okunur (internal/config). Yerelde
+//     (APP_ENV boş veya local) çalışma klasöründeki .env de okunur; gerçek
+//     ortam değişkenleri önceliklidir.
+//  2. DATABASE_URL varsa bağlantı havuzu kurulur ve doğrulanır; başarısızsa
+//     servis başlamaz (yerelde DATABASE_URL yoksa veritabanısız çalışır).
+//  3. HTTP sunucusu PORT üzerinde dinlemeye başlar.
+//  4. SIGINT / SIGTERM gelince yeni bağlantı kabul edilmez, açık istekler
+//     SHUTDOWN_TIMEOUT süresince beklenir, havuz kapatılır, süreç çıkar
 //     (Cloud Run SIGTERM'den ~10 sn sonra süreci sonlandırır; ADR-0011).
 package main
 
@@ -24,16 +28,44 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/config"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
+	"github.com/burakkuru5534/bunker/backend/internal/persistence"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx, os.Getenv, os.Stdout, nil); err != nil {
+	getenv, err := localEnv(os.Getenv, ".env")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "yapılandırma: %v\n", err)
+		os.Exit(1)
+	}
+	if err := run(ctx, getenv, os.Stdout, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "sunucu hatası: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// localEnv, yerelde (APP_ENV boş veya local) .env dosyasını ortam
+// değişkenlerinin arkasına ekler. Bulutta dosya okunmaz.
+func localEnv(getenv func(string) string, path string) (func(string) string, error) {
+	if e := getenv("APP_ENV"); e != "" && e != string(config.EnvLocal) {
+		return getenv, nil
+	}
+	values, err := config.ReadDotEnv(path)
+	if err != nil {
+		return nil, err
+	}
+	return config.WithFallback(getenv, values), nil
+}
+
+// dbStartupTimeout, açılışta veritabanı bağlantısı ve doğrulaması için üst süre.
+const dbStartupTimeout = 15 * time.Second
+
+// deps, handler'ların bağımlılıklarıdır.
+type deps struct {
+	DB *pgxpool.Pool // DATABASE_URL yoksa (yalnızca yerel) nil
 }
 
 // run, servisi ctx iptal edilene kadar çalıştırır. Test edilebilirlik için
@@ -52,8 +84,20 @@ func run(
 	logger := newLogger(cfg, stdout)
 	slog.SetDefault(logger)
 
+	var d deps
+	if cfg.DatabaseURL.IsSet() {
+		pool, err := openDB(ctx, cfg, logger)
+		if err != nil {
+			return err
+		}
+		defer pool.Close()
+		d.DB = pool
+	} else {
+		logger.Warn("DATABASE_URL tanımlı değil; veritabanısız çalışılıyor (yalnızca yerel)")
+	}
+
 	srv := &http.Server{
-		Handler:  handlerFactory(cfg, logger),
+		Handler:  handlerFactory(cfg, logger, d),
 		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 		// Başlıklar için üst sınır (Slowloris'e karşı). WebSocket bağlantıları
 		// uzun yaşadığından ReadTimeout / WriteTimeout bilinçli olarak yok;
@@ -96,6 +140,25 @@ func run(
 	return nil
 }
 
+// openDB, havuzu kurar ve doğrular (persistence.Open). Test/prod'da TLS ve
+// rol denetimleri katıdır.
+func openDB(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgxpool.Pool, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, dbStartupTimeout)
+	defer cancel()
+	pool, err := persistence.Open(dbCtx, persistence.Options{
+		URL:      cfg.DatabaseURL.Reveal(),
+		MaxConns: int32(cfg.DBMaxConns),
+		Schema:   cfg.DBSchema,
+		Strict:   cfg.Env != config.EnvLocal,
+		AppName:  "siginak-api-" + string(cfg.Env),
+	}, logger)
+	if err != nil {
+		return nil, fmt.Errorf("veritabanı: %w", err)
+	}
+	logger.Info("veritabanı bağlandı", "schema", cfg.DBSchema, "max_conns", cfg.DBMaxConns)
+	return pool, nil
+}
+
 // newLogger, yapılandırmaya göre logger kurar (yerelde metin, bulutta JSON).
 func newLogger(cfg config.Config, w io.Writer) *slog.Logger {
 	level, _ := observability.ParseLevel(cfg.LogLevel) // config doğruladı
@@ -111,15 +174,17 @@ func newLogger(cfg config.Config, w io.Writer) *slog.Logger {
 var handlerFactory = newHandler
 
 // newHandler, middleware zinciriyle sarılmış yönlendiriciyi döndürür.
-// Modül rotaları sonraki görevlerde Register içine eklenecek; veritabanı
-// hazırlık denetimi DB-001'de health.Checks'e eklenecek.
-func newHandler(cfg config.Config, logger *slog.Logger) http.Handler {
+// Modül rotaları sonraki görevlerde Register içine eklenecek.
+func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 	minVersion, err := httpapi.ParseVersion(cfg.MinAppVersion)
 	if err != nil {
 		// config.Load biçimi zaten doğruladı; buraya gelinmemeli.
 		panic(err)
 	}
 	health := &httpapi.Health{Timeout: httpapi.DefaultReadinessTimeout}
+	if d.DB != nil {
+		health.Checks = append(health.Checks, httpapi.ReadinessCheck{Name: "database", Check: d.DB.Ping})
+	}
 	return httpapi.NewRouter(httpapi.Options{
 		Logger:         logger,
 		ProjectID:      cfg.GCPProjectID,

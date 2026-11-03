@@ -40,6 +40,7 @@ func TestLoadValues(t *testing.T) {
 		"REQUEST_TIMEOUT":  "3s",
 		"LOG_LEVEL":        "DEBUG",
 		"GCP_PROJECT_ID":   "siginak-prod-123",
+		"DATABASE_URL":     " postgres://u:p@h/db ",
 	}))
 	if err != nil {
 		t.Fatalf("beklenmeyen hata: %v", err)
@@ -51,6 +52,36 @@ func TestLoadValues(t *testing.T) {
 	}
 	if !cfg.IsProduction() {
 		t.Fatal("prod bekleniyordu")
+	}
+	if cfg.DatabaseURL.Reveal() != "postgres://u:p@h/db" || cfg.DBMaxConns != 5 || cfg.DBSchema != "bunker_prod" {
+		t.Fatalf("prod veritabanı varsayılanları yanlış: %d %s", cfg.DBMaxConns, cfg.DBSchema)
+	}
+}
+
+func TestDatabaseDefaultsAndOverrides(t *testing.T) {
+	cfg, err := Load(env(nil))
+	if err != nil || cfg.DatabaseURL.IsSet() || cfg.DBMaxConns != 3 || cfg.DBSchema != "bunker_test" {
+		t.Fatalf("yerel varsayılanlar: %v %+v", err, cfg)
+	}
+	cfg, err = Load(env(map[string]string{"APP_ENV": "test", "DATABASE_URL": "x", "DB_MAX_CONNS": "7", "DB_SCHEMA": "bunker_dev_1"}))
+	if err != nil || cfg.DBMaxConns != 7 || cfg.DBSchema != "bunker_dev_1" {
+		t.Fatalf("geçersiz kılma: %v %+v", err, cfg)
+	}
+}
+
+func TestDatabaseURLRequiredOutsideLocal(t *testing.T) {
+	for _, e := range []string{"test", "prod"} {
+		_, err := Load(env(map[string]string{"APP_ENV": e, "DATABASE_URL": "   "}))
+		if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+			t.Errorf("%s: DATABASE_URL zorunlu olmalı: %v", e, err)
+		}
+	}
+}
+
+func TestDatabaseURLNeverInErrors(t *testing.T) {
+	_, err := Load(env(map[string]string{"DATABASE_URL": "postgres://u:cokgizli@h/db", "PORT": "x", "DB_MAX_CONNS": "0"}))
+	if err == nil || strings.Contains(err.Error(), "cokgizli") {
+		t.Fatalf("gizli değer hata mesajına girmemeli: %v", err)
 	}
 }
 
@@ -72,6 +103,10 @@ func TestLoadInvalid(t *testing.T) {
 		{"bozuk istek süresi", map[string]string{"REQUEST_TIMEOUT": "x"}, "REQUEST_TIMEOUT"},
 		{"bilinmeyen log seviyesi", map[string]string{"LOG_LEVEL": "trace"}, "LOG_LEVEL"},
 		{"bozuk proje kimliği", map[string]string{"GCP_PROJECT_ID": "Proje Adı"}, "GCP_PROJECT_ID"},
+		{"sıfır bağlantı", map[string]string{"DB_MAX_CONNS": "0"}, "DB_MAX_CONNS"},
+		{"çok bağlantı", map[string]string{"DB_MAX_CONNS": "21"}, "DB_MAX_CONNS"},
+		{"bozuk şema", map[string]string{"DB_SCHEMA": "public; drop"}, "DB_SCHEMA"},
+		{"büyük harf şema", map[string]string{"DB_SCHEMA": "Bunker"}, "DB_SCHEMA"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

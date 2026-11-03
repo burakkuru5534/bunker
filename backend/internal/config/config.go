@@ -43,6 +43,16 @@ type Config struct {
 	// GCPProjectID: Cloud Logging izleme alanı için proje kimliği
 	// (GCP_PROJECT_ID, opsiyonel; boşsa izleme alanı yazılmaz).
 	GCPProjectID string
+
+	// DatabaseURL: PostgreSQL bağlantı adresi (DATABASE_URL, gizli). test ve
+	// prod'da zorunlu; yerelde boşsa servis veritabanısız başlar.
+	DatabaseURL Secret
+	// DBMaxConns: bağlantı havuzu üst sınırı (DB_MAX_CONNS; varsayılan prod 5,
+	// test/local 3; 1-20). ADR-0010.
+	DBMaxConns int
+	// DBSchema: rolün search_path'inde beklenen şema (DB_SCHEMA; varsayılan
+	// prod → bunker_prod, test/local → bunker_test). Açılışta doğrulanır.
+	DBSchema string
 }
 
 // LogJSON, loglar JSON mı yazılsın? Yerelde okunabilir metin, bulutta JSON.
@@ -50,6 +60,9 @@ func (c Config) LogJSON() bool { return c.Env != EnvLocal }
 
 // projectID, GCP proje kimliği biçimi (6-30 karakter, küçük harf/rakam/tire).
 var projectID = regexp.MustCompile(`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`)
+
+// schemaName, PostgreSQL tanımlayıcısı (tırnaksız, küçük harf).
+var schemaName = regexp.MustCompile(`^[a-z_][a-z0-9_]{0,62}$`)
 
 var semver = regexp.MustCompile(`^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})$`)
 
@@ -130,6 +143,35 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("GCP_PROJECT_ID geçersiz: %q", v))
 		} else {
 			cfg.GCPProjectID = v
+		}
+	}
+
+	// Veritabanı varsayılanları ortama bağlıdır; APP_ENV yukarıda okundu.
+	cfg.DBMaxConns, cfg.DBSchema = 3, "bunker_test"
+	if cfg.Env == EnvProd {
+		cfg.DBMaxConns, cfg.DBSchema = 5, "bunker_prod"
+	}
+
+	// Değer hata mesajına asla yazılmaz.
+	cfg.DatabaseURL = Secret(strings.TrimSpace(getenv("DATABASE_URL")))
+	if !cfg.DatabaseURL.IsSet() && cfg.Env != EnvLocal {
+		errs = append(errs, fmt.Errorf("DATABASE_URL %s ortamında zorunlu", cfg.Env))
+	}
+
+	if v := getenv("DB_MAX_CONNS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 20 {
+			errs = append(errs, fmt.Errorf("DB_MAX_CONNS geçersiz: %q (1-20)", v))
+		} else {
+			cfg.DBMaxConns = n
+		}
+	}
+
+	if v := getenv("DB_SCHEMA"); v != "" {
+		if !schemaName.MatchString(v) {
+			errs = append(errs, fmt.Errorf("DB_SCHEMA geçersiz: %q (küçük harf, rakam, _)", v))
+		} else {
+			cfg.DBSchema = v
 		}
 	}
 
