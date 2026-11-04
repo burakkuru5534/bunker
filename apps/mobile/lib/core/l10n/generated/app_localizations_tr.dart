@@ -558,4 +558,77 @@ class AppLocalizationsTr extends AppLocalizations {
   String gameVoteFor(String name) {
     return '$name için oy ver';
   }
+
+  @override
+  String get gameMethodVote => 'Oylamayla elendi';
+
+  @override
+  String get gameMethodSpectators => 'İzleyicilerin kararıyla elendi';
+
+  @override
+  String get gameMethodLottery => 'Eşitlik kurayla bozuldu';
+
+  @override
+  String get gameMethodLeft => 'Oyundan ayrıldı';
+
+  @override
+  String get gameMethodShortVote => 'oylama';
+
+  @override
+  String get gameMethodShortSpectators => 'izleyiciler';
+
+  @override
+  String get gameMethodShortLottery => 'kura';
+
+  @override
+  String get gameMethodShortLeft => 'ayrıldı';
+
+  @override
+  String gameVotesCount(int count) {
+    return '$count oy';
+  }
+
+  @override
+  String get gameNoVotes => 'Kimse oy vermedi; herkes eşit sayıldı.';
+
+  @override
+  String gameLotteryAmong(String names) {
+    return 'Kura adayları: $names';
+  }
+
+  @override
+  String get gameEliminatedCards => 'Kartları';
+
+  @override
+  String get gameDoorClosedTitle => 'Kapı kapandı.';
+
+  @override
+  String get gameDoorClosedBody => 'Artık izleyicisin.';
+
+  @override
+  String get resultWinners => 'Sığınağa girenler';
+
+  @override
+  String get resultLosers => 'Dışarıda kalanlar';
+
+  @override
+  String get resultRounds => 'Tur tur';
+
+  @override
+  String resultRoundLine(int round, String name, String method) {
+    return 'Tur $round: $name ($method)';
+  }
+
+  @override
+  String get resultRematch => 'Tekrar oyna';
+
+  @override
+  String get resultAbandoned =>
+      'Oyun erken bitti: oyunda yeterli oyuncu kalmadı.';
+
+  @override
+  String get resultWaitingHost => 'Oda sahibi yeni bir oyun başlatabilir.';
+
+  @override
+  String get resultLoading => 'Sonuçlar yükleniyor…';
 }

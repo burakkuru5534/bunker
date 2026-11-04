@@ -208,3 +208,56 @@ Map<String, Object?> participantJson(
     for (final e in revealed.entries) {'category': e.key, 'text': e.value},
   ],
 };
+
+/// `game.finished` / `GET result` yükü: u-guest ve u2 kazanır, u3 elenir.
+Map<String, Object?> resultJson({String endReason = 'capacity_reached'}) => {
+  'game_id': 'g1',
+  'finished_at': '2026-11-04T10:30:00Z',
+  'end_reason': endReason,
+  'scenario': {'id': 'meteor', 'title': 'Göktaşı'},
+  'capacity': 2,
+  'players': [
+    {
+      'user_id': 'u-guest',
+      'nickname': 'Ayşe',
+      'is_winner': true,
+      'status': 'alive',
+      'eliminated_round': null,
+      'cards': [
+        {'category': 'secret', 'text': 'Gizli günlük'},
+        {'category': 'profession', 'text': 'Acil tıp doktoru'},
+      ],
+    },
+    {
+      'user_id': 'u2',
+      'nickname': 'Mehmet',
+      'is_winner': true,
+      'status': 'alive',
+      'eliminated_round': null,
+      'cards': [
+        {'category': 'profession', 'text': 'Aşçı'},
+      ],
+    },
+    {
+      'user_id': 'u3',
+      'nickname': 'Zeynep',
+      'is_winner': false,
+      'status': 'eliminated',
+      'eliminated_round': 1,
+      'cards': [
+        {'category': 'profession', 'text': 'Astrolog'},
+      ],
+    },
+  ],
+  'rounds': [
+    {
+      'round': 1,
+      'eliminated_user_id': 'u3',
+      'method': 'vote',
+      'tally': [
+        {'user_id': 'u3', 'votes': 2},
+        {'user_id': 'u2', 'votes': 1},
+      ],
+    },
+  ],
+};

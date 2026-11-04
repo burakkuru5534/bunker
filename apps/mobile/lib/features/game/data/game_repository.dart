@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:siginak/core/network/api_client.dart';
 import 'package:siginak/core/network/api_client_provider.dart';
+import 'package:siginak/core/network/api_exception.dart';
 import 'package:siginak/core/util/uuid.dart';
 import 'package:siginak/features/game/domain/game_models.dart';
+import 'package:siginak/features/game/domain/game_result.dart';
 
 /// Oyun eylemi (docs/api.md "Oyun"): tür + yük.
 sealed class GameAction {
@@ -63,6 +65,19 @@ class GameRepository {
   final ApiClient _api;
   final String Function() _newId;
   final Map<String, String> _pending = {};
+
+  /// Maç sonu (`GET /v1/games/{id}/result`); oyun sürerken `INVALID_PHASE`.
+  Future<GameResult> fetchResult(String gameId) async {
+    final json = await _api.get('/v1/games/$gameId/result');
+    try {
+      return GameResult.fromJson(json);
+    } on FormatException catch (e) {
+      throw ApiException(
+        kind: ApiErrorKind.invalidResponse,
+        debugMessage: 'sonuç: ${e.message}',
+      );
+    }
+  }
 
   Future<void> act(String gameId, int round, GameAction action) async {
     final key = '$gameId:$round:${action.key}';

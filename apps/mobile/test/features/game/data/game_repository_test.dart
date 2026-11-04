@@ -7,6 +7,7 @@ import 'package:siginak/features/game/game.dart';
 
 import '../../../helpers/fake_backend.dart';
 import '../../../helpers/fake_http_adapter.dart';
+import '../../../helpers/fake_ws.dart';
 
 void main() {
   late List<RequestOptions> sent;
@@ -75,6 +76,28 @@ void main() {
 
     expect(body(0)['action_id'], 'id-1');
     expect(body(1)['action_id'], 'id-2');
+  });
+
+  test('sonuç okunur; bozuk sonuç invalidResponse', () async {
+    handler = (r) async => jsonResponse(resultJson(), 200);
+    final r = await repo.fetchResult('g1');
+    expect(sent.last.path, '/v1/games/g1/result');
+    expect(r.winners, hasLength(2));
+
+    // Kimliksiz oyuncu → bozuk yanıt.
+    handler = (r) async => jsonResponse({
+      'players': [<String, Object?>{}],
+    }, 200);
+    await expectLater(
+      repo.fetchResult('g1'),
+      throwsA(
+        isA<ApiException>().having(
+          (e) => e.kind,
+          'kind',
+          ApiErrorKind.invalidResponse,
+        ),
+      ),
+    );
   });
 
   test('farklı eylem veya tur farklı kimlik alır', () async {

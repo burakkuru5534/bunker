@@ -512,4 +512,122 @@ void main() {
       expect(find.text('Oyunu verdin.'), findsOneWidget);
     });
   });
+
+  group('maç sonu', () {
+    final members = [
+      wsMember('u-guest', 'Ayşe'),
+      wsMember('u2', 'Mehmet'),
+      wsMember('u3', 'Zeynep'),
+    ];
+    final participants = [
+      participantJson('u-guest', 'Ayşe', 0),
+      participantJson('u2', 'Mehmet', 1),
+      participantJson('u3', 'Zeynep', 2, status: 'eliminated'),
+    ];
+
+    Map<String, Object?> snap(String status, {String phase = 'VOTING'}) {
+      final payload = snapshotPayload(
+        roomId: roomId,
+        me: 'u-guest',
+        status: status,
+        members: members,
+        game: snapshotGame(participants: participants, phase: phase),
+      );
+      (payload['room']! as Map<String, Object?>)['current_game_id'] = 'g1';
+      return payload;
+    }
+
+    testWidgets('game.finished → sonuç; tekrar oyna → lobi', (tester) async {
+      backend.on('POST', '/v1/rooms/$roomId/rematch', (r) async {
+        requests.add('rematch');
+        return jsonOk(
+          snapshotPayload(
+            roomId: roomId,
+            me: 'u-guest',
+            version: 9,
+            members: members,
+          )['room'],
+        );
+      });
+      await pump(tester);
+      ws.last.serverSend('session.snapshot', payload: snap('in_game'));
+      await frames(tester);
+
+      ws.last.serverSend(
+        'game.finished',
+        stateVersion: 11,
+        payload: resultJson(),
+      );
+      await frames(tester);
+
+      expect(find.text('Sığınağa girenler'), findsOneWidget);
+      expect(backend.calls.where((c) => c.contains('/result')), isEmpty);
+
+      await tester.tap(find.text('Tekrar oyna'));
+      await frames(tester);
+      expect(requests, ['rematch']);
+      expect(find.text('K7M2QX'), findsOneWidget); // lobi
+      expect(find.text('Sığınağa girenler'), findsNothing);
+    });
+
+    testWidgets('Biten odaya bağlanınca sonuç sunucudan yüklenir', (
+      tester,
+    ) async {
+      backend.on(
+        'GET',
+        '/v1/games/g1/result',
+        (r) async => jsonOk(resultJson()),
+      );
+      await pump(tester);
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snap('finished', phase: 'FINISHED'),
+      );
+      await frames(tester);
+
+      expect(backend.calls, contains('GET /v1/games/g1/result'));
+      expect(find.text('Dışarıda kalanlar'), findsOneWidget);
+    });
+
+    testWidgets('Sonuç yüklenemezse tekrar denenir', (tester) async {
+      var fail = true;
+      backend.on('GET', '/v1/games/g1/result', (r) async {
+        if (fail) return jsonResponse(apiError('INTERNAL'), 500);
+        return jsonOk(resultJson());
+      });
+      await pump(tester);
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snap('finished', phase: 'FINISHED'),
+      );
+      await frames(tester);
+      expect(
+        find.text('Sunucuda bir sorun oluştu. Biraz sonra tekrar dene.'),
+        findsOneWidget,
+      );
+
+      fail = false;
+      await tester.tap(find.text('Tekrar dene'));
+      await frames(tester);
+      expect(find.text('Sığınağa girenler'), findsOneWidget);
+    });
+
+    testWidgets('Ana ekrana dön → odadan ayrılır', (tester) async {
+      await pump(tester);
+      ws.last.serverSend('session.snapshot', payload: snap('in_game'));
+      await frames(tester);
+      ws.last.serverSend(
+        'game.finished',
+        stateVersion: 11,
+        payload: resultJson(),
+      );
+      await frames(tester);
+
+      await tester.tap(find.text('Ana ekrana dön'));
+      await frames(tester);
+
+      expect(requests, ['leave null']);
+      expect(exits, 1);
+    });
+  });
 }

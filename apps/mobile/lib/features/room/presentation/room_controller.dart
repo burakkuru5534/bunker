@@ -37,6 +37,7 @@ class RoomState {
     this.myUserId,
     this.game,
     this.exit,
+    this.result,
   });
 
   /// İlk `session.snapshot` gelene kadar `null`.
@@ -48,6 +49,9 @@ class RoomState {
   final GameView? game;
   final RoomExit? exit;
 
+  /// `game.finished` ile gelen sonuç (kaçırıldıysa ekran sunucudan ister).
+  final GameResult? result;
+
   RoomMember? get me => room?.memberOf(myUserId);
   bool get isHost => room != null && room!.hostUserId == myUserId;
 
@@ -57,12 +61,14 @@ class RoomState {
     RealtimeState? connection,
     GameView? Function()? game,
     RoomExit? exit,
+    GameResult? Function()? result,
   }) => RoomState(
     room: room ?? this.room,
     myUserId: myUserId ?? this.myUserId,
     connection: connection ?? this.connection,
     game: game != null ? game() : this.game,
     exit: exit ?? this.exit,
+    result: result != null ? result() : this.result,
   );
 }
 
@@ -170,6 +176,13 @@ class RoomController extends Notifier<RoomState> {
     );
   }
 
+  /// Tekrar oyna (oda sahibi): yanıt yeni lobi görünümüdür.
+  Future<void> rematch() async {
+    final room = await _repo.rematch(roomId);
+    if (!ref.mounted) return;
+    state = state.copyWith(room: room, game: () => null, result: () => null);
+  }
+
   /// Odadan ayrılır (idempotent); başarılıysa çıkış `left` olur.
   Future<void> leave() async {
     await _repo.leave(roomId);
@@ -236,11 +249,11 @@ class RoomController extends Notifier<RoomState> {
         receivedAt: now,
         myUserId: state.myUserId,
       );
+      final finished = e.type == 'game.finished';
       state = state.copyWith(
         game: () => next,
-        room: e.type == 'game.finished'
-            ? room.copyWith(status: RoomStatus.finished)
-            : null,
+        room: finished ? room.copyWith(status: RoomStatus.finished) : null,
+        result: finished ? () => _tryResult(p) : null,
       );
       return;
     }
@@ -286,6 +299,7 @@ class RoomController extends Notifier<RoomState> {
         state = state.copyWith(
           room: RoomView.fromJson(p['room']),
           game: () => null,
+          result: () => null,
         );
         return;
       case 'game.started':
@@ -307,6 +321,14 @@ class RoomController extends Notifier<RoomState> {
           ? next.copyWith(version: version)
           : next,
     );
+  }
+
+  static GameResult? _tryResult(Map<String, Object?> p) {
+    try {
+      return GameResult.fromJson(p);
+    } on FormatException {
+      return null; // ekran sonucu sunucudan ister
+    }
   }
 
   static RoomView _without(RoomView room, Object? userId) => room.copyWith(

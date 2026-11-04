@@ -9,6 +9,7 @@ import 'package:siginak/core/ui/confirm_dialog.dart';
 import 'package:siginak/core/ui/state_views.dart';
 import 'package:siginak/features/game/data/game_repository.dart';
 import 'package:siginak/features/game/domain/game_models.dart';
+import 'package:siginak/features/game/presentation/elimination_panel.dart';
 import 'package:siginak/features/game/presentation/game_widgets.dart';
 
 /// Oyun görünümü (docs/ui/screen-map.md §3.4b–c): üst çubuk, senaryo
@@ -39,9 +40,36 @@ class GameBody extends StatefulWidget {
 }
 
 class _GameBodyState extends State<GameBody> {
+  /// "Kapı kapandı" gösterim süresi.
+  static const doorClosedFor = Duration(seconds: 2);
+
   bool _busy = false;
+  bool _doorClosed = false;
+  Timer? _doorTimer;
 
   GameView get game => widget.game;
+
+  @override
+  void didUpdateWidget(GameBody old) {
+    super.didUpdateWidget(old);
+    final was = old.game.participantOf(widget.myUserId);
+    final now = game.participantOf(widget.myUserId);
+    // Elendim (ayrılma değil): kısa süre "Kapı kapandı".
+    if ((was?.isAlive ?? false) &&
+        now?.status == ParticipantStatus.eliminated) {
+      _doorTimer?.cancel();
+      setState(() => _doorClosed = true);
+      _doorTimer = Timer(doorClosedFor, () {
+        if (mounted) setState(() => _doorClosed = false);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _doorTimer?.cancel();
+    super.dispose();
+  }
 
   void _showScenario() {
     final scenario = game.scenario;
@@ -116,7 +144,7 @@ class _GameBodyState extends State<GameBody> {
         ? {for (final p in game.voteTargets(widget.myUserId)) p.userId}
         : const <String>{};
 
-    return Column(
+    final column = Column(
       children: [
         PhaseBar(
           game: game,
@@ -127,6 +155,9 @@ class _GameBodyState extends State<GameBody> {
         Expanded(
           child: intro
               ? _IntroView(game: game)
+              : game.phase == GamePhase.elimination &&
+                    game.lastElimination != null
+              ? EliminationPanel(game: game, result: game.lastElimination!)
               : GridView.builder(
                   padding: const EdgeInsets.all(AppSpacing.s3),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -163,6 +194,9 @@ class _GameBodyState extends State<GameBody> {
           ),
         _BottomBar(cards: game.myCards),
       ],
+    );
+    return Stack(
+      children: [column, if (_doorClosed) const DoorClosedOverlay()],
     );
   }
 }
@@ -333,9 +367,8 @@ class _ActionArea extends StatelessWidget {
           );
         }
       case GamePhase.elimination:
-        title = game.lastElimination == null
-            ? phaseLabel(l, game.phase)
-            : l.gameEliminated(nameOf(game.lastElimination!.userId));
+        // Ayrıntı ızgaranın yerindeki eleme panelinde.
+        title = phaseLabel(l, game.phase);
       case GamePhase.finished:
         title = l.gamePhaseFinished;
       case GamePhase.dealing || GamePhase.scenarioIntro:

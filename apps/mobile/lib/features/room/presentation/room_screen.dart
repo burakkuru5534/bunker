@@ -135,7 +135,11 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           onAction: (a) => _run(() => _controller.act(a)),
         ),
         RoomStatus.inGame => _StatusMessage(text: l.roomGameStarted),
-        RoomStatus.finished => _StatusMessage(text: l.roomGameFinished),
+        RoomStatus.finished => _FinishedView(
+          state: state,
+          onRematch: () => _run(_controller.rematch),
+          onGoHome: () => _run(_controller.leave),
+        ),
       };
     }
 
@@ -178,6 +182,46 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
         ConnectionBannerState.reconnecting,
       _ => ConnectionBannerState.hidden,
     };
+  }
+}
+
+/// Sonuç: `game.finished` ile geldiyse hemen; yoksa sunucudan yüklenir.
+class _FinishedView extends ConsumerWidget {
+  const _FinishedView({
+    required this.state,
+    required this.onRematch,
+    required this.onGoHome,
+  });
+
+  final RoomState state;
+  final Future<void> Function() onRematch;
+  final Future<void> Function() onGoHome;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    Widget view(GameResult r) => ResultView(
+      result: r,
+      myUserId: state.myUserId,
+      isHost: state.isHost,
+      onRematch: onRematch,
+      onGoHome: onGoHome,
+    );
+    final ready = state.result;
+    if (ready != null) return view(ready);
+    final gameId = state.room?.currentGameId;
+    if (gameId == null) return _StatusMessage(text: l.roomGameFinished);
+    final provider = gameResultProvider(gameId);
+    return ref
+        .watch(provider)
+        .when(
+          data: view,
+          loading: () => LoadingView(message: l.resultLoading),
+          error: (e, _) => ErrorView(
+            message: messageForError(l, e) ?? l.errorUnknown,
+            onRetry: () => ref.invalidate(provider),
+          ),
+        );
   }
 }
 

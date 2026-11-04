@@ -1035,6 +1035,138 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'{name} için oy ver'**
   String gameVoteFor(String name);
+
+  /// No description provided for @gameMethodVote.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oylamayla elendi'**
+  String get gameMethodVote;
+
+  /// No description provided for @gameMethodSpectators.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzleyicilerin kararıyla elendi'**
+  String get gameMethodSpectators;
+
+  /// No description provided for @gameMethodLottery.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşitlik kurayla bozuldu'**
+  String get gameMethodLottery;
+
+  /// No description provided for @gameMethodLeft.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyundan ayrıldı'**
+  String get gameMethodLeft;
+
+  /// No description provided for @gameMethodShortVote.
+  ///
+  /// In tr, this message translates to:
+  /// **'oylama'**
+  String get gameMethodShortVote;
+
+  /// No description provided for @gameMethodShortSpectators.
+  ///
+  /// In tr, this message translates to:
+  /// **'izleyiciler'**
+  String get gameMethodShortSpectators;
+
+  /// No description provided for @gameMethodShortLottery.
+  ///
+  /// In tr, this message translates to:
+  /// **'kura'**
+  String get gameMethodShortLottery;
+
+  /// No description provided for @gameMethodShortLeft.
+  ///
+  /// In tr, this message translates to:
+  /// **'ayrıldı'**
+  String get gameMethodShortLeft;
+
+  /// No description provided for @gameVotesCount.
+  ///
+  /// In tr, this message translates to:
+  /// **'{count} oy'**
+  String gameVotesCount(int count);
+
+  /// No description provided for @gameNoVotes.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kimse oy vermedi; herkes eşit sayıldı.'**
+  String get gameNoVotes;
+
+  /// No description provided for @gameLotteryAmong.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kura adayları: {names}'**
+  String gameLotteryAmong(String names);
+
+  /// No description provided for @gameEliminatedCards.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kartları'**
+  String get gameEliminatedCards;
+
+  /// No description provided for @gameDoorClosedTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kapı kapandı.'**
+  String get gameDoorClosedTitle;
+
+  /// No description provided for @gameDoorClosedBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Artık izleyicisin.'**
+  String get gameDoorClosedBody;
+
+  /// No description provided for @resultWinners.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığınağa girenler'**
+  String get resultWinners;
+
+  /// No description provided for @resultLosers.
+  ///
+  /// In tr, this message translates to:
+  /// **'Dışarıda kalanlar'**
+  String get resultLosers;
+
+  /// No description provided for @resultRounds.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tur tur'**
+  String get resultRounds;
+
+  /// No description provided for @resultRoundLine.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tur {round}: {name} ({method})'**
+  String resultRoundLine(int round, String name, String method);
+
+  /// No description provided for @resultRematch.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tekrar oyna'**
+  String get resultRematch;
+
+  /// No description provided for @resultAbandoned.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyun erken bitti: oyunda yeterli oyuncu kalmadı.'**
+  String get resultAbandoned;
+
+  /// No description provided for @resultWaitingHost.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oda sahibi yeni bir oyun başlatabilir.'**
+  String get resultWaitingHost;
+
+  /// No description provided for @resultLoading.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sonuçlar yükleniyor…'**
+  String get resultLoading;
 }
 
 class _AppLocalizationsDelegate

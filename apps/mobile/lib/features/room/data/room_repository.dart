@@ -46,6 +46,10 @@ class RoomRepository {
     await _api.post('/v1/rooms/$roomId/start');
   }
 
+  /// Tekrar oyna (oda sahibi, oyun bitince): oda lobiye döner.
+  Future<RoomView> rematch(String roomId) async =>
+      RoomView.fromJson(await _api.post('/v1/rooms/$roomId/rematch'));
+
   /// İdempotent: üye değilse de başarılıdır.
   Future<void> leave(String roomId) async {
     await _api.post('/v1/rooms/$roomId/leave');

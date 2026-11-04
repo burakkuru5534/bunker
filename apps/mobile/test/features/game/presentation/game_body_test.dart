@@ -142,6 +142,8 @@ void main() {
       ),
     );
     expect(find.text('Zeynep sığınağın dışında kaldı.'), findsOneWidget);
+    expect(find.text('Oylamayla elendi'), findsOneWidget);
+    expect(find.text('Kimse oy vermedi; herkes eşit sayıldı.'), findsOneWidget);
   });
 
   testWidgets('Elenen oyuncu izleyici şeridini görür', (tester) async {
@@ -343,6 +345,126 @@ void main() {
 
       gate.complete();
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('eleme', () {
+    Map<String, Object?> elim(
+      String user,
+      String method, {
+      List<Object?>? tally,
+      List<Object?>? lottery,
+    }) => {
+      'round': 1,
+      'user_id': user,
+      'method': method,
+      'tally': tally ?? <Object?>[],
+      'lottery_candidates': lottery ?? <Object?>[],
+      'cards': <Object?>[],
+    };
+
+    testWidgets('Oy sayıları büyükten küçüğe, elenenin kartları', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        game(
+          phase: 'ELIMINATION',
+          last: elim(
+            'u3',
+            'vote',
+            tally: [
+              {'user_id': 'u2', 'votes': 1},
+              {'user_id': 'u3', 'votes': 3},
+            ],
+          ),
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('elimination-panel')), findsOneWidget);
+      final zeynep = tester.getTopLeft(find.text('3 oy'));
+      final mehmet = tester.getTopLeft(find.text('1 oy'));
+      expect(zeynep.dy, lessThan(mehmet.dy));
+      expect(find.text('Kartları'), findsOneWidget);
+      expect(find.text('Sır'), findsOneWidget);
+    });
+
+    testWidgets('Kura: adaylar yazılır', (tester) async {
+      await pump(
+        tester,
+        game(
+          phase: 'ELIMINATION',
+          last: elim('u3', 'lottery', lottery: ['u2', 'u3']),
+        ),
+      );
+      expect(find.text('Eşitlik kurayla bozuldu'), findsOneWidget);
+      expect(find.text('Kura adayları: Mehmet, Zeynep'), findsOneWidget);
+    });
+
+    testWidgets('İzleyici kararı: oy listesi yok', (tester) async {
+      await pump(
+        tester,
+        game(
+          phase: 'ELIMINATION',
+          last: elim(
+            'u3',
+            'spectators',
+            tally: [
+              {'user_id': 'u3', 'votes': 1},
+            ],
+          ),
+        ),
+      );
+      expect(find.text('İzleyicilerin kararıyla elendi'), findsOneWidget);
+      expect(find.text('1 oy'), findsNothing);
+    });
+
+    testWidgets('Elendiğim an "Kapı kapandı" 2 sn görünür', (tester) async {
+      final alive = game(phase: 'VOTING');
+      await pump(tester, alive);
+      expect(find.byKey(const ValueKey('door-closed')), findsNothing);
+
+      final out = alive.apply(
+        'game.player_eliminated',
+        elim('u1', 'vote'),
+        receivedAt: now,
+        myUserId: 'u1',
+      );
+      await pump(tester, out);
+      expect(find.text('Kapı kapandı.'), findsOneWidget);
+      expect(find.text('Artık izleyicisin.'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byKey(const ValueKey('door-closed')), findsNothing);
+    });
+
+    testWidgets('Başkası elenince veya ayrılınca kapı ekranı yok', (
+      tester,
+    ) async {
+      final alive = game(phase: 'VOTING');
+      await pump(tester, alive);
+      await pump(
+        tester,
+        alive.apply(
+          'game.player_eliminated',
+          elim('u2', 'vote'),
+          receivedAt: now,
+          myUserId: 'u1',
+        ),
+      );
+      expect(find.byKey(const ValueKey('door-closed')), findsNothing);
+
+      await pump(tester, alive);
+      await pump(
+        tester,
+        alive.apply(
+          'game.player_eliminated',
+          elim('u1', 'left'),
+          receivedAt: now,
+          myUserId: 'u1',
+        ),
+      );
+      expect(find.byKey(const ValueKey('door-closed')), findsNothing);
     });
   });
 }
