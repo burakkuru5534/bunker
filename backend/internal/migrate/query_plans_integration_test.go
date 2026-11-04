@@ -82,12 +82,16 @@ var hotQueries = []planQuery{
 	{"süresi dolan oturumlar (toplu)", `delete from sessions where id = any(array(
 		select id from sessions where expires_at < now() order by expires_at limit 1000))`,
 		func(*seedIDs) []any { return nil }, "sessions_expires_at_idx"},
-	{"terk edilmiş açık odalar", `select id from rooms where status <> 'closed' and updated_at < $1
-		order by updated_at limit 100`,
+	{"terk edilmiş açık odalar", `select id from rooms where status <> 'closed' and status <> 'in_game'
+		and updated_at < $1 order by updated_at limit 100`,
 		func(s *seedIDs) []any { return []any{s.cutoff} }, "rooms_open_updated_at_idx"},
 	{"eski kapalı odalar (toplu)", `delete from rooms where id = any(array(
 		select id from rooms where status = 'closed' and closed_at < $1 order by closed_at limit 500))`,
 		func(s *seedIDs) []any { return []any{s.cutoff} }, "rooms_closed_at_idx"},
+	{"sonuçlanmış raporlar (toplu)", `delete from reports where id = any(array(
+		select id from reports where status in ('actioned', 'dismissed') and resolved_at < $1
+		order by resolved_at limit 500))`,
+		func(s *seedIDs) []any { return []any{s.cutoff} }, "reports_resolved_at_idx"},
 	{"moderasyon kuyruğu", `select id, reason, created_at from reports where status in ('open', 'reviewing')
 		order by created_at limit 50`,
 		func(*seedIDs) []any { return nil }, "reports_queue_idx"},

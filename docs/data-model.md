@@ -69,11 +69,15 @@ Oyun silinirse (yalnızca bakım) bağlı tüm kayıtlar silinir.
 | Tablo | Kesin kararlar |
 |---|---|
 | `chat_messages` | `bigint` kimlik (sıralama). `body` küfür filtresinden geçmiş (maskelenmiş) metin, 1–200 karakter, baş/son boşluksuz; maskelenmemiş metin saklanmaz. Tekrar koruması `(room_id, user_id, client_msg_id)`. `game_id` lobide boş. Oda silinince mesajlar silinir. İndeksler: `(room_id, created_at desc, id desc)` son 50 mesaj; `created_at` 30 günlük temizlik (SAFE-009). |
-| `reports` | `reason` harassment/hate/spam/cheating/other; `note` ≤ 200; kendini raporlama yok. `messages_snapshot` rapor anındaki son mesajlar (JSON dizi, ≤ 64 KB) — sohbet silinse ve oda temizlense de kanıt kalır. `status` open → reviewing → actioned/dismissed; kapanınca `resolved_at`. Aynı kişi aynı odada aynı kişi için tek açık rapor. Raporların saklama süresi SAFE-009'da belirlenir. |
+| `reports` | `reason` harassment/hate/spam/cheating/other; `note` ≤ 200; kendini raporlama yok. `messages_snapshot` rapor anındaki son mesajlar (JSON dizi, ≤ 64 KB) — sohbet silinse ve oda temizlense de kanıt kalır. `status` open → reviewing → actioned/dismissed; kapanınca `resolved_at`. Aynı kişi aynı odada aynı kişi için tek açık rapor. Sonuçlanan rapor 180 gün sonra silinir (SAFE-009); açık raporlar kalır. |
 
 ### 0005 — temizlik indeksleri (DB-004)
 
 `rooms_open_updated_at_idx`, `rooms_closed_at_idx` (ROOM-010) ve `reports_room_id_idx`. Sorgular ve indeks gerekçeleri: [queries.md](queries.md).
+
+### 0006 — rapor saklama indeksi (SAFE-009)
+
+`reports_resolved_at_idx` (kısmi: `status in (actioned, dismissed)`): sonuçlanmış raporların 180 günlük toplu silmesi; indeks olmadan her parti raporlar tablosunu tarar (sorgu planı testi gösterdi).
 
 ## Tutarlılık kuralları
 

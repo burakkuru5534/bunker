@@ -29,6 +29,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/config"
 	"github.com/burakkuru5534/bunker/backend/internal/game"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/maintenance"
 	"github.com/burakkuru5534/bunker/backend/internal/moderation"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
@@ -242,6 +243,12 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
 		modHTTP := moderation.NewHTTP(moderation.NewService(d.DB, logger), authHTTP.Require)
+		// Veri saklama ve temizlik (SAFE-009, ROOM-010): açılıştan 2 dk sonra, sonra saatte bir.
+		cleanup := maintenance.New(d.DB, d.Hub, maintenance.DefaultRetention, logger)
+		if d.Life != nil {
+			d.Life.start = append(d.Life.start, func() { cleanup.Start(2*time.Minute, time.Hour) })
+			d.Life.stop = append(d.Life.stop, cleanup.Stop)
+		}
 		modules = append(modules, modHTTP.Register)
 		// Bağlantısı kopan oyuncular: 60 sn bekleme, sonra ayrılmış sayılır (RT-007).
 		disconnects := game.NewDisconnects(gameSvc, roomSvc, d.Hub, logger)

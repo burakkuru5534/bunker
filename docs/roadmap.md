@@ -150,6 +150,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **SAFE-013:** `internal/profanity` (liste `words.go`, gözden geçirilebilir): Normalize (NFC, Türkçe küçük harf, @/3/1/0/5/$ → harf, harf dışı atılır; tekrarlar korunur). Eşleşme: kök kelime başında (ekli haller), kısaltmalar yalnız tam kelime, istisnalar harf harf (sikke ≠ sike…). Tek yönlü sadeleştirme: metindeki düz harf listedeki Türkçe harfin yerine geçer ("serefsiz" ~ "şerefsiz"), tersi geçmez ("şikayet", "sıkıcı" ≁ "sik"). Harf tekrarı esnek ("siiiktir"), aralanmış harfler birleştirilir ("s i k t i r", "s_i_k"). Takma adda red (`NICKNAME_INVALID` / `profanity`), sohbette kelime `***`. Testler: 28 küfürlü örnek (maske + tespit), 61 masum örnek (sıkıcı, şikayet, götürmek, amca, amin, I am, dolu, klasik, class, assassin, Dickens…), takma adlar, bağlantı (auth/room arayüzleri). Kapsama %98,9; mutasyon 7/7. Test bulduğu hata: istisnaların tekrar sıkıştırılması "sikke"yi "sike" yapıp "sikeyim"i geçiriyordu — düzeltildi. Listeden çıkarılanlar: "döl" (dolu/dolar/dolap), "am"/"amın" (I am, amin). Bilinen sınırlar: küfrü bilerek ı ile yazmak; istisnayı taklit eden yazım (ör. "sikke…" ile başlayan) — raporlama kapatır.
 - **SAFE-005 + SAFE-006:** `internal/moderation`: `POST/GET /v1/blocks`, `DELETE /v1/blocks/{id}` (kendini engelleme 400, olmayan kullanıcı 404, tekrar/olmayan kaldırma 204) ve `POST /v1/reports` (neden listesi, not temizliği, ortak oda kanıtı — üyelik/oyun/mesaj — yoksa aynı 404, son 50 mesaj kanıt olarak kopyalanır, açık rapor tekrarında aynı id, saatte 10 / kullanıcı, sınır DB’den önce). Moderasyon paneli kapsam dışı (raporlar DB’de ve günlükte). Testler (gerçek PostgreSQL): engelleme akışı ve kuralları, rapor satırı ve kanıt (55 mesajdan son 50, sohbet silinince kalır), tekrar ve kapanmış rapor, kurallar ve 404 eşitliği, lobiden ayrılınca kanıt kuralı, sıklık sınırı. Mutasyon 6/6 (bir eşdeğer bozma gerçek bozmayla değiştirildi). Kapsama %88,3.
 - **RT-007 dayanıklılık düzeltmesi:** kopma/geri dönme kayıtları geçici veritabanı hatalarında artan aralıkla yeniden denenir (önceden hata yalnızca günlüğe düşüyor, kopan oyuncu hiç "ayrıldı" sayılmayabiliyordu). Paralel tam takım yükünde bir kopma testi aralıklı düşüyordu; kök neden kesin kanıtlanamadı (en olası: test veritabanı havuzunun dolması), olay bekleme süresi 15 sn yapıldı; yük altında 64 çalıştırma temiz.
+- **SAFE-009 (temizlik) + ROOM-010:** `internal/maintenance.Job` sunucu içinde saatte bir (ilk 2 dk sonra), her adım partiler (500) ve çalıştırma başına 20 parti üst sınırla, `id = any(array(...))` biçiminde: sohbet 30 gün, süresi dolan oturumlar, terk edilmiş odalar (lobide/bitmiş, 6 sa hareketsiz, aktif üyelerden kimse bağlı değil; kilitli yeniden denetim; üyeler serbest bırakılır — tek aktif oda kısıtı), kapalı odalar 7 gün sonra silinir (oyunlar/raporlar kalır, bağ boşalır), sonuçlanan raporlar 180 gün. Oyundaki odalara dokunulmaz. Migration 0006 `reports_resolved_at_idx` (sorgu planı testi indeks olmadan tam taramayı gösterdi). Testler (gerçek PostgreSQL): tüm adımlar sınır değerleriyle (31/29 gün, 7/1 sa, 8/1 gün, 181/179 gün, açık rapor), bağlı üyeli oda, kapanan odanın üyelerinin yeni odaya girebilmesi, oyun/rapor korunması, idempotent ikinci çalıştırma, parti ve üst sınır, kilitli yeniden denetim, başlat/durdur. Mutasyon 6/6. Kapsama %85,4. Testin yakaladığı hata: ikinci Stop’u güvenli yapmak için alanları boşaltınca döngü nil kanalda sonsuza bekliyordu — döngü kanalları yerel kopyadan okur.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -204,7 +205,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ROOM-007 | Hazır ol mekanizması | P0 | Done |
 | ROOM-008 | Oda ayarlarının senkronizasyonu (kapasite 1/2) | P0 | Done |
 | ROOM-009 | Oda sahibi ayrıldığında yetki devri | P0 | Done |
-| ROOM-010 | Boş oda temizliği | P1 | Backlog |
+| ROOM-010 | Boş oda temizliği | P1 | Awaiting User Approval |
 | ROOM-011 | Flutter oda akışları | P0 | Backlog |
 | ROOM-012 | Çoklu oyuncu testleri | P0 | Backlog |
 
@@ -271,11 +272,11 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | SAFE-002 | Rate limiting | P0 | Backlog |
 | SAFE-003 | Oda izolasyonu | P0 | Done |
 | SAFE-004 | Gizli kart erişim testleri | P0 | Backlog |
-| SAFE-005 | Oyuncu raporlama | P0 | Awaiting User Approval |
-| SAFE-006 | Oyuncu engelleme | P0 | Awaiting User Approval |
+| SAFE-005 | Oyuncu raporlama | P0 | Done |
+| SAFE-006 | Oyuncu engelleme | P0 | Done |
 | SAFE-007 | Oda sahibi moderasyonu (lobiden atma) | P0 | Done |
 | SAFE-008 | Gizlilik politikası ve kullanım koşulları | P0 | Backlog |
-| SAFE-009 | Veri saklama ve silme (sohbet 30 gün) | P0 | Backlog |
+| SAFE-009 | Veri saklama ve silme (sohbet 30 gün) | P0 | In Progress (temizlik işi tamam; hesap silme `DELETE /v1/me` sonraki adım) |
 | SAFE-010 | Secret yönetimi | P0 | Backlog |
 | SAFE-011 | Güvenlik logları | P1 | Backlog |
 | SAFE-012 | Mağaza güvenlik ve yaş derecelendirmesi | P0 | Backlog |

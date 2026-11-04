@@ -90,8 +90,10 @@ Bellek içi token bucket (tek instance olduğu için yeterli).
 | Sohbet mesajları | 30 gün |
 | Oyun sonuçları, kartlar, tur sonuçları | Kalıcı (kullanıcı silme talebinde anonimleştirilir) |
 | Oylar (`votes`) | Kalıcı, yalnızca sunucu |
-| Oturumlar | Süresi dolduktan / iptalden sonra temizlenir |
-| Raporlar | SAFE-009'da belirlenir. Rapor, odanın son mesajlarının kopyasını içerir; sohbetin 30 günlük silinmesinden etkilenmez |
+| Oturumlar | Süresi dolunca silinir |
+| Odalar | Lobide/bitmiş, 6 saattir hareketsiz ve kimse bağlı değilse kapanır (üyeler serbest bırakılır); kapandıktan 7 gün sonra silinir. Oyunlar ve raporlar kalır, oda bağları boşalır |
+| Raporlar | Açık/incelemedeki raporlar silinmez; sonuçlanan (actioned/dismissed) rapor sonuçlandıktan **180 gün** sonra silinir. Rapor, odanın son 50 mesajının kopyasını içerir; sohbetin 30 günlük silinmesinden etkilenmez |
 
+- Temizlik sunucu içinde saatte bir çalışır (`internal/maintenance`; açılıştan 2 dk sonra ilk çalıştırma), partiler hâlinde ve çalıştırma başına üst sınırla; harici zamanlayıcı ve ek maliyet yok. Sunucu kapalıyken (min-instances 0) çalışmaz, ilk açılışta birikeni temizler.
 - Veriler AB bölgesinde (Supabase) tutulur. **KVKK** kapsamında yurt dışına veri aktarımı ve aydınlatma metni gereklilikleri SAFE-008'de ele alınır; hukuki metinler için bir uzmana danışılması önerilir.
 - Google Play "Veri güvenliği" formu SAFE-012 / REL-008'de doldurulur.
