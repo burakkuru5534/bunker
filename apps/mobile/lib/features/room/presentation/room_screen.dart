@@ -11,6 +11,7 @@ import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/confirm_dialog.dart';
 import 'package:siginak/core/ui/connection_banner.dart';
 import 'package:siginak/core/ui/state_views.dart';
+import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/room/data/room_models.dart';
 import 'package:siginak/features/room/presentation/lobby_view.dart';
 import 'package:siginak/features/room/presentation/room_controller.dart';
@@ -67,10 +68,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   Future<void> _confirmLeave() async {
     if (_leaving) return;
     final l = context.l10n;
+    final inGame =
+        ref.read(roomControllerProvider(widget.roomId)).room?.status ==
+        RoomStatus.inGame;
     final ok = await showConfirmDialog(
       context,
       title: l.roomLeaveTitle,
-      message: l.roomLeaveMessage,
+      message: inGame ? l.gameLeaveMessage : l.roomLeaveMessage,
       confirmLabel: l.roomLeaveConfirm,
       destructive: true,
     );
@@ -125,6 +129,10 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           onKick: (userId) => _run(() => _controller.kick(userId)),
           onStart: () => _run(_controller.start),
         ),
+        RoomStatus.inGame when state.game != null => GameBody(
+          game: state.game!,
+          myUserId: state.myUserId,
+        ),
         RoomStatus.inGame => _StatusMessage(text: l.roomGameStarted),
         RoomStatus.finished => _StatusMessage(text: l.roomGameFinished),
       };
@@ -138,7 +146,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: Text(l.roomLobbyTitle),
+          title: Text(
+            room?.status == RoomStatus.inGame ? l.gameTitle : l.roomLobbyTitle,
+          ),
           actions: [
             IconButton(
               tooltip: l.roomLeave,

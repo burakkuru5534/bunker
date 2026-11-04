@@ -114,3 +114,97 @@ Map<String, Object?> snapshotPayload({
   'game': game,
   'chat': <Object?>[],
 };
+
+/// Test senaryosu (`scenario` nesnesi).
+const testScenario = {
+  'id': 'meteor',
+  'title': 'Göktaşı',
+  'disaster': 'Dev bir göktaşı okyanusa düştü. Toz güneşi kapatacak.',
+  'duration': '2 yıl',
+  'bunker': ['Su arıtma çalışıyor', 'Yakıt sınırlı', 'Teknik kütüphane'],
+  'outside': 'İklim kararsız; asit yağmurları sürüyor.',
+};
+
+/// `game.started` yükü: koltuk sırasıyla oyuncular.
+Map<String, Object?> gameStartedPayload(
+  List<(String, String)> players, {
+  int capacity = 2,
+  int totalRounds = 2,
+}) => {
+  'game_id': 'g1',
+  'scenario': testScenario,
+  'capacity': capacity,
+  'total_rounds': totalRounds,
+  'participants': [
+    for (final (i, (id, nick)) in players.indexed)
+      {'user_id': id, 'nickname': nick, 'seat': i},
+  ],
+  'reveal_order': [for (final (id, _) in players) id],
+};
+
+/// `game.your_cards` / `my_cards` kartları.
+List<Map<String, Object?>> myCardsJson({Set<String> revealed = const {}}) => [
+  for (final (c, t) in [
+    ('profession', 'Acil tıp doktoru'),
+    ('health', 'Astım'),
+    ('hobby', 'Arıcılık'),
+    ('item', 'Termos'),
+    ('secret', 'Gizli bir günlük tutuyor'),
+  ])
+    {'category': c, 'text': t, 'revealed': revealed.contains(c)},
+];
+
+/// `session.snapshot.game` (sürmekte olan oyun).
+Map<String, Object?> snapshotGame({
+  required List<Map<String, Object?>> participants,
+  String phase = 'REVEAL',
+  int round = 1,
+  int totalRounds = 2,
+  int stateVersion = 10,
+  String? turnUserId,
+  String? deadline,
+  List<Map<String, Object?>>? myCards,
+  Map<String, Object?>? myActionState,
+  int readyCount = 0,
+  Map<String, Object?>? voteProgress,
+  Map<String, Object?>? tiebreak,
+  Map<String, Object?>? lastRoundResult,
+}) => {
+  'id': 'g1',
+  'state_version': stateVersion,
+  'phase': phase,
+  'round': round,
+  'total_rounds': totalRounds,
+  'capacity': 2,
+  'phase_deadline_at': deadline,
+  'scenario': testScenario,
+  'turn_user_id': turnUserId,
+  'participants': participants,
+  'my_cards': myCards ?? myCardsJson(),
+  'my_action_state':
+      myActionState ??
+      {'voted': false, 'discussion_ready': false, 'tiebreak_voted': false},
+  'discussion_ready_count': readyCount,
+  'vote_progress': voteProgress ?? {'cast': 0, 'total': 0},
+  'tiebreak': tiebreak,
+  'last_round_result': lastRoundResult,
+};
+
+/// Snapshot katılımcısı.
+Map<String, Object?> participantJson(
+  String id,
+  String nick,
+  int seat, {
+  String status = 'alive',
+  bool connected = true,
+  Map<String, String> revealed = const {},
+}) => {
+  'user_id': id,
+  'nickname': nick,
+  'seat': seat,
+  'status': status,
+  'connected': connected,
+  'revealed_cards': [
+    for (final e in revealed.entries) {'category': e.key, 'text': e.value},
+  ],
+};

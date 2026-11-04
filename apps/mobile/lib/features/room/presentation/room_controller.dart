@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:siginak/core/network/api_exception.dart';
 import 'package:siginak/core/realtime/realtime_client.dart';
 import 'package:siginak/core/realtime/realtime_client_provider.dart';
 import 'package:siginak/core/realtime/ws_envelope.dart';
+import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/room/data/room_models.dart';
 import 'package:siginak/features/room/data/room_repository.dart';
 import 'package:siginak/features/session/session.dart';
@@ -43,8 +43,8 @@ class RoomState {
   final String? myUserId;
   final RealtimeState connection;
 
-  /// Snapshot'taki ham oyun durumu (oyun ekranları PLAY-* görevlerinde).
-  final Map<String, Object?>? game;
+  /// Süren (veya biten) oyun; lobide `null`.
+  final GameView? game;
   final RoomExit? exit;
 
   RoomMember? get me => room?.memberOf(myUserId);
@@ -54,7 +54,7 @@ class RoomState {
     RoomView? room,
     String? myUserId,
     RealtimeState? connection,
-    Map<String, Object?>? Function()? game,
+    GameView? Function()? game,
     RoomExit? exit,
   }) => RoomState(
     room: room ?? this.room,
@@ -164,8 +164,8 @@ class RoomController extends Notifier<RoomState> {
     if (!ref.mounted || state.exit != null) return;
     try {
       _apply(e);
-    } on ApiException {
-      // Beklenmeyen biçim: tam görüntüyle düzelt.
+    } on Exception {
+      // ApiException / FormatException: beklenmeyen biçim → tam görüntü.
       _client.requestSync();
     }
   }
@@ -173,20 +173,48 @@ class RoomController extends Notifier<RoomState> {
   void _apply(WsEnvelope e) {
     final p = e.payload;
     final room = state.room;
+    final now = DateTime.now();
 
     if (e.type == 'session.snapshot') {
       final me = p['me'];
       final game = p['game'];
+      final serverTime = p['server_time'];
       state = state.copyWith(
         room: RoomView.fromJson(p['room']),
         myUserId: me is Map<String, Object?> && me['user_id'] is String
             ? me['user_id']! as String
             : null,
-        game: () => game is Map<String, Object?> ? game : null,
+        game: () => game == null
+            ? null
+            : GameView.fromSnapshot(
+                game,
+                serverTime: serverTime is String
+                    ? DateTime.tryParse(serverTime)
+                    : null,
+                receivedAt: now,
+              ),
       );
       return;
     }
     if (room == null) return; // snapshot'tan önce olay gelmez (istemci süzer)
+
+    if (e.type.startsWith('game.') && e.type != 'game.started') {
+      final game = state.game;
+      if (game == null) return;
+      final next = game.apply(
+        e.type,
+        p,
+        receivedAt: now,
+        myUserId: state.myUserId,
+      );
+      state = state.copyWith(
+        game: () => next,
+        room: e.type == 'game.finished'
+            ? room.copyWith(status: RoomStatus.finished)
+            : null,
+      );
+      return;
+    }
 
     final version = e.stateVersion;
     RoomView? next;
@@ -238,16 +266,11 @@ class RoomController extends Notifier<RoomState> {
             status: RoomStatus.inGame,
             currentGameId: () => gameId is String ? gameId : null,
           ),
-          game: () => p,
-        );
-        return;
-      case 'game.finished':
-        state = state.copyWith(
-          room: room.copyWith(status: RoomStatus.finished),
+          game: () => GameView.fromStarted(p, receivedAt: now),
         );
         return;
       default:
-        return; // diğer oyun olayları PLAY-* görevlerinde
+        return;
     }
     final isRoomEvent = e.type.startsWith('room.');
     state = state.copyWith(

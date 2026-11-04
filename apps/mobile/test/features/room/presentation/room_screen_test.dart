@@ -340,18 +340,72 @@ void main() {
     expect(ws.sockets, hasLength(2));
   });
 
-  testWidgets('Oyun başlayınca lobi kapanır', (tester) async {
+  testWidgets('Oyun başlayınca lobi kapanır, senaryo tanıtımı gelir', (
+    tester,
+  ) async {
     await pump(tester);
     await snapshot(tester, members: fourReady());
 
     ws.last.serverSend(
       'game.started',
       stateVersion: 1,
-      payload: {'game_id': 'g1'},
+      payload: gameStartedPayload([
+        ('u-guest', 'Ayşe'),
+        ('u2', 'Oyuncu 2'),
+        ('u3', 'Oyuncu 3'),
+        ('u4', 'Oyuncu 4'),
+      ]),
+    );
+    await frames(tester);
+    expect(find.text('K7M2QX'), findsNothing);
+    expect(find.text('Kartlar dağıtılıyor…'), findsOneWidget);
+    expect(find.text('Oyun'), findsOneWidget); // başlık
+
+    ws.last
+      ..serverSend(
+        'game.your_cards',
+        stateVersion: 1,
+        payload: {'cards': myCardsJson()},
+      )
+      ..serverSend(
+        'game.phase_changed',
+        stateVersion: 1,
+        payload: {
+          'phase': 'SCENARIO_INTRO',
+          'round': 0,
+          'phase_deadline_at': DateTime.now()
+              .add(const Duration(seconds: 15))
+              .toUtc()
+              .toIso8601String(),
+          'server_time': DateTime.now().toUtc().toIso8601String(),
+          'turn_user_id': null,
+        },
+      );
+    await frames(tester);
+
+    expect(find.text('Göktaşı'), findsWidgets);
+    expect(find.text('Sığınağa yalnızca 2 kişi girebilir.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('phase-countdown')), findsOneWidget);
+  });
+
+  testWidgets('Oyun sürerken ayrılma uyarısı farklıdır', (tester) async {
+    await pump(tester);
+    await snapshot(tester, members: fourReady());
+    ws.last.serverSend(
+      'game.started',
+      stateVersion: 1,
+      payload: gameStartedPayload([('u-guest', 'Ayşe'), ('u2', 'Mehmet')]),
     );
     await frames(tester);
 
-    expect(find.text('Oyun başladı.'), findsOneWidget);
-    expect(find.text('K7M2QX'), findsNothing);
+    await tester.tap(find.byTooltip('Odadan ayrıl'));
+    await frames(tester);
+
+    expect(
+      find.text(
+        'Oyun sürerken ayrılırsan elenmiş sayılırsın ve tüm kartların açılır.',
+      ),
+      findsOneWidget,
+    );
   });
 }

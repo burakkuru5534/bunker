@@ -765,6 +765,198 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Oyun bitti.'**
   String get roomGameFinished;
+
+  /// No description provided for @gameTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyun'**
+  String get gameTitle;
+
+  /// No description provided for @gameLeaveMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyun sürerken ayrılırsan elenmiş sayılırsın ve tüm kartların açılır.'**
+  String get gameLeaveMessage;
+
+  /// No description provided for @gamePhaseDealing.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kartlar dağıtılıyor'**
+  String get gamePhaseDealing;
+
+  /// No description provided for @gamePhaseScenario.
+  ///
+  /// In tr, this message translates to:
+  /// **'Senaryo'**
+  String get gamePhaseScenario;
+
+  /// No description provided for @gamePhaseReveal.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kart açma'**
+  String get gamePhaseReveal;
+
+  /// No description provided for @gamePhaseDiscussion.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tartışma'**
+  String get gamePhaseDiscussion;
+
+  /// No description provided for @gamePhaseVoting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oylama'**
+  String get gamePhaseVoting;
+
+  /// No description provided for @gamePhaseTieBreak.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşitlik'**
+  String get gamePhaseTieBreak;
+
+  /// No description provided for @gamePhaseElimination.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eleme'**
+  String get gamePhaseElimination;
+
+  /// No description provided for @gamePhaseFinished.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyun bitti'**
+  String get gamePhaseFinished;
+
+  /// No description provided for @gameRound.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tur {round}/{total}'**
+  String gameRound(int round, int total);
+
+  /// No description provided for @gameCountdownLabel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kalan süre {time}'**
+  String gameCountdownLabel(String time);
+
+  /// No description provided for @gameShowScenario.
+  ///
+  /// In tr, this message translates to:
+  /// **'Senaryoyu göster'**
+  String get gameShowScenario;
+
+  /// No description provided for @gameScenarioDisaster.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ne oldu?'**
+  String get gameScenarioDisaster;
+
+  /// No description provided for @gameScenarioDuration.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığınakta kalış süresi: {duration}'**
+  String gameScenarioDuration(String duration);
+
+  /// No description provided for @gameScenarioBunker.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığınakta neler var?'**
+  String get gameScenarioBunker;
+
+  /// No description provided for @gameScenarioOutside.
+  ///
+  /// In tr, this message translates to:
+  /// **'Dışarıda'**
+  String get gameScenarioOutside;
+
+  /// No description provided for @gameScenarioCapacity.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığınağa yalnızca {count} kişi girebilir.'**
+  String gameScenarioCapacity(int count);
+
+  /// No description provided for @gameMyCards.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kartlarım'**
+  String get gameMyCards;
+
+  /// No description provided for @gameCardOpen.
+  ///
+  /// In tr, this message translates to:
+  /// **'Açık'**
+  String get gameCardOpen;
+
+  /// No description provided for @gameCardClosed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kapalı'**
+  String get gameCardClosed;
+
+  /// No description provided for @gameNoCards.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu oyunda kartın yok.'**
+  String get gameNoCards;
+
+  /// No description provided for @gameSpectatorBanner.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzleyicisin. Eşitlik olursa kararı izleyiciler verir.'**
+  String get gameSpectatorBanner;
+
+  /// No description provided for @gameRevealMine.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sıra sende. Bir kartını aç.'**
+  String get gameRevealMine;
+
+  /// No description provided for @gameRevealOther.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} kartını açıyor…'**
+  String gameRevealOther(String name);
+
+  /// No description provided for @gameDiscussionInfo.
+  ///
+  /// In tr, this message translates to:
+  /// **'İkna etme zamanı.'**
+  String get gameDiscussionInfo;
+
+  /// No description provided for @gameReadyProgress.
+  ///
+  /// In tr, this message translates to:
+  /// **'{done}/{total} hazır'**
+  String gameReadyProgress(int done, int total);
+
+  /// No description provided for @gameVotingInfo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oylama sürüyor. Oylar gizli.'**
+  String get gameVotingInfo;
+
+  /// No description provided for @gameVoteProgress.
+  ///
+  /// In tr, this message translates to:
+  /// **'{done}/{total} oy verildi'**
+  String gameVoteProgress(int done, int total);
+
+  /// No description provided for @gameTieBreakInfo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşitlik! İzleyiciler karar veriyor…'**
+  String get gameTieBreakInfo;
+
+  /// No description provided for @gameEliminated.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} sığınağın dışında kaldı.'**
+  String gameEliminated(String name);
+
+  /// No description provided for @gameDealingInfo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kartlar dağıtılıyor…'**
+  String get gameDealingInfo;
 }
 
 class _AppLocalizationsDelegate

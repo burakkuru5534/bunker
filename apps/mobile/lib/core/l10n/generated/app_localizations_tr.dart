@@ -395,4 +395,118 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get roomGameFinished => 'Oyun bitti.';
+
+  @override
+  String get gameTitle => 'Oyun';
+
+  @override
+  String get gameLeaveMessage =>
+      'Oyun sürerken ayrılırsan elenmiş sayılırsın ve tüm kartların açılır.';
+
+  @override
+  String get gamePhaseDealing => 'Kartlar dağıtılıyor';
+
+  @override
+  String get gamePhaseScenario => 'Senaryo';
+
+  @override
+  String get gamePhaseReveal => 'Kart açma';
+
+  @override
+  String get gamePhaseDiscussion => 'Tartışma';
+
+  @override
+  String get gamePhaseVoting => 'Oylama';
+
+  @override
+  String get gamePhaseTieBreak => 'Eşitlik';
+
+  @override
+  String get gamePhaseElimination => 'Eleme';
+
+  @override
+  String get gamePhaseFinished => 'Oyun bitti';
+
+  @override
+  String gameRound(int round, int total) {
+    return 'Tur $round/$total';
+  }
+
+  @override
+  String gameCountdownLabel(String time) {
+    return 'Kalan süre $time';
+  }
+
+  @override
+  String get gameShowScenario => 'Senaryoyu göster';
+
+  @override
+  String get gameScenarioDisaster => 'Ne oldu?';
+
+  @override
+  String gameScenarioDuration(String duration) {
+    return 'Sığınakta kalış süresi: $duration';
+  }
+
+  @override
+  String get gameScenarioBunker => 'Sığınakta neler var?';
+
+  @override
+  String get gameScenarioOutside => 'Dışarıda';
+
+  @override
+  String gameScenarioCapacity(int count) {
+    return 'Sığınağa yalnızca $count kişi girebilir.';
+  }
+
+  @override
+  String get gameMyCards => 'Kartlarım';
+
+  @override
+  String get gameCardOpen => 'Açık';
+
+  @override
+  String get gameCardClosed => 'Kapalı';
+
+  @override
+  String get gameNoCards => 'Bu oyunda kartın yok.';
+
+  @override
+  String get gameSpectatorBanner =>
+      'İzleyicisin. Eşitlik olursa kararı izleyiciler verir.';
+
+  @override
+  String get gameRevealMine => 'Sıra sende. Bir kartını aç.';
+
+  @override
+  String gameRevealOther(String name) {
+    return '$name kartını açıyor…';
+  }
+
+  @override
+  String get gameDiscussionInfo => 'İkna etme zamanı.';
+
+  @override
+  String gameReadyProgress(int done, int total) {
+    return '$done/$total hazır';
+  }
+
+  @override
+  String get gameVotingInfo => 'Oylama sürüyor. Oylar gizli.';
+
+  @override
+  String gameVoteProgress(int done, int total) {
+    return '$done/$total oy verildi';
+  }
+
+  @override
+  String get gameTieBreakInfo => 'Eşitlik! İzleyiciler karar veriyor…';
+
+  @override
+  String gameEliminated(String name) {
+    return '$name sığınağın dışında kaldı.';
+  }
+
+  @override
+  String get gameDealingInfo => 'Kartlar dağıtılıyor…';
 }
