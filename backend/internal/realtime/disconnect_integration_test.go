@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -36,10 +37,28 @@ func (e *env) val(sql string, args ...any) any {
 	return v
 }
 
+// connectionEvent, bağlantı olayını bekler (15 sn: süreye dayalı akış ve
+// paralel CI yükünde test veritabanı havuzu yavaşlayabilir).
 func connectionEvent(t *testing.T, c *websocket.Conn, user, state string) {
 	t.Helper()
-	for range 50 {
-		env, p := readUntil(t, c, game.EventPlayerConnection)
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+		_, data, err := c.Read(ctx)
+		cancel()
+		if err != nil {
+			t.Fatalf("%s %s beklenirken: %v", user, state, err)
+		}
+		var env Envelope
+		var raw struct {
+			Payload map[string]any `json:"payload"`
+		}
+		_ = json.Unmarshal(data, &env)
+		_ = json.Unmarshal(data, &raw)
+		p := raw.Payload
+		if env.Type != game.EventPlayerConnection {
+			continue
+		}
 		if p["user_id"] == user && p["state"] == state {
 			if env.StateVersion != 0 {
 				t.Fatalf("bağlantı olayı sürüm taşımamalı: %d", env.StateVersion)

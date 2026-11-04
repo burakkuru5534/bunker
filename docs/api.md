@@ -262,6 +262,9 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 | POST | `/v1/blocks` | `{ "user_id": "uuid" }` | `204` | Kendini engelleyemez |
 | DELETE | `/v1/blocks/{userId}` | — | `204` | |
 
+- **Engelleme:** kendini engelleme `400` (`user_id: not_allowed`); kullanıcı yok/silinmiş `404`; tekrar engelleme ve olmayan engeli kaldırma `204` (değişiklik yok). Liste en yeni önce. Etkisi: engellenenin mesajları engelleyene gitmez ve geçmişte görünmez; oyun kurallarını etkilemez.
+- **Rapor:** `201 {"id"}`. "Ortak oda": iki kullanıcı da o odada üye olmuş (aktif veya oyunda ayrılmış), o odadaki bir oyuna katılmış ya da o odada mesaj yazmış olmalı; değilse — oda yoksa da — aynı `404`. Lobiden ayrılınca üyelik satırı silindiği için hiç mesaj yazmamış raporlayan odadayken raporlamalıdır. Not sohbet metniyle aynı temizlikten geçer (boş not yok sayılır). Rapora odanın son 50 mesajı (`{id, user_id, nickname, text, created_at}`, eskiden yeniye) kopyalanır; sohbet silinse de kalır. Aynı kişi aynı odada açık raporla tekrar raporlanırsa yeni kayıt açılmaz, mevcut `id` döner (kapanmış rapordan sonra yeniden raporlanabilir). Kullanıcı başına saatte 10 rapor (`429`; reddedilen denemeler de sayılır).
+
 ---
 
 ## 5. WebSocket

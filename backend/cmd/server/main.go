@@ -29,6 +29,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/config"
 	"github.com/burakkuru5534/bunker/backend/internal/game"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/moderation"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 	"github.com/burakkuru5534/bunker/backend/internal/profanity"
@@ -240,6 +241,8 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		roomSvc := room.NewService(d.DB, d.Hub, publisher, logger).WithGames(hooks).WithTextFilter(profanity.Default)
 		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
+		modHTTP := moderation.NewHTTP(moderation.NewService(d.DB, logger), authHTTP.Require)
+		modules = append(modules, modHTTP.Register)
 		// Bağlantısı kopan oyuncular: 60 sn bekleme, sonra ayrılmış sayılır (RT-007).
 		disconnects := game.NewDisconnects(gameSvc, roomSvc, d.Hub, logger)
 		d.Hub.SetListener(disconnects)

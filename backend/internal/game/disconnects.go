@@ -78,6 +78,31 @@ func (d *Disconnects) run(fn func(ctx context.Context)) {
 	}()
 }
 
+// retry, fn'yi geçici hatalarda artan aralıklarla (0,5 → 8 sn) yeniden dener;
+// her deneme kendi bağlamıyla. Durdurulursa bırakır. fn, iş bittiyse
+// (başarı veya kalıcı karar) true döner.
+func (d *Disconnects) retry(what, userID string, fn func(ctx context.Context) (done bool, err error)) {
+	d.run(func(context.Context) {
+		wait := 500 * time.Millisecond
+		for attempt := 1; ; attempt++ {
+			ctx, cancel := context.WithTimeout(d.ctx, 10*time.Second)
+			done, err := fn(ctx)
+			cancel()
+			if done || d.ctx.Err() != nil {
+				return
+			}
+			d.logger.Warn(what+" kaydedilemedi; yeniden denenecek", "user_id", userID, "attempt", attempt,
+				"retry_in", wait.String(), "error", err)
+			select {
+			case <-d.ctx.Done():
+				return
+			case <-time.After(wait):
+			}
+			wait = min(wait*2, 8*time.Second)
+		}
+	})
+}
+
 // activeGame, odanın sürmekte olan oyunudur ("" yoksa).
 func activeGame(ctx context.Context, q persistence.Querier, roomID string) (string, error) {
 	var gameID string
@@ -94,11 +119,12 @@ func (d *Disconnects) publish(roomID, gameID, userID, state string) {
 		Payload: map[string]any{"user_id": userID, "state": state}})
 }
 
-// UserDisconnected, realtime.ConnectionListener.
+// UserDisconnected, realtime.ConnectionListener. Veritabanı hatasında yeniden
+// denenir: kayıt kaybolursa kopan oyuncu hiç "ayrıldı" sayılmazdı.
 func (d *Disconnects) UserDisconnected(userID, roomID string) {
-	d.run(func(ctx context.Context) {
+	d.retry("bağlantı kopması", userID, func(ctx context.Context) (bool, error) {
 		if d.presence.Connected(userID) {
-			return // bu arada yeniden bağlandı
+			return true, nil // bu arada yeniden bağlandı
 		}
 		var gameID string
 		var at time.Time
@@ -117,29 +143,33 @@ func (d *Disconnects) UserDisconnected(userID, roomID string) {
 			return err
 		})
 		if err != nil {
-			d.logger.Warn("bağlantı kopması kaydedilemedi", "user_id", userID, "room_id", roomID, "error", err)
-			return
+			return false, err
 		}
-		if gameID == "" {
-			return
+		if gameID != "" {
+			d.publish(roomID, gameID, userID, "disconnected")
+			d.schedule(userID, roomID, gameID, at.Add(d.grace))
 		}
-		d.publish(roomID, gameID, userID, "disconnected")
-		d.schedule(userID, roomID, gameID, at.Add(d.grace))
+		return true, nil
 	})
 }
 
 // UserConnected, realtime.ConnectionListener.
 func (d *Disconnects) UserConnected(userID, roomID string) {
 	d.cancelTimer(userID)
-	d.run(func(ctx context.Context) {
-		if gameID, ok := d.clear(ctx, userID, roomID); ok {
+	d.retry("yeniden bağlanma", userID, func(ctx context.Context) (bool, error) {
+		gameID, ok, err := d.clear(ctx, userID, roomID)
+		if err != nil {
+			return false, err
+		}
+		if ok {
 			d.publish(roomID, gameID, userID, "reconnected")
 		}
+		return true, nil
 	})
 }
 
 // clear, kopma kaydını siler; silindiyse oyun kimliği ve true.
-func (d *Disconnects) clear(ctx context.Context, userID, roomID string) (string, bool) {
+func (d *Disconnects) clear(ctx context.Context, userID, roomID string) (string, bool, error) {
 	var gameID string
 	err := d.db.Tx(ctx, func(tx pgx.Tx) error {
 		var err error
@@ -154,10 +184,9 @@ func (d *Disconnects) clear(ctx context.Context, userID, roomID string) (string,
 		return err
 	})
 	if err != nil {
-		d.logger.Warn("yeniden bağlanma kaydedilemedi", "user_id", userID, "room_id", roomID, "error", err)
-		return "", false
+		return "", false, err
 	}
-	return gameID, gameID != ""
+	return gameID, gameID != "", nil
 }
 
 func (d *Disconnects) schedule(userID, roomID, gameID string, at time.Time) {
@@ -199,7 +228,9 @@ func (d *Disconnects) expire(ctx context.Context, userID, roomID, gameID string)
 	if d.presence.Connected(userID) {
 		// Bağlı: kayıt sessizce silinir (açılış kurtarmasında bağlı olduğu
 		// anlaşılan oyuncu için "koptu" hiç yayınlanmamıştı).
-		d.clear(ctx, userID, roomID)
+		if _, _, err := d.clear(ctx, userID, roomID); err != nil {
+			d.logger.Warn("bağlı oyuncunun kopma kaydı silinemedi", "user_id", userID, "error", err)
+		}
 		return
 	}
 	var still bool
