@@ -87,6 +87,34 @@ void main() {
     expect(find.byType(BlockedUsersScreen), findsOneWidget);
   });
 
+  testWidgets('Oda oluşturunca oda ekranına geçilir; geri ana ekrana dönmez', (
+    tester,
+  ) async {
+    final c = await startApp(tester);
+    await signIn(tester);
+
+    await tester.tap(find.text('Oda oluştur'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RoomScreen), findsOneWidget);
+    expect(find.text('Oda: ${FakeBackend.createdRoomId}'), findsOneWidget);
+    expect(router(c).canPop(), isFalse);
+  });
+
+  testWidgets('Koda katılınca oda ekranına geçilir', (tester) async {
+    final c = await startApp(tester);
+    await signIn(tester);
+
+    await tester.tap(find.text('Koda katıl'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'K7M2QX');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RoomScreen), findsOneWidget);
+    expect(find.text('Oda: ${FakeBackend.joinedRoomId}'), findsOneWidget);
+    expect(router(c).canPop(), isFalse);
+  });
+
   testWidgets('Geçerli oda kimliği oda ekranını açar', (tester) async {
     final c = await startApp(tester);
     await signIn(tester);

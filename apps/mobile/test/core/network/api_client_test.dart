@@ -120,6 +120,20 @@ void main() {
       expect(e.fieldErrors, {'nickname': 'too_short'});
     });
 
+    test('details ham olarak okunur (ALREADY_IN_ROOM → room_id)', () async {
+      final api = client(
+        (_) async => jsonResponse(
+          apiError('ALREADY_IN_ROOM', details: {'room_id': 'r-1'}),
+          409,
+        ),
+      );
+
+      final e = await expectApiError(api.post('/v1/rooms'));
+
+      expect(e.details, {'room_id': 'r-1'});
+      expect(e.fieldErrors, isEmpty);
+    });
+
     test('401 → unauthorized ve geri çağrı', () async {
       final api = client(
         (_) async => jsonResponse(apiError('UNAUTHORIZED'), 401),

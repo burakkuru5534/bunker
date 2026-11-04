@@ -245,4 +245,60 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get splashChecking => 'Oturumun kontrol ediliyor…';
+
+  @override
+  String get actionSave => 'Kaydet';
+
+  @override
+  String get actionSettings => 'Ayarlar';
+
+  @override
+  String get nicknameDialogTitle => 'Takma adını değiştir';
+
+  @override
+  String homeGreeting(String name) {
+    return 'Merhaba, $name';
+  }
+
+  @override
+  String get homeCreateRoom => 'Oda oluştur';
+
+  @override
+  String get homeJoinRoom => 'Koda katıl';
+
+  @override
+  String get homeBackToRoom => 'Odana dön';
+
+  @override
+  String get homeHowToTitle => 'Nasıl oynanır?';
+
+  @override
+  String get homeHowTo1 =>
+      '4–10 kişi aynı odada toplanır; oda sahibi davet kodunu paylaşır.';
+
+  @override
+  String get homeHowTo2 =>
+      'Herkese gizli 5 kart dağıtılır: meslek, sağlık, hobi, eşya ve bir sır.';
+
+  @override
+  String get homeHowTo3 =>
+      'Her turda sırayla birer kart açılır, ardından tartışma başlar.';
+
+  @override
+  String get homeHowTo4 =>
+      'Oylamada en çok oyu alan dışarıda kalır ve izleyici olur.';
+
+  @override
+  String get homeHowTo5 =>
+      'Sığınağın kapasitesi kadar kişi kalınca oyun biter; kalanlar kazanır.';
+
+  @override
+  String get joinHint => 'Oda sahibinden aldığın 6 karakterlik kodu gir.';
+
+  @override
+  String get joinSubmit => 'Katıl';
+
+  @override
+  String get joinInvalidCode =>
+      'Bu kod geçerli değil. Kontrol edip tekrar dene.';
 }

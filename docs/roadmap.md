@@ -164,6 +164,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
   - ENG-014: `action_id` ile idempotency (tekrar → `duplicate:true`, eşzamanlı 6 istekte 1 işlem). ENG-016: motor birim testleri (kapsama %96).
   - Bilerek açık bırakılanlar: RT-010 (çok bağlantılı yük testi), RT-011 (Cloud Run’da doğrulama — dağıtım gerektirir), RT-012, QA-* (yayın öncesi uçtan uca doğrulama), SAFE-008/010/011/012.
 - **ROOM-011 (1/3) — oturum:** `features/session/data/session_repository.dart` (`POST /v1/sessions/guest`, `GET /v1/me`, `POST /v1/sessions/refresh`; bozuk yanıt → `invalidResponse`). `SessionController`: saklı oturum açılışta `GET /v1/me` ile doğrulanır → aktif oda varsa doğrudan `/room/:id`; 401 → oturum silinir → `/welcome`; ağ/sunucu hatası → açılış ekranında hata + "Tekrar dene" (oturum korunur); sunucudaki takma ad depoya yazılır; bitişine 14 günden az kalan token sessizce yenilenir. Hoş geldin ekranı (ekran haritası §3.1): 3 kural maddesi, takma ad alanı (16 karakter sınırı + sayaç), sunucu kurallarının istemci kopyası `checkNickname` ile anlık hata (ayrılmış ad/küfür yalnız sunucuda), sunucu alan hatası satır içinde, diğer hatalar snackbar, gönderim sırasında yükleniyor ve tekrar basış engeli. Geçici "Başla (geçici)" oturumu kaldırıldı. Test altyapısı: `FakeBackend` (yöntem+yol eşlemeli sahte sunucu, `apiHttpAdapterProvider` override), `pumpWithProviders` artık uygulama temasıyla. Testler 159 → 179 (oturum denetleyicisi 11, takma ad kuralları 3, hoş geldin ekranı 7, yönlendirme +3). Mutasyon 5/5. Gizlilik politikası bağlantısı SAFE-008 ile eklenecek.
+- **ROOM-011 (2/3) — ana ekran ve koda katılma:** `features/room/data` (`RoomView`/`RoomMember` modelleri, bozuk yanıt → `invalidResponse`; `RoomRepository`: oluştur, katıl, getir, ayrıl), `features/room/room.dart` giriş noktası. Ana ekran (ekran haritası §3.2): selamlama, **Oda oluştur** (yükleniyor, tekrar basış engeli), **Koda katıl**, "Nasıl oynanır?" (5 madde). Koda katıl (§3.3): 6 kutulu kod, 6. karakterde otomatik katılma + **Katıl** düğmesi, her hata kodu için satır içi metin (biçimi bozuk kod için ayrı metin), kod değişince hata silinir; `NICKNAME_TAKEN_IN_ROOM` → "Takma adını değiştir" penceresi (`PATCH /v1/me`, anlık doğrulama, sunucu hatası satır içinde) → başarılıysa otomatik yeniden katılma; `ALREADY_IN_ROOM` (ana ekranda ve katılmada) → "Odana dön" (`details.room_id`; `ApiException.details` eklendi). Oda açılınca `go` ile geçilir (geri tuşu ana ekrana/katılmaya dönmez), oturumdaki aktif oda güncellenir. Testler 179 → 198. Mutasyon 5/5.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -219,7 +220,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ROOM-008 | Oda ayarlarının senkronizasyonu (kapasite 1/2) | P0 | Done |
 | ROOM-009 | Oda sahibi ayrıldığında yetki devri | P0 | Done |
 | ROOM-010 | Boş oda temizliği | P1 | Done |
-| ROOM-011 | Flutter oda akışları | P0 | In Progress (1/3 oturum tamam; sıradaki: ana ekran + koda katıl, sonra lobi) |
+| ROOM-011 | Flutter oda akışları | P0 | In Progress (2/3 ana ekran + koda katılma tamam; sıradaki: oda kabuğu ve lobi) |
 | ROOM-012 | Çoklu oyuncu testleri | P0 | Backlog |
 
 ## Faz 6 — Kart ve senaryo sistemi

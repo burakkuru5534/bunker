@@ -57,6 +57,14 @@ class SessionRepository {
     );
   }
 
+  /// Takma adı değiştirir (`PATCH /v1/me`); sunucunun kaydettiği adı döndürür.
+  Future<String> updateNickname(String nickname) async {
+    final json = _object(
+      await _api.patch('/v1/me', body: {'nickname': nickname}),
+    );
+    return _string(json, 'nickname');
+  }
+
   /// `POST /v1/sessions/refresh`: eski token iptal olur.
   Future<RefreshedToken> refresh() async {
     final json = _object(await _api.post('/v1/sessions/refresh', body: {}));

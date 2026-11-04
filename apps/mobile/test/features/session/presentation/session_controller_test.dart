@@ -249,4 +249,52 @@ void main() {
     );
     expect(store.values, isEmpty);
   });
+
+  test('changeNickname sunucuya yazar, depoyu ve durumu günceller', () async {
+    final store = await storeWith(stored());
+    final c = container(store);
+    await settle(c);
+
+    await c.read(sessionControllerProvider.notifier).changeNickname('Yeni');
+
+    expect(backend.adapter.requests.last.data, {'nickname': 'Yeni'});
+    expect(c.read(sessionControllerProvider).nickname, 'Yeni');
+    expect((await SessionStore(store).read())!.nickname, 'Yeni');
+  });
+
+  test('changeNickname hatası fırlatılır, ad değişmez', () async {
+    backend.on(
+      'PATCH',
+      '/v1/me',
+      (r) async => jsonResponse(apiError('INVALID_PHASE'), 409),
+    );
+    final store = await storeWith(stored());
+    final c = container(store);
+    await settle(c);
+
+    await expectLater(
+      c.read(sessionControllerProvider.notifier).changeNickname('Yeni'),
+      throwsA(isA<ApiException>()),
+    );
+    expect(c.read(sessionControllerProvider).nickname, 'Ayşe');
+    expect((await SessionStore(store).read())!.nickname, 'Ayşe');
+  });
+
+  test(
+    'setActiveRoom yalnızca oturum açıkken aktif odayı değiştirir',
+    () async {
+      final c = container(InMemorySecureStore());
+      await settle(c);
+      final controller = c.read(sessionControllerProvider.notifier)
+        ..setActiveRoom('r1');
+      expect(c.read(sessionControllerProvider).activeRoomId, isNull);
+
+      await controller.signInAsGuest('Burak');
+      controller.setActiveRoom('r1');
+      expect(c.read(sessionControllerProvider).activeRoomId, 'r1');
+      expect(c.read(sessionControllerProvider).nickname, 'Burak');
+      controller.setActiveRoom(null);
+      expect(c.read(sessionControllerProvider).activeRoomId, isNull);
+    },
+  );
 }

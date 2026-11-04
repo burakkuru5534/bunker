@@ -1,6 +1,8 @@
 /// `session` feature'ının diğer katmanlara açık giriş noktası.
 library;
 
+export 'package:siginak/features/session/presentation/nickname_dialog.dart'
+    show showChangeNicknameDialog;
 export 'package:siginak/features/session/presentation/session_controller.dart'
     show
         SessionController,

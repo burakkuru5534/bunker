@@ -50,11 +50,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => HomeScreen(
           onJoin: () => context.push(AppRoutes.join),
           onOpenSettings: () => context.push(AppRoutes.settings),
+          // go: oda açılınca ana ekran / katılma ekranı yığından çıkar.
+          onOpenRoom: (id) => context.go(AppRoutes.room(id)),
         ),
       ),
       GoRoute(
         path: AppRoutes.join,
-        builder: (context, state) => const JoinScreen(),
+        builder: (context, state) =>
+            JoinScreen(onOpenRoom: (id) => context.go(AppRoutes.room(id))),
       ),
       GoRoute(
         path: AppRoutes.roomPattern,

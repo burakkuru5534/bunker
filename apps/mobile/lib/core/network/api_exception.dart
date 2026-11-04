@@ -40,6 +40,7 @@ class ApiException implements Exception {
     this.requestId,
     this.retryAfter,
     this.fieldErrors = const {},
+    this.details = const {},
     this.debugMessage,
   });
 
@@ -59,6 +60,9 @@ class ApiException implements Exception {
 
   /// `VALIDATION_FAILED` için alan → hata eşlemesi (`details.fields`).
   final Map<String, String> fieldErrors;
+
+  /// Hata gövdesindeki `details` (ör. `ALREADY_IN_ROOM` → `room_id`).
+  final Map<String, Object?> details;
 
   final String? debugMessage;
 

@@ -85,5 +85,25 @@
   "nicknameErrorNotAllowed": "Bu takma ad kullanılamaz, başka bir tane seç.",
   "nicknameErrorProfanity": "Bu takma ad uygun değil, başka bir tane seç.",
 
-  "splashChecking": "Oturumun kontrol ediliyor…"
+  "splashChecking": "Oturumun kontrol ediliyor…",
+
+  "actionSave": "Kaydet",
+  "actionSettings": "Ayarlar",
+  "nicknameDialogTitle": "Takma adını değiştir",
+
+  "homeGreeting": "Merhaba, {name}",
+  "@homeGreeting": { "placeholders": { "name": { "type": "String" } } },
+  "homeCreateRoom": "Oda oluştur",
+  "homeJoinRoom": "Koda katıl",
+  "homeBackToRoom": "Odana dön",
+  "homeHowToTitle": "Nasıl oynanır?",
+  "homeHowTo1": "4–10 kişi aynı odada toplanır; oda sahibi davet kodunu paylaşır.",
+  "homeHowTo2": "Herkese gizli 5 kart dağıtılır: meslek, sağlık, hobi, eşya ve bir sır.",
+  "homeHowTo3": "Her turda sırayla birer kart açılır, ardından tartışma başlar.",
+  "homeHowTo4": "Oylamada en çok oyu alan dışarıda kalır ve izleyici olur.",
+  "homeHowTo5": "Sığınağın kapasitesi kadar kişi kalınca oyun biter; kalanlar kazanır.",
+
+  "joinHint": "Oda sahibinden aldığın 6 karakterlik kodu gir.",
+  "joinSubmit": "Katıl",
+  "joinInvalidCode": "Bu kod geçerli değil. Kontrol edip tekrar dene."
 }

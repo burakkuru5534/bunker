@@ -153,6 +153,33 @@ class SessionController extends Notifier<SessionState> {
     await signIn(session);
   }
 
+  /// Takma adı değiştirir; hata [ApiException] olarak fırlatılır
+  /// (oyun sürerken `INVALID_PHASE`, kurallar için `NICKNAME_INVALID`).
+  Future<void> changeNickname(String nickname) async {
+    final saved = await _repo.updateNickname(nickname);
+    final session = await _store.read();
+    if (session != null) await _store.save(session.copyWith(nickname: saved));
+    if (!ref.mounted || state.status != SessionStatus.authenticated) return;
+    state = SessionState(
+      status: SessionStatus.authenticated,
+      userId: state.userId,
+      nickname: saved,
+      activeRoomId: state.activeRoomId,
+    );
+  }
+
+  /// Kullanıcının aktif odası değişti (oda kuruldu, katılındı, ayrılındı).
+  void setActiveRoom(String? roomId) {
+    if (state.status != SessionStatus.authenticated) return;
+    if (state.activeRoomId == roomId) return;
+    state = SessionState(
+      status: SessionStatus.authenticated,
+      userId: state.userId,
+      nickname: state.nickname,
+      activeRoomId: roomId,
+    );
+  }
+
   /// Sunucudan alınan oturumu saklar ve oturumu açar.
   Future<void> signIn(StoredSession session) async {
     await _store.save(session);

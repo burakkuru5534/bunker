@@ -32,10 +32,27 @@ class FakeBackend {
         'active_room_id': activeRoomId,
       }, 200),
     );
+    on('PATCH', '/v1/me', (r) async {
+      nickname = (r.data as Map<String, Object?>)['nickname']! as String;
+      return jsonResponse({'id': 'u-guest', 'nickname': nickname}, 200);
+    });
+    on('POST', '/v1/rooms', (r) async {
+      activeRoomId = createdRoomId;
+      return jsonResponse(roomJson(id: createdRoomId), 201);
+    });
+    on('POST', '/v1/rooms/join', (r) async {
+      activeRoomId = joinedRoomId;
+      final code = (r.data as Map<String, Object?>)['invite_code']! as String;
+      return jsonResponse(roomJson(id: joinedRoomId, inviteCode: code), 200);
+    });
     _defaults.addAll(_routes);
   }
 
   String nickname = 'Ayşe';
+
+  /// `POST /v1/rooms` ve `POST /v1/rooms/join` yanıtlarındaki oda kimlikleri.
+  static const createdRoomId = '11111111-1111-4111-8111-111111111111';
+  static const joinedRoomId = '22222222-2222-4222-8222-222222222222';
   String? activeRoomId;
 
   final Map<String, FakeRoute> _routes = {};
@@ -67,3 +84,33 @@ class FakeBackend {
 Future<ResponseBody> networkFailure(RequestOptions r) => Future.error(
   DioException.connectionError(requestOptions: r, reason: 'test'),
 );
+
+/// docs/api.md biçiminde `RoomView`.
+Map<String, Object?> roomJson({
+  String id = FakeBackend.createdRoomId,
+  String inviteCode = 'K7M2QX',
+  String status = 'lobby',
+  String hostUserId = 'u-guest',
+  int capacity = 2,
+  int version = 0,
+  List<Map<String, Object?>>? members,
+}) => {
+  'id': id,
+  'invite_code': inviteCode,
+  'status': status,
+  'host_user_id': hostUserId,
+  'capacity': capacity,
+  'current_game_id': null,
+  'version': version,
+  'members':
+      members ??
+      [
+        {
+          'user_id': hostUserId,
+          'nickname': 'Ayşe',
+          'role': 'player',
+          'is_ready': false,
+          'connected': false,
+        },
+      ],
+};

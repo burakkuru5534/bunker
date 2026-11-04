@@ -50,6 +50,10 @@ ApiException _fromResponse(Response<Object?>? response) {
     requestId: requestId,
     retryAfter: _retryAfter(response?.headers.value('retry-after')),
     fieldErrors: _fieldErrors(body?['details']),
+    details: switch (body?['details']) {
+      final Map<String, Object?> d => d,
+      _ => const {},
+    },
     debugMessage: message,
   );
 }

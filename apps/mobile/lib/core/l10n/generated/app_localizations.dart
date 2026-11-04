@@ -507,6 +507,102 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Oturumun kontrol ediliyor…'**
   String get splashChecking;
+
+  /// No description provided for @actionSave.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kaydet'**
+  String get actionSave;
+
+  /// No description provided for @actionSettings.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ayarlar'**
+  String get actionSettings;
+
+  /// No description provided for @nicknameDialogTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Takma adını değiştir'**
+  String get nicknameDialogTitle;
+
+  /// No description provided for @homeGreeting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Merhaba, {name}'**
+  String homeGreeting(String name);
+
+  /// No description provided for @homeCreateRoom.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oda oluştur'**
+  String get homeCreateRoom;
+
+  /// No description provided for @homeJoinRoom.
+  ///
+  /// In tr, this message translates to:
+  /// **'Koda katıl'**
+  String get homeJoinRoom;
+
+  /// No description provided for @homeBackToRoom.
+  ///
+  /// In tr, this message translates to:
+  /// **'Odana dön'**
+  String get homeBackToRoom;
+
+  /// No description provided for @homeHowToTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Nasıl oynanır?'**
+  String get homeHowToTitle;
+
+  /// No description provided for @homeHowTo1.
+  ///
+  /// In tr, this message translates to:
+  /// **'4–10 kişi aynı odada toplanır; oda sahibi davet kodunu paylaşır.'**
+  String get homeHowTo1;
+
+  /// No description provided for @homeHowTo2.
+  ///
+  /// In tr, this message translates to:
+  /// **'Herkese gizli 5 kart dağıtılır: meslek, sağlık, hobi, eşya ve bir sır.'**
+  String get homeHowTo2;
+
+  /// No description provided for @homeHowTo3.
+  ///
+  /// In tr, this message translates to:
+  /// **'Her turda sırayla birer kart açılır, ardından tartışma başlar.'**
+  String get homeHowTo3;
+
+  /// No description provided for @homeHowTo4.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oylamada en çok oyu alan dışarıda kalır ve izleyici olur.'**
+  String get homeHowTo4;
+
+  /// No description provided for @homeHowTo5.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığınağın kapasitesi kadar kişi kalınca oyun biter; kalanlar kazanır.'**
+  String get homeHowTo5;
+
+  /// No description provided for @joinHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oda sahibinden aldığın 6 karakterlik kodu gir.'**
+  String get joinHint;
+
+  /// No description provided for @joinSubmit.
+  ///
+  /// In tr, this message translates to:
+  /// **'Katıl'**
+  String get joinSubmit;
+
+  /// No description provided for @joinInvalidCode.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu kod geçerli değil. Kontrol edip tekrar dene.'**
+  String get joinInvalidCode;
 }
 
 class _AppLocalizationsDelegate
