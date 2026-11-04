@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:siginak/app/app.dart';
 import 'package:siginak/app/router/app_router.dart';
 import 'package:siginak/app/router/app_routes.dart';
+import 'package:siginak/core/network/api_client_provider.dart';
 import 'package:siginak/core/network/update_required_provider.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/session_store.dart';
@@ -16,12 +17,19 @@ import 'package:siginak/features/moderation/presentation/blocked_users_screen.da
 import 'package:siginak/features/room/presentation/room_screen.dart';
 import 'package:siginak/features/session/session.dart';
 import 'package:siginak/features/settings/presentation/settings_screen.dart';
+import 'package:siginak/features/startup/presentation/splash_screen.dart';
 import 'package:siginak/features/startup/presentation/update_required_screen.dart';
+
+import '../../helpers/fake_backend.dart';
+import '../../helpers/fake_http_adapter.dart';
 
 import '../../helpers/pump_app.dart';
 
 void main() {
   const roomId = '0f8fad5b-d9cb-469f-a165-70867728950e';
+
+  late FakeBackend backend;
+  setUp(() => backend = FakeBackend());
 
   Future<ProviderContainer> startApp(
     WidgetTester tester, {
@@ -32,13 +40,15 @@ void main() {
       const SiginakApp(),
       wrapInMaterialApp: false,
       secureStore: store,
+      overrides: [apiHttpAdapterProvider.overrideWithValue(backend.adapter)],
     );
     await tester.pumpAndSettle();
     return ProviderScope.containerOf(tester.element(find.byType(SiginakApp)));
   }
 
   Future<void> signIn(WidgetTester tester) async {
-    await tester.tap(find.text('Başla (geçici)'));
+    await tester.enterText(find.byType(TextField), 'Ayşe');
+    await tester.tap(find.text('Başla'));
     await tester.pumpAndSettle();
   }
 
@@ -132,23 +142,72 @@ void main() {
     expect(find.byType(Scaffold), findsOneWidget);
   });
 
-  testWidgets('Saklı oturumu olan kullanıcı doğrudan ana ekrana gider', (
-    tester,
-  ) async {
+  Future<InMemorySecureStore> storedSession() async {
     final store = InMemorySecureStore();
     await SessionStore(store).save(
       StoredSession(
         token: 't',
-        expiresAt: DateTime.now().add(const Duration(days: 1)),
+        expiresAt: DateTime.now().add(const Duration(days: 30)),
         userId: 'u',
         nickname: 'Ayşe',
       ),
     );
+    return store;
+  }
 
-    await startApp(tester, store: store);
+  testWidgets('Saklı oturumu olan kullanıcı doğrudan ana ekrana gider', (
+    tester,
+  ) async {
+    await startApp(tester, store: await storedSession());
 
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(WelcomeScreen), findsNothing);
+    expect(backend.calls, ['GET /v1/me']);
+  });
+
+  testWidgets('Aktif odası olan kullanıcı açılışta odaya döner', (
+    tester,
+  ) async {
+    backend.activeRoomId = roomId;
+
+    await startApp(tester, store: await storedSession());
+
+    expect(find.byType(RoomScreen), findsOneWidget);
+    expect(find.text('Oda: $roomId'), findsOneWidget);
+  });
+
+  testWidgets('Oturum doğrulanamazsa açılışta hata ve tekrar dene', (
+    tester,
+  ) async {
+    backend.on('GET', '/v1/me', networkFailure);
+
+    await startApp(tester, store: await storedSession());
+
+    expect(find.byType(SplashScreen), findsOneWidget);
+    expect(
+      find.text('İnternet bağlantını kontrol edip tekrar dene.'),
+      findsOneWidget,
+    );
+
+    backend.restore('GET', '/v1/me');
+    await tester.tap(find.text('Tekrar dene'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('Saklı oturum sunucuda geçersizse hoş geldin ekranı', (
+    tester,
+  ) async {
+    backend.on(
+      'GET',
+      '/v1/me',
+      (r) async => jsonResponse(apiError('UNAUTHORIZED'), 401),
+    );
+
+    await startApp(tester, store: await storedSession());
+
+    expect(find.byType(WelcomeScreen), findsOneWidget);
   });
 
   testWidgets('Oturum kapatılınca hoş geldin ekranına dönülür', (tester) async {

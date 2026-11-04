@@ -411,6 +411,102 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Bu bölüm gösterilemedi.'**
   String get errorWidgetMessage;
+
+  /// No description provided for @welcomeTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığınağa kim girecek?'**
+  String get welcomeTitle;
+
+  /// No description provided for @welcomeRule1.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bir felaket oldu; sığınakta herkese yer yok.'**
+  String get welcomeRule1;
+
+  /// No description provided for @welcomeRule2.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kartlarını açarak kendini savun, diğerlerini sorgula.'**
+  String get welcomeRule2;
+
+  /// No description provided for @welcomeRule3.
+  ///
+  /// In tr, this message translates to:
+  /// **'Her tur oylama var. Son kalanlar sığınağa girer.'**
+  String get welcomeRule3;
+
+  /// No description provided for @welcomeNicknameLabel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Takma adın'**
+  String get welcomeNicknameLabel;
+
+  /// No description provided for @welcomeNicknameHelper.
+  ///
+  /// In tr, this message translates to:
+  /// **'3–16 karakter: harf, rakam, boşluk ve _'**
+  String get welcomeNicknameHelper;
+
+  /// No description provided for @welcomeDeviceNote.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesabın bu cihaza bağlı. Uygulamayı silersen geri getirilemez.'**
+  String get welcomeDeviceNote;
+
+  /// No description provided for @welcomeStart.
+  ///
+  /// In tr, this message translates to:
+  /// **'Başla'**
+  String get welcomeStart;
+
+  /// No description provided for @nicknameErrorRequired.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bir takma ad yaz.'**
+  String get nicknameErrorRequired;
+
+  /// No description provided for @nicknameErrorTooShort.
+  ///
+  /// In tr, this message translates to:
+  /// **'En az 3 karakter olmalı.'**
+  String get nicknameErrorTooShort;
+
+  /// No description provided for @nicknameErrorTooLong.
+  ///
+  /// In tr, this message translates to:
+  /// **'En fazla 16 karakter olabilir.'**
+  String get nicknameErrorTooLong;
+
+  /// No description provided for @nicknameErrorInvalidChars.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yalnızca harf, rakam, boşluk ve _ kullanabilirsin.'**
+  String get nicknameErrorInvalidChars;
+
+  /// No description provided for @nicknameErrorInvalid.
+  ///
+  /// In tr, this message translates to:
+  /// **'En az bir harf olmalı; art arda boşluk olmamalı.'**
+  String get nicknameErrorInvalid;
+
+  /// No description provided for @nicknameErrorNotAllowed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu takma ad kullanılamaz, başka bir tane seç.'**
+  String get nicknameErrorNotAllowed;
+
+  /// No description provided for @nicknameErrorProfanity.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu takma ad uygun değil, başka bir tane seç.'**
+  String get nicknameErrorProfanity;
+
+  /// No description provided for @splashChecking.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oturumun kontrol ediliyor…'**
+  String get splashChecking;
 }
 
 class _AppLocalizationsDelegate

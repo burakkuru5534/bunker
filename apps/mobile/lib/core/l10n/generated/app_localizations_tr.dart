@@ -191,4 +191,58 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get errorWidgetMessage => 'Bu bölüm gösterilemedi.';
+
+  @override
+  String get welcomeTitle => 'Sığınağa kim girecek?';
+
+  @override
+  String get welcomeRule1 => 'Bir felaket oldu; sığınakta herkese yer yok.';
+
+  @override
+  String get welcomeRule2 =>
+      'Kartlarını açarak kendini savun, diğerlerini sorgula.';
+
+  @override
+  String get welcomeRule3 => 'Her tur oylama var. Son kalanlar sığınağa girer.';
+
+  @override
+  String get welcomeNicknameLabel => 'Takma adın';
+
+  @override
+  String get welcomeNicknameHelper => '3–16 karakter: harf, rakam, boşluk ve _';
+
+  @override
+  String get welcomeDeviceNote =>
+      'Hesabın bu cihaza bağlı. Uygulamayı silersen geri getirilemez.';
+
+  @override
+  String get welcomeStart => 'Başla';
+
+  @override
+  String get nicknameErrorRequired => 'Bir takma ad yaz.';
+
+  @override
+  String get nicknameErrorTooShort => 'En az 3 karakter olmalı.';
+
+  @override
+  String get nicknameErrorTooLong => 'En fazla 16 karakter olabilir.';
+
+  @override
+  String get nicknameErrorInvalidChars =>
+      'Yalnızca harf, rakam, boşluk ve _ kullanabilirsin.';
+
+  @override
+  String get nicknameErrorInvalid =>
+      'En az bir harf olmalı; art arda boşluk olmamalı.';
+
+  @override
+  String get nicknameErrorNotAllowed =>
+      'Bu takma ad kullanılamaz, başka bir tane seç.';
+
+  @override
+  String get nicknameErrorProfanity =>
+      'Bu takma ad uygun değil, başka bir tane seç.';
+
+  @override
+  String get splashChecking => 'Oturumun kontrol ediliyor…';
 }

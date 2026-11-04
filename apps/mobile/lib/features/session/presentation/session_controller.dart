@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:siginak/core/network/api_exception.dart';
 import 'package:siginak/core/storage/session_store.dart';
 import 'package:siginak/core/storage/storage_providers.dart';
+import 'package:siginak/features/session/data/session_repository.dart';
 
 /// Oturumun yönlendirme için önemli olan durumu.
 enum SessionStatus {
@@ -25,9 +27,15 @@ class SessionState {
     this.userId,
     this.nickname,
     this.activeRoomId,
+    this.restoreError,
   });
 
   const SessionState.unknown() : this(status: SessionStatus.unknown);
+
+  /// Saklı oturum sunucuyla doğrulanamadı (ağ yok, sunucu hatası…);
+  /// açılış ekranı hatayı ve "Tekrar dene"yi gösterir.
+  const SessionState.restoreFailed(Object error)
+    : this(status: SessionStatus.unknown, restoreError: error);
 
   const SessionState.unauthenticated()
     : this(status: SessionStatus.unauthenticated);
@@ -39,25 +47,35 @@ class SessionState {
   /// Kullanıcının içinde bulunduğu aktif oda (`GET /v1/me`), yoksa `null`.
   final String? activeRoomId;
 
+  /// Yalnızca `unknown` durumunda: doğrulama hatası (yoksa `null`).
+  final Object? restoreError;
+
   @override
   bool operator ==(Object other) =>
       other is SessionState &&
       other.status == status &&
       other.userId == userId &&
       other.nickname == nickname &&
-      other.activeRoomId == activeRoomId;
+      other.activeRoomId == activeRoomId &&
+      other.restoreError == restoreError;
 
   @override
-  int get hashCode => Object.hash(status, userId, nickname, activeRoomId);
+  int get hashCode =>
+      Object.hash(status, userId, nickname, activeRoomId, restoreError);
 }
 
 /// Oturum durumu.
 ///
-/// Açılışta `unknown` ile başlar ve güvenli depodaki oturumu okur:
-/// geçerli oturum varsa `authenticated`, yoksa `unauthenticated` olur.
-/// Backend ile oturum oluşturma ve `GET /v1/me` (aktif oda) AUTH-002'de
-/// eklenecektir.
+/// Açılışta `unknown` ile başlar. Güvenli depoda oturum yoksa (veya süresi
+/// dolmuşsa) `unauthenticated` olur. Varsa `GET /v1/me` ile sunucuda
+/// doğrulanır: geçerliyse `authenticated` (+ aktif oda, docs/ui/screen-map.md
+/// §2), 401'de oturum silinir, ağ/sunucu hatasında `restoreFailed` ile
+/// açılış ekranında beklenir. Bitişine [refreshWindow]'dan az kalan token
+/// sessizce yenilenir.
 class SessionController extends Notifier<SessionState> {
+  /// Bitişine bundan az kalan token açılışta yenilenir.
+  static const refreshWindow = Duration(days: 14);
+
   @override
   SessionState build() {
     unawaited(_restore());
@@ -65,6 +83,7 @@ class SessionController extends Notifier<SessionState> {
   }
 
   SessionStore get _store => ref.read(sessionStoreProvider);
+  SessionRepository get _repo => ref.read(sessionRepositoryProvider);
 
   Future<void> _restore() async {
     StoredSession? session;
@@ -75,9 +94,63 @@ class SessionController extends Notifier<SessionState> {
       session = null;
     }
     if (!ref.mounted) return;
-    state = session == null
-        ? const SessionState.unauthenticated()
-        : _authenticated(session);
+    if (session == null) {
+      state = const SessionState.unauthenticated();
+      return;
+    }
+
+    final MeInfo me;
+    try {
+      me = await _repo.fetchMe();
+    } on ApiException catch (e) {
+      if (!ref.mounted) return;
+      switch (e.kind) {
+        case ApiErrorKind.unauthorized:
+          await signOut();
+        case ApiErrorKind.upgradeRequired:
+          // Yönlendirme /update'e kilitlenir; oturum korunur.
+          state = const SessionState.unknown();
+        default:
+          state = SessionState.restoreFailed(e);
+      }
+      return;
+    }
+    if (!ref.mounted) return;
+
+    if (me.nickname != session.nickname) {
+      session = session.copyWith(nickname: me.nickname);
+      await _store.save(session);
+      if (!ref.mounted) return;
+    }
+    state = _authenticated(session, activeRoomId: me.activeRoomId);
+    await _refreshIfNeeded(session);
+  }
+
+  Future<void> _refreshIfNeeded(StoredSession session) async {
+    final left = session.expiresAt.difference(DateTime.now());
+    if (left > refreshWindow) return;
+    try {
+      final t = await _repo.refresh();
+      await _store.save(
+        session.copyWith(token: t.token, expiresAt: t.expiresAt),
+      );
+    } on ApiException {
+      // Yenileme başarısızsa mevcut token bitene kadar kullanılır; 401 ise
+      // istemci zaten oturumu kapatır.
+    }
+  }
+
+  /// Doğrulama hatasından sonra yeniden dener (açılış ekranı).
+  Future<void> retryRestore() async {
+    state = const SessionState.unknown();
+    await _restore();
+  }
+
+  /// Misafir hesap açar ve oturumu başlatır. Hata [ApiException] olarak
+  /// fırlatılır (ekran alan hatasını / mesajı gösterir).
+  Future<void> signInAsGuest(String nickname) async {
+    final session = await _repo.createGuest(nickname);
+    await signIn(session);
   }
 
   /// Sunucudan alınan oturumu saklar ve oturumu açar.
@@ -89,25 +162,17 @@ class SessionController extends Notifier<SessionState> {
   /// Oturumu kapatır ve cihazdan siler (ör. 401, hesap silme).
   Future<void> signOut() async {
     await _store.clear();
+    if (!ref.mounted) return;
     state = const SessionState.unauthenticated();
   }
 
-  /// GEÇİCİ: Backend bağlanana kadar (AUTH-002) misafir girişini taklit eder.
-  /// Yerel bir sahte oturum saklar; sunucuya gönderilse geçersiz sayılır.
-  Future<void> signInAsGuestPlaceholder() => signIn(
-    StoredSession(
-      token: 'local-placeholder',
-      expiresAt: DateTime.now().add(const Duration(days: 90)),
-      userId: 'local',
-      nickname: 'Misafir',
-    ),
-  );
-
-  SessionState _authenticated(StoredSession s) => SessionState(
-    status: SessionStatus.authenticated,
-    userId: s.userId,
-    nickname: s.nickname,
-  );
+  SessionState _authenticated(StoredSession s, {String? activeRoomId}) =>
+      SessionState(
+        status: SessionStatus.authenticated,
+        userId: s.userId,
+        nickname: s.nickname,
+        activeRoomId: activeRoomId,
+      );
 }
 
 final sessionControllerProvider =

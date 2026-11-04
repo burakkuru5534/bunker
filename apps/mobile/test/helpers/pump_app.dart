@@ -8,6 +8,7 @@ import 'package:siginak/core/config/app_config_provider.dart';
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/storage_providers.dart';
+import 'package:siginak/core/theme/app_theme.dart';
 
 import 'pump_themed.dart' show testLocalizationsDelegates;
 
@@ -39,6 +40,7 @@ Future<void> pumpWithProviders(
       ],
       child: wrapInMaterialApp
           ? MaterialApp(
+              theme: buildAppTheme(),
               locale: const Locale('tr'),
               supportedLocales: AppLocalizations.supportedLocales,
               localizationsDelegates: testLocalizationsDelegates,

@@ -66,5 +66,24 @@
   "realtimeForbidden": "Bu odaya artık erişimin yok.",
   "realtimeReplaced": "Bu oda başka bir cihazda ya da pencerede açıldı.",
 
-  "errorWidgetMessage": "Bu bölüm gösterilemedi."
+  "errorWidgetMessage": "Bu bölüm gösterilemedi.",
+
+  "welcomeTitle": "Sığınağa kim girecek?",
+  "welcomeRule1": "Bir felaket oldu; sığınakta herkese yer yok.",
+  "welcomeRule2": "Kartlarını açarak kendini savun, diğerlerini sorgula.",
+  "welcomeRule3": "Her tur oylama var. Son kalanlar sığınağa girer.",
+  "welcomeNicknameLabel": "Takma adın",
+  "welcomeNicknameHelper": "3–16 karakter: harf, rakam, boşluk ve _",
+  "welcomeDeviceNote": "Hesabın bu cihaza bağlı. Uygulamayı silersen geri getirilemez.",
+  "welcomeStart": "Başla",
+
+  "nicknameErrorRequired": "Bir takma ad yaz.",
+  "nicknameErrorTooShort": "En az 3 karakter olmalı.",
+  "nicknameErrorTooLong": "En fazla 16 karakter olabilir.",
+  "nicknameErrorInvalidChars": "Yalnızca harf, rakam, boşluk ve _ kullanabilirsin.",
+  "nicknameErrorInvalid": "En az bir harf olmalı; art arda boşluk olmamalı.",
+  "nicknameErrorNotAllowed": "Bu takma ad kullanılamaz, başka bir tane seç.",
+  "nicknameErrorProfanity": "Bu takma ad uygun değil, başka bir tane seç.",
+
+  "splashChecking": "Oturumun kontrol ediliyor…"
 }
