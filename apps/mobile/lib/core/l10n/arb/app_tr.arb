@@ -222,5 +222,15 @@
   "resultRematch": "Tekrar oyna",
   "resultAbandoned": "Oyun erken bitti: oyunda yeterli oyuncu kalmadı.",
   "resultWaitingHost": "Oda sahibi yeni bir oyun başlatabilir.",
-  "resultLoading": "Sonuçlar yükleniyor…"
+  "resultLoading": "Sonuçlar yükleniyor…",
+  "chatTitle": "Sohbet",
+  "chatOpen": "Sohbet",
+  "chatUnread": "Sohbet, {count} okunmamış mesaj",
+  "@chatUnread": { "placeholders": { "count": { "type": "int" } } },
+  "chatEmpty": "Henüz mesaj yok. İlk sen yaz!",
+  "chatHint": "Mesaj yaz…",
+  "chatSend": "Gönder",
+  "chatSending": "Gönderiliyor…",
+  "chatRetryHint": "Tekrar denemek için dokun.",
+  "chatSpectatorNote": "İzleyiciler yazamaz."
 }

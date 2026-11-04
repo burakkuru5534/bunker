@@ -631,4 +631,33 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get resultLoading => 'Sonuçlar yükleniyor…';
+
+  @override
+  String get chatTitle => 'Sohbet';
+
+  @override
+  String get chatOpen => 'Sohbet';
+
+  @override
+  String chatUnread(int count) {
+    return 'Sohbet, $count okunmamış mesaj';
+  }
+
+  @override
+  String get chatEmpty => 'Henüz mesaj yok. İlk sen yaz!';
+
+  @override
+  String get chatHint => 'Mesaj yaz…';
+
+  @override
+  String get chatSend => 'Gönder';
+
+  @override
+  String get chatSending => 'Gönderiliyor…';
+
+  @override
+  String get chatRetryHint => 'Tekrar denemek için dokun.';
+
+  @override
+  String get chatSpectatorNote => 'İzleyiciler yazamaz.';
 }

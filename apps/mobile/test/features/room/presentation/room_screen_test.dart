@@ -12,6 +12,7 @@ import 'package:siginak/core/storage/session_store.dart';
 import 'package:siginak/features/room/room.dart';
 import 'package:siginak/features/session/session.dart';
 
+import '../../../helpers/chat.dart';
 import '../../../helpers/fake_backend.dart';
 import '../../../helpers/fake_http_adapter.dart';
 import '../../../helpers/fake_ws.dart';
@@ -628,6 +629,50 @@ void main() {
 
       expect(requests, ['leave null']);
       expect(exits, 1);
+    });
+  });
+
+  group('sohbet', () {
+    testWidgets('Okunmamış rozeti; panel açılınca sıfırlanır; mesaj gider', (
+      tester,
+    ) async {
+      backend.on('POST', '/v1/rooms/$roomId/messages', (r) async {
+        requests.add('message ${jsonEncode(r.data)}');
+        return jsonResponse({
+          'id': 5,
+          'created_at': '2026-11-04T10:05:00Z',
+        }, 201);
+      });
+      await pump(tester);
+      await snapshot(tester);
+      expect(find.byTooltip('Sohbet'), findsOneWidget);
+
+      ws.last
+        ..serverSend(
+          'chat.message',
+          payload: chatJson(1, 'u2', 'Mehmet', 'selam'),
+        )
+        ..serverSend(
+          'chat.message',
+          payload: chatJson(2, 'u2', 'Mehmet', 'orada mısın'),
+        );
+      await frames(tester);
+      expect(find.byTooltip('Sohbet, 2 okunmamış mesaj'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Sohbet, 2 okunmamış mesaj'));
+      await frames(tester);
+      expect(find.text('orada mısın'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'buradayım');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Gönder'));
+      await frames(tester);
+      expect(requests.single, contains('"text":"buradayım"'));
+      expect(find.text('buradayım'), findsOneWidget);
+
+      await tester.tapAt(const Offset(20, 20)); // paneli kapat
+      await frames(tester);
+      expect(find.byTooltip('Sohbet'), findsOneWidget);
     });
   });
 }

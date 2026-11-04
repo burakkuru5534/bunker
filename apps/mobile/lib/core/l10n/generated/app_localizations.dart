@@ -1167,6 +1167,60 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Sonuçlar yükleniyor…'**
   String get resultLoading;
+
+  /// No description provided for @chatTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sohbet'**
+  String get chatTitle;
+
+  /// No description provided for @chatOpen.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sohbet'**
+  String get chatOpen;
+
+  /// No description provided for @chatUnread.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sohbet, {count} okunmamış mesaj'**
+  String chatUnread(int count);
+
+  /// No description provided for @chatEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'Henüz mesaj yok. İlk sen yaz!'**
+  String get chatEmpty;
+
+  /// No description provided for @chatHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Mesaj yaz…'**
+  String get chatHint;
+
+  /// No description provided for @chatSend.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gönder'**
+  String get chatSend;
+
+  /// No description provided for @chatSending.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gönderiliyor…'**
+  String get chatSending;
+
+  /// No description provided for @chatRetryHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tekrar denemek için dokun.'**
+  String get chatRetryHint;
+
+  /// No description provided for @chatSpectatorNote.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzleyiciler yazamaz.'**
+  String get chatSpectatorNote;
 }
 
 class _AppLocalizationsDelegate

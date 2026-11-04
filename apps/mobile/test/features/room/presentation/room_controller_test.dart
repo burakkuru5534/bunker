@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import 'package:siginak/core/storage/storage_providers.dart';
 import 'package:siginak/features/room/presentation/room_controller.dart';
 import 'package:siginak/features/room/room.dart';
 
+import '../../../helpers/chat.dart';
 import '../../../helpers/fake_backend.dart';
 import '../../../helpers/fake_http_adapter.dart';
 import '../../../helpers/fake_ws.dart';
@@ -308,6 +310,154 @@ void main() {
         wsMember('s', 'İzleyici', role: 'spectator'),
       ];
       expect(startBlockerOf(room(members)), isNull);
+    });
+  });
+
+  group('sohbet', () {
+    Future<void> openWithChat() async {
+      c.listen(provider, (_, _) {});
+      await flush();
+      final payload =
+          snapshotPayload(
+              roomId: roomId,
+              me: 'u1',
+              version: 5,
+              members: [wsMember('u1', 'Ayşe'), wsMember('u2', 'Mehmet')],
+            )
+            ..['chat'] = [
+              chatJson(1, 'u2', 'Mehmet', 'selam'),
+              {'bozuk': true},
+            ];
+      ws.last.serverSend('session.snapshot', payload: payload);
+      await flush();
+    }
+
+    test('geçmiş ve yeni mesaj; okunmamış', () async {
+      await openWithChat();
+      expect(read().chat.messages.map((m) => m.text), ['selam']);
+      expect(read().chat.unreadFor('u1'), 1);
+
+      ws.last.serverSend(
+        'chat.message',
+        payload: chatJson(2, 'u2', 'Mehmet', 'nasılsın'),
+      );
+      await flush();
+      expect(read().chat.unreadFor('u1'), 2);
+
+      c.read(provider.notifier).markChatSeen();
+      expect(read().chat.unreadFor('u1'), 0);
+    });
+
+    test('gönderim: yankı yoksa kendi mesajım eklenir', () async {
+      backend.on(
+        'POST',
+        '/v1/rooms/$roomId/messages',
+        (r) async =>
+            jsonResponse({'id': 9, 'created_at': '2026-11-04T10:01:00Z'}, 201),
+      );
+      await openWithChat();
+
+      await c.read(provider.notifier).sendChat('merhaba');
+
+      final chat = read().chat;
+      expect(chat.pending, isEmpty);
+      expect(chat.messages.last.id, 9);
+      expect(chat.messages.last.text, 'merhaba');
+      expect(chat.messages.last.nickname, 'Ayşe');
+      final body = backend.adapter.requests.last.data as Map;
+      expect(body['text'], 'merhaba');
+      expect(body['client_msg_id'], matches(RegExp(r'^[0-9a-f-]{36}$')));
+    });
+
+    test('yankı yanıttan önce gelirse tek mesaj, sunucu metniyle', () async {
+      final gate = Completer<void>();
+      backend.on('POST', '/v1/rooms/$roomId/messages', (r) async {
+        await gate.future;
+        return jsonResponse({
+          'id': 9,
+          'created_at': '2026-11-04T10:01:00Z',
+        }, 201);
+      });
+      await openWithChat();
+
+      final sending = c.read(provider.notifier).sendChat('kötü söz');
+      await flush();
+      expect(read().chat.pending, hasLength(1));
+      ws.last.serverSend(
+        'chat.message',
+        payload: chatJson(9, 'u1', 'Ayşe', '***'),
+      );
+      await flush();
+      gate.complete();
+      await sending;
+
+      final ids = read().chat.messages.map((m) => m.id).toList();
+      expect(ids.where((id) => id == 9), hasLength(1));
+      expect(read().chat.messages.last.text, '***');
+      expect(read().chat.pending, isEmpty);
+    });
+
+    test('hata → gönderilemedi; yeniden deneme aynı kimlikle', () async {
+      var fail = true;
+      backend.on('POST', '/v1/rooms/$roomId/messages', (r) async {
+        if (fail) return jsonResponse(apiError('RATE_LIMITED'), 429);
+        return jsonResponse({
+          'id': 10,
+          'created_at': '2026-11-04T10:02:00Z',
+        }, 201);
+      });
+      await openWithChat();
+
+      await c.read(provider.notifier).sendChat('acele');
+      final failed = read().chat.pending.single;
+      expect(failed.failed, isTrue);
+
+      fail = false;
+      await c.read(provider.notifier).retryChat(failed);
+
+      final bodies = [
+        for (final r in backend.adapter.requests)
+          if (r.path.endsWith('/messages')) r.data as Map,
+      ];
+      expect(bodies[0]['client_msg_id'], bodies[1]['client_msg_id']);
+      expect(read().chat.pending, isEmpty);
+      expect(read().chat.messages.last.id, 10);
+    });
+
+    test('yazma yetkisi: lobide üye; oyunda yalnız hayattaki', () async {
+      await openWithChat();
+      expect(read().canChat, isTrue);
+
+      ws.last.serverSend(
+        'game.started',
+        stateVersion: 1,
+        payload: gameStartedPayload([('u1', 'Ayşe'), ('u2', 'Mehmet')]),
+      );
+      await flush();
+      expect(read().canChat, isTrue);
+
+      ws.last.serverSend(
+        'game.player_eliminated',
+        stateVersion: 2,
+        payload: {
+          'round': 1,
+          'user_id': 'u1',
+          'method': 'vote',
+          'tally': <Object?>[],
+          'lottery_candidates': <Object?>[],
+          'cards': <Object?>[],
+        },
+      );
+      await flush();
+      expect(read().canChat, isFalse);
+
+      ws.last.serverSend(
+        'game.finished',
+        stateVersion: 3,
+        payload: resultJson(),
+      );
+      await flush();
+      expect(read().canChat, isTrue);
     });
   });
 }

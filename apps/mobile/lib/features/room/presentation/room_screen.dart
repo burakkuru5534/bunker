@@ -11,6 +11,7 @@ import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/confirm_dialog.dart';
 import 'package:siginak/core/ui/connection_banner.dart';
 import 'package:siginak/core/ui/state_views.dart';
+import 'package:siginak/features/chat/chat.dart';
 import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/room/data/room_models.dart';
 import 'package:siginak/features/room/presentation/lobby_view.dart';
@@ -84,6 +85,33 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     if (mounted) setState(() => _leaving = false);
   }
 
+  void _openChat() {
+    final provider = roomControllerProvider(widget.roomId);
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) => FractionallySizedBox(
+          heightFactor: 0.85,
+          child: Consumer(
+            builder: (context, ref, _) {
+              final s = ref.watch(provider);
+              return ChatPanel(
+                chat: s.chat,
+                myUserId: s.myUserId,
+                canWrite: s.canChat,
+                onSend: (t) => unawaited(_controller.sendChat(t)),
+                onRetry: (m) => unawaited(_controller.retryChat(m)),
+                onSeen: _controller.markChatSeen,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   void _onExit(RoomExit exit) {
     final l = context.l10n;
     final message = switch (exit) {
@@ -155,6 +183,11 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
             room?.status == RoomStatus.inGame ? l.gameTitle : l.roomLobbyTitle,
           ),
           actions: [
+            if (room != null)
+              _ChatButton(
+                unread: state.chat.unreadFor(state.myUserId),
+                onPressed: _openChat,
+              ),
             IconButton(
               tooltip: l.roomLeave,
               onPressed: _leaving ? null : () => unawaited(_confirmLeave()),
@@ -233,4 +266,25 @@ class _StatusMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       EmptyState(icon: Icons.hourglass_top_rounded, message: text);
+}
+
+class _ChatButton extends StatelessWidget {
+  const _ChatButton({required this.unread, required this.onPressed});
+
+  final int unread;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return IconButton(
+      tooltip: unread > 0 ? l.chatUnread(unread) : l.chatOpen,
+      onPressed: onPressed,
+      icon: Badge(
+        isLabelVisible: unread > 0,
+        label: Text(unread > 99 ? '99+' : '$unread'),
+        child: const Icon(Icons.chat_bubble_outline_rounded),
+      ),
+    );
+  }
 }

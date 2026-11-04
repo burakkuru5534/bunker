@@ -7,6 +7,8 @@ import 'package:siginak/core/network/api_exception.dart';
 import 'package:siginak/core/realtime/realtime_client.dart';
 import 'package:siginak/core/realtime/realtime_client_provider.dart';
 import 'package:siginak/core/realtime/ws_envelope.dart';
+import 'package:siginak/core/util/uuid.dart';
+import 'package:siginak/features/chat/chat.dart';
 import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/room/data/room_models.dart';
 import 'package:siginak/features/room/data/room_repository.dart';
@@ -38,6 +40,7 @@ class RoomState {
     this.game,
     this.exit,
     this.result,
+    this.chat = const ChatState(),
   });
 
   /// İlk `session.snapshot` gelene kadar `null`.
@@ -52,7 +55,20 @@ class RoomState {
   /// `game.finished` ile gelen sonuç (kaçırıldıysa ekran sunucudan ister).
   final GameResult? result;
 
+  /// Sohbet (snapshot geçmişi + `chat.message` + bekleyen mesajlarım).
+  final ChatState chat;
+
   RoomMember? get me => room?.memberOf(myUserId);
+
+  /// Yazabilir miyim? Lobide ve oyun bitince her üye; oyun sürerken yalnızca
+  /// hayattaki oyuncular (docs/api.md "Sohbet"; karar sunucuda).
+  bool get canChat {
+    final r = room;
+    if (r == null || me == null) return false;
+    if (r.status != RoomStatus.inGame) return true;
+    return game?.participantOf(myUserId)?.isAlive ?? false;
+  }
+
   bool get isHost => room != null && room!.hostUserId == myUserId;
 
   RoomState copyWith({
@@ -62,6 +78,7 @@ class RoomState {
     GameView? Function()? game,
     RoomExit? exit,
     GameResult? Function()? result,
+    ChatState? chat,
   }) => RoomState(
     room: room ?? this.room,
     myUserId: myUserId ?? this.myUserId,
@@ -69,6 +86,7 @@ class RoomState {
     game: game != null ? game() : this.game,
     exit: exit ?? this.exit,
     result: result != null ? result() : this.result,
+    chat: chat ?? this.chat,
   );
 }
 
@@ -176,6 +194,72 @@ class RoomController extends Notifier<RoomState> {
     );
   }
 
+  /// Sohbet mesajı gönderir. Önce "gönderiliyor" olarak görünür; başarıda
+  /// sunucu mesajı (WS ile de gelir, kimliğe göre tek kalır), hatada
+  /// "gönderilemedi" (dokununca aynı kimlikle yeniden denenir).
+  Future<void> sendChat(String text) async {
+    final pending = PendingMessage(clientMsgId: uuidV4(), text: text);
+    state = state.copyWith(
+      chat: state.chat.withPending([...state.chat.pending, pending]),
+    );
+    await _deliver(pending);
+  }
+
+  /// Gönderilemeyen mesajı aynı `client_msg_id` ile yeniden dener.
+  Future<void> retryChat(PendingMessage failed) async {
+    final again = failed.retrying();
+    state = state.copyWith(
+      chat: state.chat.withPending([
+        for (final p in state.chat.pending)
+          p.clientMsgId == failed.clientMsgId ? again : p,
+      ]),
+    );
+    await _deliver(again);
+  }
+
+  Future<void> _deliver(PendingMessage p) async {
+    try {
+      final sent = await ref
+          .read(chatRepositoryProvider)
+          .send(roomId, clientMsgId: p.clientMsgId, text: p.text);
+      if (!ref.mounted) return;
+      var chat = state.chat.withPending([
+        for (final x in state.chat.pending)
+          if (x.clientMsgId != p.clientMsgId) x,
+      ]);
+      // WS kopuksa yankı gelmez: kendi mesajımı ekle. Yankı zaten geldiyse
+      // (sunucunun maskelediği metinle) dokunma.
+      if (!chat.messages.any((m) => m.id == sent.id)) {
+        chat = chat.withMessage(
+          ChatMessage(
+            id: sent.id,
+            userId: state.myUserId ?? '',
+            nickname: state.me?.nickname ?? '',
+            text: p.text,
+            createdAt: sent.createdAt,
+          ),
+        );
+      }
+      state = state.copyWith(chat: chat);
+    } on ApiException catch (e) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        chat: state.chat.withPending([
+          for (final x in state.chat.pending)
+            x.clientMsgId == p.clientMsgId ? x.failedWith(e) : x,
+        ]),
+      );
+    }
+  }
+
+  /// Sohbet paneli açıkken: mesajlar görüldü.
+  void markChatSeen() {
+    final seen = state.chat.seen();
+    if (seen.lastSeenId != state.chat.lastSeenId) {
+      state = state.copyWith(chat: seen);
+    }
+  }
+
   /// Tekrar oyna (oda sahibi): yanıt yeni lobi görünümüdür.
   Future<void> rematch() async {
     final room = await _repo.rematch(roomId);
@@ -221,7 +305,12 @@ class RoomController extends Notifier<RoomState> {
       final me = p['me'];
       final game = p['game'];
       final serverTime = p['server_time'];
+      final history = p['chat'];
       state = state.copyWith(
+        chat: state.chat.withHistory([
+          if (history is List)
+            for (final m in history) ?ChatMessage.tryParse(m),
+        ]),
         room: RoomView.fromJson(p['room']),
         myUserId: me is Map<String, Object?> && me['user_id'] is String
             ? me['user_id']! as String
@@ -239,6 +328,14 @@ class RoomController extends Notifier<RoomState> {
       return;
     }
     if (room == null) return; // snapshot'tan önce olay gelmez (istemci süzer)
+
+    if (e.type == 'chat.message') {
+      final msg = ChatMessage.tryParse(p);
+      if (msg != null) {
+        state = state.copyWith(chat: state.chat.withMessage(msg));
+      }
+      return;
+    }
 
     if (e.type.startsWith('game.') && e.type != 'game.started') {
       final game = state.game;
