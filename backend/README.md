@@ -228,6 +228,32 @@ $env:PORT="9090"; go run ./cmd/server
 
 Ctrl+C → açık istekler `SHUTDOWN_TIMEOUT` boyunca beklenir, sonra servis durur.
 
+## Test botu (`cmd/testbot`)
+
+Tek telefonla oyun denemek için eksik oyuncuların yerine otomatik oyuncular. Yalnızca herkese açık API'yi kullanır (misafir hesap → katıl → hazır → kart aç / hazırım / oy / eşitlik oyu; lobiye dönülünce yeniden hazır). Yerel ve test ortamı içindir: yerel ağ dışındaki adresler `-allow-remote` olmadan reddedilir; üretimde kullanılmaz.
+
+```bash
+cd backend
+go run ./cmd/server                                   # ayrı terminalde sunucu
+go run ./cmd/testbot -code K7M2QX                     # 3 bot telefondaki odaya katılır
+go run ./cmd/testbot -create                          # bot oda kurar ve kodu yazar; telefondan katılın,
+                                                      # 4 oyuncu hazır olunca bot oyunu başlatır
+go run ./cmd/testbot -code K7M2QX -bots 5 -delay 500ms
+```
+
+| Bayrak | Varsayılan | Açıklama |
+|---|---|---|
+| `-api` | `http://localhost:8080` | Sunucu adresi |
+| `-code` / `-create` | — | Koda katıl ya da oda kur (biri zorunlu) |
+| `-bots` | 3 | 1–9 |
+| `-start-at` | 4 | `-create` ile: bu kadar oyuncu hazır ve herkes hazırsa başlat |
+| `-delay` | 1.5s | Her eylemden önce bekleme |
+| `-app-version` | 0.1.0 | `X-App-Version` (`MIN_APP_VERSION`'dan küçük olmamalı) |
+
+- Ctrl+C: botlar odadan ayrılır ve misafir hesaplarını siler (`DELETE /v1/me`).
+- Misafir hesap sınırı aynı IP için dakikada 5'tir; botları art arda yeniden başlatırken 1 dk bekleyin.
+- Uçtan uca test (`cmd/server`, `TestIntegrationEndToEndFullGame`): gerçek sunucu + gerçek PostgreSQL + gerçek katalog, 4 bot tam bir oyunu kısaltılmış sürelerle oynar.
+
 ## Kontroller (CI ile aynı)
 
 ```bash

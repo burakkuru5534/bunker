@@ -75,6 +75,13 @@ type TiebreakView struct {
 }
 
 // WithPresence, katılımcıların "bağlı mı" bilgisini bağlar (WebSocket hub).
+// WithDurations, aşama sürelerini değiştirir (yalnızca testler; sunucu
+// her zaman DefaultDurations ile çalışır).
+func (s *Service) WithDurations(d engine.Durations) *Service {
+	s.engine = engine.New(d)
+	return s
+}
+
 func (s *Service) WithPresence(p room.Presence) *Service {
 	s.presence = p
 	return s

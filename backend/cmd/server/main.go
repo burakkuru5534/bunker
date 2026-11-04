@@ -29,6 +29,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/config"
 	"github.com/burakkuru5534/bunker/backend/internal/game"
+	"github.com/burakkuru5534/bunker/backend/internal/game/engine"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/maintenance"
 	"github.com/burakkuru5534/bunker/backend/internal/moderation"
@@ -78,6 +79,9 @@ type deps struct {
 	// Life, handler kurulurken eklenen açılış/kapanış işleridir (deps değer
 	// olarak geçtiği için işaretçi).
 	Life *lifecycle
+	// Durations, aşama süreleri; nil → engine.DefaultDurations (yalnızca
+	// testler kısa süre verir, yapılandırmadan okunmaz).
+	Durations *engine.Durations
 }
 
 // lifecycle, arka plan bileşenlerinin açılış ve kapanış işleridir.
@@ -238,8 +242,13 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		// Olay zinciri: zamanlayıcı (bitişleri planlar) → hub (WebSocket).
 		publisher := d.Timers.Publisher(d.Hub)
 		gameSvc := game.NewService(d.DB, publisher, logger).WithPresence(d.Hub)
+		starter := game.NewStarter(logger)
+		if d.Durations != nil {
+			gameSvc.WithDurations(*d.Durations)
+			starter.WithDurations(*d.Durations)
+		}
 		d.Timers.Bind(gameSvc)
-		hooks := game.RoomHooks{Starter: game.NewStarter(logger), Service: gameSvc}
+		hooks := game.RoomHooks{Starter: starter, Service: gameSvc}
 		roomSvc := room.NewService(d.DB, d.Hub, publisher, logger).WithGames(hooks).WithTextFilter(profanity.Default)
 		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
