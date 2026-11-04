@@ -132,6 +132,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
         RoomStatus.inGame when state.game != null => GameBody(
           game: state.game!,
           myUserId: state.myUserId,
+          onAction: (a) => _run(() => _controller.act(a)),
         ),
         RoomStatus.inGame => _StatusMessage(text: l.roomGameStarted),
         RoomStatus.finished => _StatusMessage(text: l.roomGameFinished),

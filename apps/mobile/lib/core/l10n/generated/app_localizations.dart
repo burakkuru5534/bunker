@@ -957,6 +957,84 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Kartlar dağıtılıyor…'**
   String get gameDealingInfo;
+
+  /// No description provided for @gameRevealRound1Hint.
+  ///
+  /// In tr, this message translates to:
+  /// **'İlk turda yalnızca meslek kartını açabilirsin.'**
+  String get gameRevealRound1Hint;
+
+  /// No description provided for @gameRevealConfirmTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{category} kartını aç?'**
+  String gameRevealConfirmTitle(String category);
+
+  /// No description provided for @gameRevealConfirmMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'“{text}” herkese açılacak. Açılan kart geri kapatılamaz.'**
+  String gameRevealConfirmMessage(String text);
+
+  /// No description provided for @gameRevealConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aç'**
+  String get gameRevealConfirm;
+
+  /// No description provided for @gameReadyButton.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hazırım'**
+  String get gameReadyButton;
+
+  /// No description provided for @gameReadyDone.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hazırsın. Diğerleri bekleniyor.'**
+  String get gameReadyDone;
+
+  /// No description provided for @gameVoteHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Elemek istediğin oyuncuya dokun.'**
+  String get gameVoteHint;
+
+  /// No description provided for @gameVoteConfirmTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} için oy ver?'**
+  String gameVoteConfirmTitle(String name);
+
+  /// No description provided for @gameVoteConfirmMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyunu verdikten sonra değiştiremezsin.'**
+  String get gameVoteConfirmMessage;
+
+  /// No description provided for @gameVoteConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oy ver'**
+  String get gameVoteConfirm;
+
+  /// No description provided for @gameVoteDone.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyunu verdin.'**
+  String get gameVoteDone;
+
+  /// No description provided for @gameTieBreakMine.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşitlik! Kararı izleyiciler veriyor; sen de oy ver.'**
+  String get gameTieBreakMine;
+
+  /// No description provided for @gameVoteFor.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} için oy ver'**
+  String gameVoteFor(String name);
 }
 
 class _AppLocalizationsDelegate

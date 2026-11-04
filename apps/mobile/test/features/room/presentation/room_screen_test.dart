@@ -408,4 +408,108 @@ void main() {
       findsOneWidget,
     );
   });
+
+  group('oyun eylemleri', () {
+    final gameMembers = [
+      wsMember('u-guest', 'Ayşe'),
+      wsMember('u2', 'Mehmet'),
+      wsMember('u3', 'Zeynep'),
+    ];
+    final gameParticipants = [
+      participantJson('u-guest', 'Ayşe', 0),
+      participantJson('u2', 'Mehmet', 1),
+      participantJson('u3', 'Zeynep', 2),
+    ];
+
+    Future<void> gameSnapshot(WidgetTester tester, String phase) async {
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snapshotPayload(
+          roomId: roomId,
+          me: 'u-guest',
+          status: 'in_game',
+          members: gameMembers,
+          game: snapshotGame(
+            participants: gameParticipants,
+            phase: phase,
+            turnUserId: phase == 'REVEAL' ? 'u-guest' : null,
+          ),
+        ),
+      );
+      await frames(tester);
+    }
+
+    testWidgets('Kart açma isteği gider', (tester) async {
+      backend.on('POST', '/v1/games/g1/actions', (r) async {
+        requests.add('action ${jsonEncode(r.data)}');
+        return jsonOk({'state_version': 11, 'duplicate': false});
+      });
+      await pump(tester);
+      await gameSnapshot(tester, 'REVEAL');
+
+      await tester.tap(find.byKey(const ValueKey('reveal-profession')));
+      await frames(tester);
+      await tester.tap(find.text('Aç'));
+      await frames(tester);
+
+      final body = jsonDecode(requests.single.substring(7)) as Map;
+      expect(body['type'], 'reveal_card');
+      expect(body['payload'], {'category': 'profession'});
+      expect(body['action_id'], matches(RegExp(r'^[0-9a-f-]{36}$')));
+    });
+
+    testWidgets('Oy verilince "Oyunu verdin" görünür', (tester) async {
+      backend.on(
+        'POST',
+        '/v1/games/g1/actions',
+        (r) async => jsonOk({'state_version': 11, 'duplicate': false}),
+      );
+      await pump(tester);
+      await gameSnapshot(tester, 'VOTING');
+
+      await tester.tap(find.byKey(const ValueKey('player-u2')));
+      await frames(tester);
+      await tester.tap(find.text('Oy ver'));
+      await frames(tester);
+
+      expect(find.text('Oyunu verdin.'), findsOneWidget);
+      expect(find.text('Elemek istediğin oyuncuya dokun.'), findsNothing);
+    });
+
+    testWidgets('Sunucu reddederse snackbar; durum değişmez', (tester) async {
+      backend.on(
+        'POST',
+        '/v1/games/g1/actions',
+        (r) async => jsonResponse(apiError('INVALID_TARGET'), 409),
+      );
+      await pump(tester);
+      await gameSnapshot(tester, 'VOTING');
+
+      await tester.tap(find.byKey(const ValueKey('player-u2')));
+      await frames(tester);
+      await tester.tap(find.text('Oy ver'));
+      await frames(tester);
+
+      expect(find.text('Bu oyuncu seçilemez.'), findsOneWidget);
+      expect(find.text('Oyunu verdin.'), findsNothing);
+    });
+
+    testWidgets('Zaten oy verilmişse oy verildi sayılır', (tester) async {
+      backend.on(
+        'POST',
+        '/v1/games/g1/actions',
+        (r) async => jsonResponse(apiError('ALREADY_VOTED'), 409),
+      );
+      await pump(tester);
+      await gameSnapshot(tester, 'VOTING');
+
+      await tester.tap(find.byKey(const ValueKey('player-u2')));
+      await frames(tester);
+      await tester.tap(find.text('Oy ver'));
+      await frames(tester);
+
+      expect(find.text('Bu turda oyunu zaten verdin.'), findsOneWidget);
+      expect(find.text('Oyunu verdin.'), findsOneWidget);
+    });
+  });
 }

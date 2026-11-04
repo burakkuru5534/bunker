@@ -180,5 +180,22 @@
   "gameTieBreakInfo": "Eşitlik! İzleyiciler karar veriyor…",
   "gameEliminated": "{name} sığınağın dışında kaldı.",
   "@gameEliminated": { "placeholders": { "name": { "type": "String" } } },
-  "gameDealingInfo": "Kartlar dağıtılıyor…"
+  "gameDealingInfo": "Kartlar dağıtılıyor…",
+  "gameRevealRound1Hint": "İlk turda yalnızca meslek kartını açabilirsin.",
+  "gameRevealConfirmTitle": "{category} kartını aç?",
+  "@gameRevealConfirmTitle": { "placeholders": { "category": { "type": "String" } } },
+  "gameRevealConfirmMessage": "“{text}” herkese açılacak. Açılan kart geri kapatılamaz.",
+  "@gameRevealConfirmMessage": { "placeholders": { "text": { "type": "String" } } },
+  "gameRevealConfirm": "Aç",
+  "gameReadyButton": "Hazırım",
+  "gameReadyDone": "Hazırsın. Diğerleri bekleniyor.",
+  "gameVoteHint": "Elemek istediğin oyuncuya dokun.",
+  "gameVoteConfirmTitle": "{name} için oy ver?",
+  "@gameVoteConfirmTitle": { "placeholders": { "name": { "type": "String" } } },
+  "gameVoteConfirmMessage": "Oyunu verdikten sonra değiştiremezsin.",
+  "gameVoteConfirm": "Oy ver",
+  "gameVoteDone": "Oyunu verdin.",
+  "gameTieBreakMine": "Eşitlik! Kararı izleyiciler veriyor; sen de oy ver.",
+  "gameVoteFor": "{name} için oy ver",
+  "@gameVoteFor": { "placeholders": { "name": { "type": "String" } } }
 }

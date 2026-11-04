@@ -253,6 +253,49 @@ class GameView {
 
   int get aliveCount => participants.where((p) => p.isAlive).length;
 
+  // --- benim yapabileceklerim (kullanıcı deneyimi içindir; karar sunucuda) ---
+
+  /// Şimdi açabileceğim kartlar: sıra bende ve hayattaysam; 1. turda
+  /// yalnızca meslek (docs/game-design.md §6).
+  List<MyCard> revealableCards(String? me) {
+    final p = participantOf(me);
+    if (phase != GamePhase.reveal || turnUserId != me || p == null) return [];
+    if (!p.isAlive) return [];
+    return [
+      for (final c in myCards)
+        if (!c.revealed &&
+            (round != 1 || c.category == CardCategory.profession))
+          c,
+    ];
+  }
+
+  bool canDiscussionReady(String? me) =>
+      phase == GamePhase.discussion &&
+      (participantOf(me)?.isAlive ?? false) &&
+      !discussionReady;
+
+  /// Oy verebileceğim oyuncular (kendim hariç hayattakiler).
+  List<Participant> voteTargets(String? me) {
+    if (phase != GamePhase.voting || voted) return [];
+    if (!(participantOf(me)?.isAlive ?? false)) return [];
+    return [
+      for (final p in participants)
+        if (p.isAlive && p.userId != me) p,
+    ];
+  }
+
+  /// Eşitlik oylamasında seçebileceğim adaylar (yalnızca elenmiş/ayrılmış
+  /// katılımcılar oy verir).
+  List<Participant> tiebreakTargets(String? me) {
+    final p = participantOf(me);
+    if (phase != GamePhase.tieBreak || tiebreakVoted || p == null) return [];
+    if (p.isAlive) return [];
+    return [
+      for (final id in tiebreakCandidates)
+        if (participantOf(id) case final c? when c.isAlive) c,
+    ];
+  }
+
   /// Aşamanın kalan süresi (sunucu saatine göre); süre yoksa `null`.
   Duration? remaining(DateTime now) {
     final d = deadline;
@@ -260,6 +303,17 @@ class GameView {
     final left = d.difference(now.add(clockOffset));
     return left.isNegative ? Duration.zero : left;
   }
+
+  /// Kendi başarılı eylemim (olaylar bunu taşımaz: oylar gizli).
+  GameView withMyAction({
+    bool? voted,
+    bool? discussionReady,
+    bool? tiebreakVoted,
+  }) => _copy(
+    voted: voted,
+    discussionReady: discussionReady,
+    tiebreakVoted: tiebreakVoted,
+  );
 
   /// `session.snapshot.game` (bozuksa `FormatException`).
   static GameView fromSnapshot(

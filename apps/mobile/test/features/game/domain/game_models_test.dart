@@ -264,4 +264,104 @@ void main() {
     final g = snap();
     expect(identical(apply(g, 'game.yeni_olay', {}), g), isTrue);
   });
+
+  group('yapabileceklerim', () {
+    GameView at(
+      String phase, {
+      int round = 1,
+      String? turn,
+      Map<String, Object?>? state,
+      Map<String, Object?>? tiebreak,
+      Set<String> revealed = const {},
+    }) => GameView.fromSnapshot(
+      snapshotGame(
+        participants: players,
+        phase: phase,
+        round: round,
+        turnUserId: turn,
+        myCards: myCardsJson(revealed: revealed),
+        myActionState: state,
+        tiebreak: tiebreak,
+      ),
+      serverTime: t0,
+      receivedAt: t0,
+    );
+    List<CardCategory> cats(List<MyCard> c) => [for (final x in c) x.category];
+
+    test('kart açma: sıra bende; 1. turda yalnızca meslek', () {
+      expect(cats(at('REVEAL', turn: 'u1').revealableCards('u1')), [
+        CardCategory.profession,
+      ]);
+      expect(
+        at(
+          'REVEAL',
+          turn: 'u1',
+          revealed: {'profession'},
+        ).revealableCards('u1'),
+        isEmpty,
+      );
+      expect(
+        cats(
+          at(
+            'REVEAL',
+            round: 2,
+            turn: 'u1',
+            revealed: {'profession'},
+          ).revealableCards('u1'),
+        ),
+        [
+          CardCategory.health,
+          CardCategory.hobby,
+          CardCategory.item,
+          CardCategory.secret,
+        ],
+      );
+      expect(at('REVEAL', turn: 'u2').revealableCards('u1'), isEmpty);
+      expect(at('DISCUSSION', turn: 'u1').revealableCards('u1'), isEmpty);
+      expect(
+        at('REVEAL', turn: 'u3').revealableCards('u3'),
+        isEmpty,
+      ); // elenmiş
+    });
+
+    test('hazırım: tartışmada, hayattaysam, daha önce demediysem', () {
+      expect(at('DISCUSSION').canDiscussionReady('u1'), isTrue);
+      expect(at('DISCUSSION').canDiscussionReady('u3'), isFalse);
+      expect(at('VOTING').canDiscussionReady('u1'), isFalse);
+      expect(
+        at('DISCUSSION')
+            .withMyAction(discussionReady: true)
+            .canDiscussionReady('u1'),
+        isFalse,
+      );
+    });
+
+    test('oy: hayattaki diğerleri; oy verdiysem yok', () {
+      expect(
+        [for (final p in at('VOTING').voteTargets('u1')) p.userId],
+        ['u2'],
+      );
+      expect(at('VOTING').voteTargets('u3'), isEmpty);
+      expect(at('VOTING').withMyAction(voted: true).voteTargets('u1'), isEmpty);
+      expect(at('DISCUSSION').voteTargets('u1'), isEmpty);
+    });
+
+    test('eşitlik oyu: yalnızca elenmiş katılımcı, hayattaki adaylara', () {
+      final g = at(
+        'TIE_BREAK',
+        tiebreak: {
+          'candidates': ['u1', 'u2', 'u3'],
+          'progress': {'cast': 0, 'total': 1},
+        },
+      );
+      expect([for (final p in g.tiebreakTargets('u3')) p.userId], ['u1', 'u2']);
+      expect(g.tiebreakTargets('u1'), isEmpty); // hayatta
+      expect(g.tiebreakTargets('yabancı'), isEmpty);
+      expect(
+        g.withMyAction(tiebreakVoted: true).tiebreakTargets('u3'),
+        isEmpty,
+      );
+      expect(g.tiebreakProgress, (done: 0, total: 1));
+    });
+  });
 }

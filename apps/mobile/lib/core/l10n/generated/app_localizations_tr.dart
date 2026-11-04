@@ -509,4 +509,53 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get gameDealingInfo => 'Kartlar dağıtılıyor…';
+
+  @override
+  String get gameRevealRound1Hint =>
+      'İlk turda yalnızca meslek kartını açabilirsin.';
+
+  @override
+  String gameRevealConfirmTitle(String category) {
+    return '$category kartını aç?';
+  }
+
+  @override
+  String gameRevealConfirmMessage(String text) {
+    return '“$text” herkese açılacak. Açılan kart geri kapatılamaz.';
+  }
+
+  @override
+  String get gameRevealConfirm => 'Aç';
+
+  @override
+  String get gameReadyButton => 'Hazırım';
+
+  @override
+  String get gameReadyDone => 'Hazırsın. Diğerleri bekleniyor.';
+
+  @override
+  String get gameVoteHint => 'Elemek istediğin oyuncuya dokun.';
+
+  @override
+  String gameVoteConfirmTitle(String name) {
+    return '$name için oy ver?';
+  }
+
+  @override
+  String get gameVoteConfirmMessage => 'Oyunu verdikten sonra değiştiremezsin.';
+
+  @override
+  String get gameVoteConfirm => 'Oy ver';
+
+  @override
+  String get gameVoteDone => 'Oyunu verdin.';
+
+  @override
+  String get gameTieBreakMine =>
+      'Eşitlik! Kararı izleyiciler veriyor; sen de oy ver.';
+
+  @override
+  String gameVoteFor(String name) {
+    return '$name için oy ver';
+  }
 }

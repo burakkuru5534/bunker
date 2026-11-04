@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,16 +33,23 @@ void main() {
   GameView game({
     String phase = 'REVEAL',
     String? turn = 'u2',
+    int round = 1,
     int readyCount = 0,
     Map<String, Object?>? votes,
     Map<String, Object?>? last,
+    Map<String, Object?>? state,
+    Map<String, Object?>? tiebreak,
+    Set<String> revealed = const {'profession'},
   }) => GameView.fromSnapshot(
     snapshotGame(
       participants: players,
       phase: phase,
       turnUserId: turn,
       deadline: now.add(const Duration(seconds: 75)).toIso8601String(),
-      myCards: myCardsJson(revealed: {'profession'}),
+      round: round,
+      myCards: myCardsJson(revealed: revealed),
+      myActionState: state,
+      tiebreak: tiebreak,
       readyCount: readyCount,
       voteProgress: votes,
       lastRoundResult: last,
@@ -49,11 +58,24 @@ void main() {
     receivedAt: now,
   );
 
-  Future<void> pump(WidgetTester tester, GameView g, {String me = 'u1'}) async {
+  late List<GameAction> actions;
+  setUp(() => actions = []);
+
+  Future<void> pump(
+    WidgetTester tester,
+    GameView g, {
+    String me = 'u1',
+    Future<void> Function(GameAction)? onAction,
+  }) async {
     await pumpWithProviders(
       tester,
       Scaffold(
-        body: GameBody(game: g, myUserId: me, clock: () => now),
+        body: GameBody(
+          game: g,
+          myUserId: me,
+          clock: () => now,
+          onAction: onAction ?? (a) async => actions.add(a),
+        ),
       ),
     );
     await tester.pump();
@@ -168,5 +190,159 @@ void main() {
       await pump(tester, game(phase: phase));
       expect(tester.takeException(), isNull, reason: phase);
     }
+  });
+
+  group('eylemler', () {
+    Future<void> tapAndSettle(WidgetTester tester, Finder f) async {
+      await tester.tap(f);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Kart açma: 1. turda yalnızca meslek; onaylı', (tester) async {
+      await pump(tester, game(turn: 'u1', revealed: {}));
+
+      expect(
+        find.text('İlk turda yalnızca meslek kartını açabilirsin.'),
+        findsOneWidget,
+      );
+      ActionChip chip(String c) =>
+          tester.widget<ActionChip>(find.byKey(ValueKey('reveal-$c')));
+      expect(chip('profession').onPressed, isNotNull);
+      expect(chip('health').onPressed, isNull);
+
+      await tapAndSettle(
+        tester,
+        find.byKey(const ValueKey('reveal-profession')),
+      );
+      expect(
+        find.textContaining('Açılan kart geri kapatılamaz'),
+        findsOneWidget,
+      );
+      await tapAndSettle(tester, find.text('Vazgeç'));
+      expect(actions, isEmpty);
+
+      await tapAndSettle(
+        tester,
+        find.byKey(const ValueKey('reveal-profession')),
+      );
+      await tapAndSettle(tester, find.text('Aç'));
+      expect(actions.single, isA<RevealCard>());
+      expect((actions.single as RevealCard).category, CardCategory.profession);
+    });
+
+    testWidgets('2. turda açılmamış her kart seçilebilir', (tester) async {
+      await pump(tester, game(turn: 'u1', round: 2));
+
+      expect(find.byKey(const ValueKey('reveal-profession')), findsNothing);
+      await tapAndSettle(tester, find.byKey(const ValueKey('reveal-secret')));
+      await tapAndSettle(tester, find.text('Aç'));
+      expect((actions.single as RevealCard).category, CardCategory.secret);
+    });
+
+    testWidgets('Sıra başkasındaysa kart düğmesi yok', (tester) async {
+      await pump(tester, game());
+      expect(find.byType(ActionChip), findsOneWidget); // yalnızca senaryo
+    });
+
+    testWidgets('Tartışma: Hazırım; sonra bekleme metni', (tester) async {
+      await pump(tester, game(phase: 'DISCUSSION'));
+      await tapAndSettle(tester, find.text('Hazırım'));
+      expect(actions.single, isA<DiscussionReady>());
+
+      await pump(
+        tester,
+        game(
+          phase: 'DISCUSSION',
+          state: {
+            'voted': false,
+            'discussion_ready': true,
+            'tiebreak_voted': false,
+          },
+        ),
+      );
+      expect(find.text('Hazırım'), findsNothing);
+      expect(find.text('Hazırsın. Diğerleri bekleniyor.'), findsOneWidget);
+    });
+
+    testWidgets('Oylama: hayattaki diğerine dokun → onay → oy', (tester) async {
+      await pump(tester, game(phase: 'VOTING'));
+      expect(find.text('Elemek istediğin oyuncuya dokun.'), findsOneWidget);
+
+      // Kendime ve elenmişe dokunmak bir şey yapmaz.
+      await tapAndSettle(tester, find.byKey(const ValueKey('player-u1')));
+      await tapAndSettle(tester, find.byKey(const ValueKey('player-u3')));
+      expect(find.byType(AlertDialog), findsNothing);
+
+      await tapAndSettle(tester, find.byKey(const ValueKey('player-u2')));
+      expect(find.text('Mehmet için oy ver?'), findsOneWidget);
+      await tapAndSettle(tester, find.text('Oy ver'));
+      expect((actions.single as Vote).targetUserId, 'u2');
+    });
+
+    testWidgets('Oy verdiysem dokunmak bir şey yapmaz', (tester) async {
+      await pump(
+        tester,
+        game(
+          phase: 'VOTING',
+          state: {
+            'voted': true,
+            'discussion_ready': false,
+            'tiebreak_voted': false,
+          },
+        ),
+      );
+      expect(find.text('Oyunu verdin.'), findsOneWidget);
+      await tapAndSettle(tester, find.byKey(const ValueKey('player-u2')));
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('Eşitlik: elenmiş katılımcı adaylardan seçer', (tester) async {
+      final tb = {
+        'candidates': ['u1', 'u2'],
+        'progress': {'cast': 0, 'total': 1},
+      };
+      await pump(
+        tester,
+        game(phase: 'TIE_BREAK', tiebreak: tb),
+        me: 'u3',
+      );
+      expect(
+        find.text('Eşitlik! Kararı izleyiciler veriyor; sen de oy ver.'),
+        findsOneWidget,
+      );
+      expect(find.text('0/1 oy verildi'), findsOneWidget);
+
+      await tapAndSettle(tester, find.byKey(const ValueKey('tiebreak-u1')));
+      await tapAndSettle(tester, find.text('Oy ver'));
+      expect((actions.single as TiebreakVote).targetUserId, 'u1');
+
+      // Hayattaki aday ise düğme görmez.
+      await pump(tester, game(phase: 'TIE_BREAK', tiebreak: tb));
+      expect(find.byKey(const ValueKey('tiebreak-u1')), findsNothing);
+      expect(find.text('Eşitlik! İzleyiciler karar veriyor…'), findsOneWidget);
+    });
+
+    testWidgets('İstek sürerken ikinci eylem gönderilmez', (tester) async {
+      final gate = Completer<void>();
+      var calls = 0;
+      await pump(
+        tester,
+        game(phase: 'DISCUSSION'),
+        onAction: (a) {
+          calls++;
+          return gate.future;
+        },
+      );
+
+      await tester.tap(find.text('Hazırım'));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await tester.tap(find.byType(FilledButton).first);
+      await tester.pump();
+      expect(calls, 1);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
   });
 }

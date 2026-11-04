@@ -4,19 +4,23 @@ import 'package:flutter/material.dart';
 
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
+import 'package:siginak/core/ui/app_buttons.dart';
+import 'package:siginak/core/ui/confirm_dialog.dart';
 import 'package:siginak/core/ui/state_views.dart';
+import 'package:siginak/features/game/data/game_repository.dart';
 import 'package:siginak/features/game/domain/game_models.dart';
 import 'package:siginak/features/game/presentation/game_widgets.dart';
 
 /// Oyun görünümü (docs/ui/screen-map.md §3.4b–c): üst çubuk, senaryo
-/// tanıtımı veya oyuncu ızgarası + aşama bilgisi, "Kartlarım".
+/// tanıtımı veya oyuncu ızgarası + eylem alanı, "Kartlarım".
 ///
-/// Yalnızca sunucu durumunu gösterir; eylemler (kart açma, hazır, oy)
-/// PLAY-003/004/007'de eklenir.
-class GameBody extends StatelessWidget {
+/// Sunucu durumunu gösterir; eylemler [onAction] ile gider (onaylı:
+/// kart açma ve oy geri alınamaz). Sonuç ekrana WS olaylarıyla yansır.
+class GameBody extends StatefulWidget {
   const GameBody({
     required this.game,
     required this.myUserId,
+    this.onAction,
     this.clock = DateTime.now,
     super.key,
   });
@@ -24,10 +28,22 @@ class GameBody extends StatelessWidget {
   final GameView game;
   final String? myUserId;
 
+  /// Eylemi gönderir; hata gösterimi çağıranındır. `null` → salt okunur.
+  final Future<void> Function(GameAction action)? onAction;
+
   /// Cihaz saati (testlerde sahte saat verilir).
   final DateTime Function() clock;
 
-  void _showScenario(BuildContext context) {
+  @override
+  State<GameBody> createState() => _GameBodyState();
+}
+
+class _GameBodyState extends State<GameBody> {
+  bool _busy = false;
+
+  GameView get game => widget.game;
+
+  void _showScenario() {
     final scenario = game.scenario;
     if (scenario == null) return;
     unawaited(
@@ -50,29 +66,101 @@ class GameBody extends StatelessWidget {
     );
   }
 
+  Future<void> _send(GameAction action) async {
+    final onAction = widget.onAction;
+    if (onAction == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await onAction(action);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _reveal(MyCard card) async {
+    final l = context.l10n;
+    final ok = await showConfirmDialog(
+      context,
+      title: l.gameRevealConfirmTitle(
+        categoryStyle(context, card.category).label,
+      ),
+      message: l.gameRevealConfirmMessage(card.text),
+      confirmLabel: l.gameRevealConfirm,
+    );
+    if (ok && mounted) await _send(RevealCard(card.category));
+  }
+
+  Future<void> _vote(Participant target, {required bool tiebreak}) async {
+    final l = context.l10n;
+    final ok = await showConfirmDialog(
+      context,
+      title: l.gameVoteConfirmTitle(target.nickname),
+      message: l.gameVoteConfirmMessage,
+      confirmLabel: l.gameVoteConfirm,
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    await _send(tiebreak ? TiebreakVote(target.userId) : Vote(target.userId));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final me = game.participantOf(myUserId);
+    final me = game.participantOf(widget.myUserId);
     final spectator = me == null || !me.isAlive;
     final intro =
         game.phase == GamePhase.dealing ||
         game.phase == GamePhase.scenarioIntro;
+    final interactive = widget.onAction != null && !_busy;
+    final voteTargets = interactive
+        ? {for (final p in game.voteTargets(widget.myUserId)) p.userId}
+        : const <String>{};
 
     return Column(
       children: [
         PhaseBar(
           game: game,
-          clock: clock,
-          onShowScenario: () => _showScenario(context),
+          clock: widget.clock,
+          onShowScenario: _showScenario,
         ),
         if (spectator && !intro) _SpectatorBanner(text: l.gameSpectatorBanner),
         Expanded(
           child: intro
               ? _IntroView(game: game)
-              : _PlayersView(game: game, myUserId: myUserId),
+              : GridView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.s3),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: AppSpacing.s2,
+                    crossAxisSpacing: AppSpacing.s2,
+                    mainAxisExtent: 210,
+                  ),
+                  itemCount: game.participants.length,
+                  itemBuilder: (context, i) {
+                    final p = game.participants[i];
+                    return PlayerTile(
+                      participant: p,
+                      isMe: p.userId == widget.myUserId,
+                      isTurn:
+                          game.phase == GamePhase.reveal &&
+                          p.userId == game.turnUserId,
+                      onVote: voteTargets.contains(p.userId)
+                          ? () => unawaited(_vote(p, tiebreak: false))
+                          : null,
+                    );
+                  },
+                ),
         ),
-        if (!intro) _InfoBar(game: game, myUserId: myUserId),
+        if (!intro)
+          _ActionArea(
+            game: game,
+            myUserId: widget.myUserId,
+            busy: _busy,
+            interactive: widget.onAction != null,
+            onReveal: (c) => unawaited(_reveal(c)),
+            onReady: () => unawaited(_send(const DiscussionReady())),
+            onTiebreak: (p) => unawaited(_vote(p, tiebreak: true)),
+          ),
         _BottomBar(cards: game.myCards),
       ],
     );
@@ -97,72 +185,163 @@ class _IntroView extends StatelessWidget {
   }
 }
 
-class _PlayersView extends StatelessWidget {
-  const _PlayersView({required this.game, required this.myUserId});
+/// Aşamaya göre bilgi ve eylemler.
+class _ActionArea extends StatelessWidget {
+  const _ActionArea({
+    required this.game,
+    required this.myUserId,
+    required this.busy,
+    required this.interactive,
+    required this.onReveal,
+    required this.onReady,
+    required this.onTiebreak,
+  });
 
   final GameView game;
   final String? myUserId;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(AppSpacing.s3),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: AppSpacing.s2,
-        crossAxisSpacing: AppSpacing.s2,
-        mainAxisExtent: 210,
-      ),
-      itemCount: game.participants.length,
-      itemBuilder: (context, i) {
-        final p = game.participants[i];
-        return PlayerTile(
-          participant: p,
-          isMe: p.userId == myUserId,
-          isTurn: game.phase == GamePhase.reveal && p.userId == game.turnUserId,
-        );
-      },
-    );
-  }
-}
-
-/// Aşamaya göre bilgi satırı (eylemler sonraki görevlerde).
-class _InfoBar extends StatelessWidget {
-  const _InfoBar({required this.game, required this.myUserId});
-
-  final GameView game;
-  final String? myUserId;
+  final bool busy;
+  final bool interactive;
+  final ValueChanged<MyCard> onReveal;
+  final VoidCallback onReady;
+  final ValueChanged<Participant> onTiebreak;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
     String nameOf(String? id) => game.participantOf(id)?.nickname ?? '';
-    final (String title, String? detail) = switch (game.phase) {
-      GamePhase.reveal => (
-        game.turnUserId == myUserId
+
+    String title;
+    final details = <Widget>[];
+    Widget text(String s) => Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.s1),
+      child: Text(s, style: theme.textTheme.bodyMedium),
+    );
+
+    switch (game.phase) {
+      case GamePhase.reveal:
+        final mine = game.turnUserId == myUserId;
+        title = mine
             ? l.gameRevealMine
-            : l.gameRevealOther(nameOf(game.turnUserId)),
-        null,
-      ),
-      GamePhase.discussion => (
-        l.gameDiscussionInfo,
-        l.gameReadyProgress(game.readyProgress.done, game.readyProgress.total),
-      ),
-      GamePhase.voting => (
-        l.gameVotingInfo,
-        l.gameVoteProgress(game.voteProgress.done, game.voteProgress.total),
-      ),
-      GamePhase.tieBreak => (l.gameTieBreakInfo, null),
-      GamePhase.elimination => (
-        game.lastElimination == null
+            : l.gameRevealOther(nameOf(game.turnUserId));
+        if (mine && interactive) {
+          final allowed = {
+            for (final c in game.revealableCards(myUserId)) c.category,
+          };
+          if (game.round == 1) details.add(text(l.gameRevealRound1Hint));
+          details.add(
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.s2),
+              child: Wrap(
+                spacing: AppSpacing.s2,
+                runSpacing: AppSpacing.s2,
+                children: [
+                  for (final c in game.myCards)
+                    if (!c.revealed)
+                      Builder(
+                        builder: (context) {
+                          final style = categoryStyle(context, c.category);
+                          return ActionChip(
+                            key: ValueKey('reveal-${c.category.name}'),
+                            avatar: Icon(
+                              style.icon,
+                              size: 18,
+                              color: style.color,
+                            ),
+                            label: Text(style.label),
+                            tooltip: c.text,
+                            onPressed: allowed.contains(c.category) && !busy
+                                ? () => onReveal(c)
+                                : null,
+                          );
+                        },
+                      ),
+                ],
+              ),
+            ),
+          );
+        }
+      case GamePhase.discussion:
+        title = l.gameDiscussionInfo;
+        details.add(
+          text(
+            l.gameReadyProgress(
+              game.readyProgress.done,
+              game.readyProgress.total,
+            ),
+          ),
+        );
+        if (interactive && game.canDiscussionReady(myUserId)) {
+          details.add(
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.s3),
+              child: AppButton.primary(
+                label: l.gameReadyButton,
+                icon: Icons.check_rounded,
+                isLoading: busy,
+                onPressed: onReady,
+              ),
+            ),
+          );
+        } else if (game.discussionReady) {
+          details.add(text(l.gameReadyDone));
+        }
+      case GamePhase.voting:
+        title = l.gameVotingInfo;
+        details.add(
+          text(
+            l.gameVoteProgress(game.voteProgress.done, game.voteProgress.total),
+          ),
+        );
+        if (game.voted) {
+          details.add(text(l.gameVoteDone));
+        } else if (interactive && game.voteTargets(myUserId).isNotEmpty) {
+          details.add(text(l.gameVoteHint));
+        }
+      case GamePhase.tieBreak:
+        final targets = interactive
+            ? game.tiebreakTargets(myUserId)
+            : const <Participant>[];
+        title = targets.isNotEmpty ? l.gameTieBreakMine : l.gameTieBreakInfo;
+        if (game.tiebreakProgress.total > 0) {
+          details.add(
+            text(
+              l.gameVoteProgress(
+                game.tiebreakProgress.done,
+                game.tiebreakProgress.total,
+              ),
+            ),
+          );
+        }
+        if (game.tiebreakVoted) details.add(text(l.gameVoteDone));
+        if (targets.isNotEmpty) {
+          details.add(
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.s2),
+              child: Wrap(
+                spacing: AppSpacing.s2,
+                children: [
+                  for (final p in targets)
+                    OutlinedButton(
+                      key: ValueKey('tiebreak-${p.userId}'),
+                      onPressed: busy ? null : () => onTiebreak(p),
+                      child: Text(p.nickname),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }
+      case GamePhase.elimination:
+        title = game.lastElimination == null
             ? phaseLabel(l, game.phase)
-            : l.gameEliminated(nameOf(game.lastElimination!.userId)),
-        null,
-      ),
-      GamePhase.finished => (l.gamePhaseFinished, null),
-      GamePhase.dealing || GamePhase.scenarioIntro => ('', null),
-    };
+            : l.gameEliminated(nameOf(game.lastElimination!.userId));
+      case GamePhase.finished:
+        title = l.gamePhaseFinished;
+      case GamePhase.dealing || GamePhase.scenarioIntro:
+        title = '';
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.s4),
@@ -175,10 +354,7 @@ class _InfoBar extends StatelessWidget {
             key: const ValueKey('phase-info'),
             style: theme.textTheme.titleMedium,
           ),
-          if (detail != null) ...[
-            const SizedBox(height: AppSpacing.s1),
-            Text(detail, style: theme.textTheme.bodyMedium),
-          ],
+          ...details,
         ],
       ),
     );

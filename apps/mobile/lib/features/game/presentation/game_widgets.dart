@@ -273,12 +273,16 @@ class PlayerTile extends StatelessWidget {
     required this.participant,
     required this.isMe,
     required this.isTurn,
+    this.onVote,
     super.key,
   });
 
   final Participant participant;
   final bool isMe;
   final bool isTurn;
+
+  /// Doluysa oyuncu oylanabilir: kutu vurgulanır, dokununca çağrılır.
+  final VoidCallback? onVote;
 
   @override
   Widget build(BuildContext context) {
@@ -295,46 +299,59 @@ class PlayerTile extends StatelessWidget {
       ParticipantStatus.left => StatusBadgeKind.left,
       ParticipantStatus.alive => isTurn ? StatusBadgeKind.turn : null,
     };
+    final highlight = isTurn
+        ? theme.colorScheme.primary
+        : onVote != null
+        ? context.gameTheme.danger
+        : null;
     return Card(
       key: ValueKey('player-${p.userId}'),
-      shape: isTurn
+      clipBehavior: Clip.antiAlias,
+      shape: highlight != null
           ? RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.l),
-              side: BorderSide(color: theme.colorScheme.primary, width: 2),
+              side: BorderSide(color: highlight, width: 2),
             )
           : null,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.s3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: InkWell(
+        onTap: onVote,
+        child: Semantics(
+          button: onVote != null,
+          hint: onVote != null ? l.gameVoteFor(p.nickname) : null,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.s3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PlayerAvatar(
-                  nickname: p.nickname,
-                  seat: p.seat,
-                  size: PlayerAvatarSize.small,
-                  presence: presence,
+                Row(
+                  children: [
+                    PlayerAvatar(
+                      nickname: p.nickname,
+                      seat: p.seat,
+                      size: PlayerAvatarSize.small,
+                      presence: presence,
+                    ),
+                    const SizedBox(width: AppSpacing.s2),
+                    Expanded(
+                      child: Text(
+                        isMe ? '${p.nickname} (${l.roomYou})' : p.nickname,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: AppSpacing.s2),
-                Expanded(
-                  child: Text(
-                    isMe ? '${p.nickname} (${l.roomYou})' : p.nickname,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
+                if (badge != null) ...[
+                  const SizedBox(height: AppSpacing.s1),
+                  StatusBadge(badge),
+                ],
+                for (final c in CardCategory.values)
+                  if (p.revealed[c] case final text?)
+                    CardChip(category: c, text: text),
               ],
             ),
-            if (badge != null) ...[
-              const SizedBox(height: AppSpacing.s1),
-              StatusBadge(badge),
-            ],
-            for (final c in CardCategory.values)
-              if (p.revealed[c] case final text?)
-                CardChip(category: c, text: text),
-          ],
+          ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:siginak/core/network/api_exception.dart';
 import 'package:siginak/core/realtime/realtime_client.dart';
 import 'package:siginak/core/realtime/realtime_client_provider.dart';
 import 'package:siginak/core/realtime/ws_envelope.dart';
@@ -140,6 +141,34 @@ class RoomController extends Notifier<RoomState> {
   Future<void> kick(String userId) => _repo.kick(roomId, userId);
 
   Future<void> start() => _repo.start(roomId);
+
+  /// Oyun eylemi (kart aç, hazırım, oy). Başarılıysa yalnızca benim
+  /// bilebileceğim durum (oy verdim / hazırım) işaretlenir; gerisi olaylarla.
+  Future<void> act(GameAction action) async {
+    final game = state.game;
+    if (game == null) return;
+    try {
+      await ref.read(gameRepositoryProvider).act(game.id, game.round, action);
+    } on ApiException catch (e) {
+      // Oy zaten verilmiş (ör. başka cihazdan): işareti düzelt, hatayı ilet.
+      if (e.code == 'ALREADY_VOTED') _markDone(game.id, action);
+      rethrow;
+    }
+    _markDone(game.id, action);
+  }
+
+  void _markDone(String gameId, GameAction action) {
+    final current = state.game;
+    if (!ref.mounted || current == null || current.id != gameId) return;
+    state = state.copyWith(
+      game: () => switch (action) {
+        Vote() => current.withMyAction(voted: true),
+        DiscussionReady() => current.withMyAction(discussionReady: true),
+        TiebreakVote() => current.withMyAction(tiebreakVoted: true),
+        RevealCard() => current,
+      },
+    );
+  }
 
   /// Odadan ayrılır (idempotent); başarılıysa çıkış `left` olur.
   Future<void> leave() async {
