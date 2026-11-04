@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/burakkuru5534/bunker/backend/internal/account"
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/config"
 	"github.com/burakkuru5534/bunker/backend/internal/game"
@@ -243,6 +244,8 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		roomHTTP := room.NewHTTP(roomSvc, authHTTP.Require)
 		gameHTTP := game.NewHTTP(gameSvc, authHTTP.Require)
 		modHTTP := moderation.NewHTTP(moderation.NewService(d.DB, logger), authHTTP.Require)
+		accountHTTP := account.NewHTTP(account.NewService(d.DB, authSvc, roomSvc, logger), authHTTP.Require)
+		modules = append(modules, accountHTTP.Register)
 		// Veri saklama ve temizlik (SAFE-009, ROOM-010): açılıştan 2 dk sonra, sonra saatte bir.
 		cleanup := maintenance.New(d.DB, d.Hub, maintenance.DefaultRetention, logger)
 		if d.Life != nil {

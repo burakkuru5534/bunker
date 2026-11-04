@@ -28,7 +28,7 @@ Ayrıntı: [ADR-0008](decisions/0008-opaque-session-tokens.md).
 | Oluşturma `POST /v1/sessions/guest` | IP sınırı (5/dk) → takma ad doğrula → tek transaction: `users` + `sessions` (hash, `expires_at = now + 90 gün`) → `201 { token, expires_at, user }`. Ham token yalnızca bu yanıtta bulunur |
 | Doğrulama (her istek) | `Bearer` al → biçim → hash → önbellek (≤ 60 sn) veya `sessions ⨝ users` (`token_hash`): süresi dolmuş, iptal edilmiş ya da kullanıcısı silinmiş → `401 UNAUTHORIZED`. Hata nedeni istemciye ayrıştırılmaz |
 | Yenileme `POST /v1/sessions/refresh` | Geçerli oturumla: tek transaction'da eskisini iptal et + yenisini oluştur → `200 { token, expires_at }`. Ağ hatasında istemci eski token'la tekrar dener; eski token iptal edildiyse yeniden misafir oturumu açar |
-| Hesap silme `DELETE /v1/me` | Aktif odadan ayrıl → takma ad `Silinmiş oyuncu`, `deleted_at` → tüm oturumlar silinir → `204` |
+| Hesap silme `DELETE /v1/me` | Aktif odadan ayrıl → takma ad `Silinmiş oyuncu` (oda üyelik kayıtlarında da), `deleted_at` → tüm oturumlar, kendi sohbet mesajları ve engellemeler silinir → `204`. Raporlar moderasyon kanıtı olarak kalır (180 gün kuralı) |
 | İstemci IP'si | `httpapi.ClientIP`: yerelde `RemoteAddr`; bulutta `X-Forwarded-For`'un **sağdan `TRUSTED_PROXY_HOPS`'uncu** girdisi (varsayılan 1); istemcinin yazdığı soldaki girdilere güvenilmez. IPv6 sınır anahtarı `/64`. Cloud Run'daki kesin biçim ilk dağıtımda doğrulanır |
 
 ## 2. Veritabanı erişimi (Supabase)

@@ -155,8 +155,17 @@ func (d *Disconnects) UserDisconnected(userID, roomID string) {
 
 // UserConnected, realtime.ConnectionListener.
 func (d *Disconnects) UserConnected(userID, roomID string) {
+	// Bayat bildirim kopan oyuncunun süresini iptal etmemeli.
+	if !d.presence.Connected(userID) {
+		return
+	}
 	d.cancelTimer(userID)
 	d.retry("yeniden bağlanma", userID, func(ctx context.Context) (bool, error) {
+		// Bayat bildirim (gecikip kopmadan sonra işlenen) kopma kaydını
+		// silmemeli: karar anında gerçek bağlantı durumu esas alınır.
+		if !d.presence.Connected(userID) {
+			return true, nil
+		}
 		gameID, ok, err := d.clear(ctx, userID, roomID)
 		if err != nil {
 			return false, err

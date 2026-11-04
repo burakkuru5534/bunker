@@ -163,3 +163,18 @@ func TestDisconnectRecoveryOnStart(t *testing.T) {
 		}
 	}
 }
+
+// Bayat "bağlandı" bildirimi: ilk bağlantının bildirimi gecikip kopmadan
+// SONRA işlenirse (yükte goroutine sırası garanti değil) kopma kaydını
+// silmemeli; aksi halde oyuncu hiç "ayrıldı" sayılmaz.
+func TestDisconnectStaleConnectedNotification(t *testing.T) {
+	e := newEnv(t, nil)
+	roomID, gameID, _, users, conns := e.startedGame(4)
+	_ = conns[1].CloseNow()
+	connectionEvent(t, conns[0], users[1], "disconnected")
+	e.disc.UserConnected(users[1], roomID) // gecikmiş, bayat bildirim
+	connectionEvent(t, conns[0], users[1], "left")
+	if e.val(`select status from game_participants where game_id = $1 and user_id = $2`, gameID, users[1]) != "left" {
+		t.Fatal("bayat bildirim kopma kaydını sildi")
+	}
+}

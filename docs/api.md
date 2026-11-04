@@ -145,7 +145,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 
 **PATCH `/v1/me`** — `{ "nickname": "…" }` → `200 { "id", "nickname" }`. Oyun sürerken (`in_game` odada) değiştirilemez → `INVALID_PHASE`.
 
-**DELETE `/v1/me`** — Hesabı ve oturumları siler; oyun geçmişinde kullanıcı anonimleştirilir ("Silinmiş oyuncu"). Aktif odadan ayrılma uygulanır. → `204`. (Google Play hesap silme gerekliliği; SAFE-009.)
+**DELETE `/v1/me`** — Gövde yok → `204`. (Google Play hesap silme gerekliliği; SAFE-009.) Sırasıyla: aktif oda varsa "Ayrıl" ile aynı yoldan ayrılınır (lobide oda sahipliği devredilir; oyun sürerken oyuncu `left` olur, `game.player_eliminated {method: left}`); ardından tek transaction’da takma ad `Silinmiş oyuncu` + `deleted_at`, tüm oda üyelik kayıtlarındaki takma ad anonimleştirilir, tüm oturumlar, kullanıcının kendi sohbet mesajları ve iki yönlü engellemeler silinir. Oyun sonuçları ve raporlar (mesaj kopyalarıyla birlikte, moderasyon kanıtı) kalır; sonuçlarda "Silinmiş oyuncu" görünür. Eski token sonraki isteklerde `401`. Aynı takma adla yeni misafir hesap açılabilir. İşlem geri alınamaz.
 
 ### Oda
 
