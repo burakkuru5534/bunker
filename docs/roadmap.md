@@ -152,6 +152,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **RT-007 dayanıklılık düzeltmesi:** kopma/geri dönme kayıtları geçici veritabanı hatalarında artan aralıkla yeniden denenir (önceden hata yalnızca günlüğe düşüyor, kopan oyuncu hiç "ayrıldı" sayılmayabiliyordu). Paralel tam takım yükünde bir kopma testi aralıklı düşüyordu; kök neden o adımda kanıtlanamamıştı (havuz dolması sanılmıştı), olay bekleme süresi 15 sn yapıldı. **Sonradan bulunan gerçek kök neden (SAFE-009 adımında düzeltildi):** ilk bağlantının "bağlandı" bildirimi yükte gecikip kopmadan SONRA işlenince 60 sn süresini iptal edip kopma kaydını siliyordu; oyuncu hiç "ayrıldı" sayılmıyordu (gerçek kullanımda da olabilirdi). `UserConnected` artık hem başta hem karar anında gerçek bağlantı durumunu denetler; deterministik test `TestDisconnectStaleConnectedNotification` düzeltme olmadan düşüyor.
 - **SAFE-009 (temizlik) + ROOM-010:** `internal/maintenance.Job` sunucu içinde saatte bir (ilk 2 dk sonra), her adım partiler (500) ve çalıştırma başına 20 parti üst sınırla, `id = any(array(...))` biçiminde: sohbet 30 gün, süresi dolan oturumlar, terk edilmiş odalar (lobide/bitmiş, 6 sa hareketsiz, aktif üyelerden kimse bağlı değil; kilitli yeniden denetim; üyeler serbest bırakılır — tek aktif oda kısıtı), kapalı odalar 7 gün sonra silinir (oyunlar/raporlar kalır, bağ boşalır), sonuçlanan raporlar 180 gün. Oyundaki odalara dokunulmaz. Migration 0006 `reports_resolved_at_idx` (sorgu planı testi indeks olmadan tam taramayı gösterdi). Testler (gerçek PostgreSQL): tüm adımlar sınır değerleriyle (31/29 gün, 7/1 sa, 8/1 gün, 181/179 gün, açık rapor), bağlı üyeli oda, kapanan odanın üyelerinin yeni odaya girebilmesi, oyun/rapor korunması, idempotent ikinci çalıştırma, parti ve üst sınır, kilitli yeniden denetim, başlat/durdur. Mutasyon 6/6. Kapsama %85,4. Testin yakaladığı hata: ikinci Stop’u güvenli yapmak için alanları boşaltınca döngü nil kanalda sonsuza bekliyordu — döngü kanalları yerel kopyadan okur.
 - **SAFE-009 (hesap silme):** `internal/account` — `DELETE /v1/me`: aktif odadan `room.Service.Leave` ile ayrılma (lobi: sahiplik devri; oyun: `left`), sonra tek transaction’da anonimleştirme (`users` + tüm `room_members` takma adları), oturumlar, kendi sohbet mesajları, iki yönlü engellemeler silinir; raporlar ve oyun sonuçları kalır; kimlik önbelleği temizlenir. Testler (gerçek PostgreSQL): lobide silme (sahiplik devri, eski token 401, anonimleştirme, başkalarının verisi korunur, rapor korunur, aynı adla yeni misafir), oyun sırasında silme (katılımcı `left`, eylem kaydı, sonuçta "Silinmiş oyuncu"), oturumsuz istek 401. Mutasyon 6/6, kapsama %77,4. Paralel tam takım yükünde 2 tur temiz.
+- **CARD-002…007 + CARD-011:** migration 0007 — 5 senaryo ve 150 kart (kategori başına 10 olumlu / 12 nötr / 8 olumsuz). İçerik doğrulama testi (`TestIntegrationCatalogContent`, gerçek PostgreSQL, gerçek içerik): beklenen 5 senaryo, başlık tekrarı yok, felaket metni 2–3 cümle; her metin NFC, kırpılmış, kontrol karakteri ve çift boşluk yok, küfür filtresinden temiz; kimlikler kategori aralığında; kategori başına ≥ 30 kart, ≥ 20 olumsuz olmayan, olumsuz oranı ≤ %40, her etiketten kart; 4–10 oyuncunun her biri için 300 dağıtım (kriptografik kaynak): hata yok, kart tekrarı yok, oyuncu başına ≤ 2 olumsuz. Mutasyon 7/7 (küfürlü metin, eksik kart, aralık dışı kimlik, tek cümle, eksik senaryo, olumsuz fazlası). Diğer testler gerçek içerikle çakışmasın diye `testdb.New` ve migrate şema testleri katalog içeriğini siler. Metinler kullanıcı onayı bekliyor: Supabase'e uygulanmadan önce değiştirilebilir; uygulandıktan sonra düzeltme yeni migration ister.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -215,16 +216,16 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
 | CARD-001 | Kart veri modeli (denge etiketi dahil) | P0 | Backlog |
-| CARD-002 | Meslek kartları | P0 | Backlog |
-| CARD-003 | Sağlık durumu kartları | P0 | Backlog |
-| CARD-004 | Hobi ve beceri kartları | P0 | Backlog |
-| CARD-005 | Eşya kartları | P0 | Backlog |
-| CARD-006 | Gizli sır kartları | P0 | Backlog |
-| CARD-007 | Felaket senaryosu modeli ve 5 senaryo metni | P0 | Backlog |
+| CARD-002 | Meslek kartları | P0 | Awaiting User Approval |
+| CARD-003 | Sağlık durumu kartları | P0 | Awaiting User Approval |
+| CARD-004 | Hobi ve beceri kartları | P0 | Awaiting User Approval |
+| CARD-005 | Eşya kartları | P0 | Awaiting User Approval |
+| CARD-006 | Gizli sır kartları | P0 | Awaiting User Approval |
+| CARD-007 | Felaket senaryosu modeli ve 5 senaryo metni | P0 | Awaiting User Approval |
 | CARD-008 | Rastgele kart dağıtımı | P0 | Backlog |
 | CARD-009 | Oyuncuya özel gizli veri | P0 | Backlog |
 | CARD-010 | Kart açıklama kuralları | P0 | Backlog |
-| CARD-011 | İçerik doğrulama | P0 | Backlog |
+| CARD-011 | İçerik doğrulama | P0 | Awaiting User Approval |
 | CARD-012 | Kart denge testleri | P1 | Backlog |
 
 ## Faz 7 — Oyun motoru

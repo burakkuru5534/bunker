@@ -35,8 +35,21 @@ type Env struct {
 	Admin   *pgx.Conn       // süper kullanıcı (yalnızca kurulum/doğrulama)
 }
 
-// New, şemayı kurar ve test bitince siler.
+// New, şemayı kurar ve test bitince siler. Katalog içeriği (0007…) silinir:
+// testler kendi deterministik kataloglarını yükler.
 func New(t testing.TB) *Env {
+	t.Helper()
+	return newEnv(t, false)
+}
+
+// NewWithContent, New gibidir ama migration'larla gelen gerçek katalog
+// içeriğini (senaryolar, kartlar) korur; içerik doğrulama testleri içindir.
+func NewWithContent(t testing.TB) *Env {
+	t.Helper()
+	return newEnv(t, true)
+}
+
+func newEnv(t testing.TB, keepContent bool) *Env {
 	t.Helper()
 	adminURL := os.Getenv("TEST_DATABASE_ADMIN_URL")
 	if adminURL == "" {
@@ -98,6 +111,13 @@ func New(t testing.TB) *Env {
 	}
 	if _, _, err := migrate.Up(ctx, migPool, migrate.Options{Schema: schema, AppRole: app, Logger: logger}, migs, false); err != nil {
 		t.Fatalf("testdb: migrate up: %v", err)
+	}
+	if !keepContent {
+		for _, q := range []string{"delete from card_definitions", "delete from scenarios"} {
+			if _, err := migPool.Exec(ctx, q); err != nil {
+				t.Fatalf("testdb: katalog temizliği: %v", err)
+			}
+		}
 	}
 	return &Env{
 		Schema:  schema,

@@ -79,6 +79,10 @@ Oyun silinirse (yalnızca bakım) bağlı tüm kayıtlar silinir.
 
 `reports_resolved_at_idx` (kısmi: `status in (actioned, dismissed)`): sonuçlanmış raporların 180 günlük toplu silmesi; indeks olmadan her parti raporlar tablosunu tarar (sorgu planı testi gösterdi).
 
+### 0007 — katalog içeriği (CARD-002…007)
+
+Yalnızca veri: 5 senaryo (`nuclear_winter`, `red_cough`, `meteor`, `silent_machines`, `solar_storm`) ve kategori başına 30 kart (kimlikler 1001–1030, 2001–2030, 3001–3030, 4001–4030, 5001–5030). Her kategoride 10 olumlu, 12 nötr, 8 olumsuz. Uygulandıktan sonra dosya değiştirilmez: metin düzeltmesi, yeni kart veya emekliye ayırma (`active = false`) yeni migration'la yapılır. Testler: `testdb.New` katalog içeriğini siler (testler kendi kataloglarını yükler); içerik doğrulaması `testdb.NewWithContent` ile yapılır (CARD-011).
+
 ## Tutarlılık kuralları
 
 - Her oyun eylemi `games` satırı `FOR UPDATE` ile kilitlenmiş kısa bir transaction içinde işlenir; `state_version` her değişiklikte +1 ([ADR-0004](decisions/0004-db-authoritative-state.md)).

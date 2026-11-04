@@ -26,6 +26,13 @@ func schemaEnv(t *testing.T) *env {
 	if _, _, err := Up(ctx10(t), e.migPool, e.opts(), migs, false); err != nil {
 		t.Fatal(err)
 	}
+	// Şema testleri kendi katalog satırlarını yazar; gerçek içerik (0007)
+	// game paketindeki içerik doğrulama testinde sınanır.
+	for _, q := range []string{"delete from card_definitions", "delete from scenarios"} {
+		if _, err := e.migPool.Exec(ctx10(t), q); err != nil {
+			t.Fatal(err)
+		}
+	}
 	return e
 }
 

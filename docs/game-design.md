@@ -106,7 +106,7 @@ MVP dışı: aksiyon kartları, biyografi kartları (yaş/cinsiyet), sayısal pu
 - Aynı oyunda iki oyuncuya **aynı kart verilmez**.
 - **Denge etiketi:** Her kartın gizli etiketi vardır (olumlu / nötr / olumsuz). Bir oyuncuya en fazla **2 olumsuz** kart düşer. Etiketler oyunculara gösterilmez.
 - Rastgelelik sunucuda, kriptografik olarak güvenli kaynakla sağlanır.
-- Hedef: kategori başına ~30 kart (kesin sayı CARD-002…006'da).
+- Kategori başına **30 kart**: 10 olumlu, 12 nötr, 8 olumsuz (CARD-002…006). İçerik doğrulama testinin asgari şartları: kategori başına ≥ 30 aktif kart, ≥ 20 olumsuz olmayan kart, olumsuz oranı ≤ %40.
 
 ### İçerik ilkeleri
 
@@ -131,7 +131,7 @@ MVP dışı: aksiyon kartları, biyografi kartları (yaş/cinsiyet), sayısal pu
 | 4 | Makinelerin Sessizliği | 1 yıl | Elektronik cihaz yasak (konumu ele verir); mekanik aletler var |
 | 5 | Güneş Fırtınası | 8 ay | Radyasyon kalkanı sağlam; erzak dar; güneş panelleri hasarlı |
 
-Kesin metinler CARD-007'de yazılır.
+Kesin metinler migration 0007'dedir (CARD-007).
 
 ## 8. Aşama süreleri (GAME-006)
 

@@ -105,6 +105,8 @@ func seed(t *testing.T, e *env) *seedIDs {
 	s := e.schema
 	stmts := []string{
 		`set search_path = ` + s,
+		// Gerçek katalog içeriği (0007) yerine sabit hacimli test kataloğu.
+		`delete from card_definitions`, `delete from scenarios`,
 		`insert into scenarios (id, title, disaster, duration_label, shelter_features, outside_world)
 		 values ('s1', 'Nükleer Kış', repeat('k', 30), '3 yıl', array['a','b','c'], repeat('d', 30))`,
 		`insert into card_definitions (id, category, text, balance)
