@@ -153,6 +153,16 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 - **SAFE-009 (temizlik) + ROOM-010:** `internal/maintenance.Job` sunucu içinde saatte bir (ilk 2 dk sonra), her adım partiler (500) ve çalıştırma başına 20 parti üst sınırla, `id = any(array(...))` biçiminde: sohbet 30 gün, süresi dolan oturumlar, terk edilmiş odalar (lobide/bitmiş, 6 sa hareketsiz, aktif üyelerden kimse bağlı değil; kilitli yeniden denetim; üyeler serbest bırakılır — tek aktif oda kısıtı), kapalı odalar 7 gün sonra silinir (oyunlar/raporlar kalır, bağ boşalır), sonuçlanan raporlar 180 gün. Oyundaki odalara dokunulmaz. Migration 0006 `reports_resolved_at_idx` (sorgu planı testi indeks olmadan tam taramayı gösterdi). Testler (gerçek PostgreSQL): tüm adımlar sınır değerleriyle (31/29 gün, 7/1 sa, 8/1 gün, 181/179 gün, açık rapor), bağlı üyeli oda, kapanan odanın üyelerinin yeni odaya girebilmesi, oyun/rapor korunması, idempotent ikinci çalıştırma, parti ve üst sınır, kilitli yeniden denetim, başlat/durdur. Mutasyon 6/6. Kapsama %85,4. Testin yakaladığı hata: ikinci Stop’u güvenli yapmak için alanları boşaltınca döngü nil kanalda sonsuza bekliyordu — döngü kanalları yerel kopyadan okur.
 - **SAFE-009 (hesap silme):** `internal/account` — `DELETE /v1/me`: aktif odadan `room.Service.Leave` ile ayrılma (lobi: sahiplik devri; oyun: `left`), sonra tek transaction’da anonimleştirme (`users` + tüm `room_members` takma adları), oturumlar, kendi sohbet mesajları, iki yönlü engellemeler silinir; raporlar ve oyun sonuçları kalır; kimlik önbelleği temizlenir. Testler (gerçek PostgreSQL): lobide silme (sahiplik devri, eski token 401, anonimleştirme, başkalarının verisi korunur, rapor korunur, aynı adla yeni misafir), oyun sırasında silme (katılımcı `left`, eylem kaydı, sonuçta "Silinmiş oyuncu"), oturumsuz istek 401. Mutasyon 6/6, kapsama %77,4. Paralel tam takım yükünde 2 tur temiz.
 - **CARD-002…007 + CARD-011:** migration 0007 — 5 senaryo ve 150 kart (kategori başına 10 olumlu / 12 nötr / 8 olumsuz). İçerik doğrulama testi (`TestIntegrationCatalogContent`, gerçek PostgreSQL, gerçek içerik): beklenen 5 senaryo, başlık tekrarı yok, felaket metni 2–3 cümle; her metin NFC, kırpılmış, kontrol karakteri ve çift boşluk yok, küfür filtresinden temiz; kimlikler kategori aralığında; kategori başına ≥ 30 kart, ≥ 20 olumsuz olmayan, olumsuz oranı ≤ %40, her etiketten kart; 4–10 oyuncunun her biri için 300 dağıtım (kriptografik kaynak): hata yok, kart tekrarı yok, oyuncu başına ≤ 2 olumsuz. Mutasyon 7/7 (küfürlü metin, eksik kart, aralık dışı kimlik, tek cümle, eksik senaryo, olumsuz fazlası). Diğer testler gerçek içerikle çakışmasın diye `testdb.New` ve migrate şema testleri katalog içeriğini siler. Metinler kullanıcı onayı bekliyor: Supabase'e uygulanmadan önce değiştirilebilir; uygulandıktan sonra düzeltme yeni migration ister.
+- **Durum temizliği (kanıtla):** önceki adımlarda fiilen tamamlanmış görevler Done yapıldı; her biri için kod ve test kanıtı:
+  - RT-001…004, RT-006: kullanıcı commit’ledi (WS sunucusu, kimlik, üyelik, bağlantı yönetimi, olay yayını).
+  - RT-005: zarf `{v, type, room_id, ts, payload}` api.md’de; istemciden yalnız `{"v":1,"type":"sync"}` kabul, diğerleri yok sayılır; okuma boyutu sınırlı (`SetReadLimit`).
+  - RT-008: bağlantı başına 64’lük kuyruk (dolunca 4009), ping zaman aşımında el sıkışmasız kesme, kapanışta 1012, hub’dan çift kaldırma koruması, bayat bağlantı bildirimi düzeltmesi.
+  - RT-009 / SAFE-002: misafir hesap IP başına, REST kullanıcı başına (10 sn’de 30), katılma, WS bağlantı 10/dk, kullanıcı başına 2 bağlantı, sync 10 sn’de 5, sohbet 1/sn + 5/10 sn, rapor 10/saat.
+  - SAFE-001: katı JSON (bilinmeyen alan reddi), gövde boyutu sınırı, alan doğrulama tablosu (api.md), tek tip hata zarfı.
+  - SAFE-004 / CARD-009: kartlar yalnız sahibine özel mesajla; anlık görüntü görünürlük testleri (sahip / diğer oyuncu / izleyici / oyun sonu); odaya giden olaylarda açılmamış kart metni yok; 4 bağlantılı WS testi.
+  - CARD-001: şema 0002 + motor `CatalogCard` (denge etiketi istemciye gitmez). CARD-008: `DealGame` + kriptografik kaynak. CARD-010: tur 1 meslek, sonra serbest, süre dolunca en düşük sıradaki (sır en son). CARD-012: oyuncu başına ≤ 2 olumsuz kart birim testleri + gerçek katalogla 4–10 oyuncu dağıtım testi.
+  - ENG-014: `action_id` ile idempotency (tekrar → `duplicate:true`, eşzamanlı 6 istekte 1 işlem). ENG-016: motor birim testleri (kapsama %96).
+  - Bilerek açık bırakılanlar: RT-010 (çok bağlantılı yük testi), RT-011 (Cloud Run’da doğrulama — dağıtım gerektirir), RT-012, QA-* (yayın öncesi uçtan uca doğrulama), SAFE-008/010/011/012.
 
 ## Faz 3 — Go backend ve PostgreSQL
 
@@ -181,15 +191,15 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| RT-001 | WebSocket sunucusu | P0 | Awaiting User Approval |
-| RT-002 | Bağlantı kimlik doğrulaması | P0 | Awaiting User Approval |
-| RT-003 | Oda üyeliği kontrolü | P0 | Awaiting User Approval |
-| RT-004 | Oda bazlı bağlantı yönetimi | P0 | Awaiting User Approval |
-| RT-005 | Mesaj şemaları ve doğrulama | P0 | Backlog |
-| RT-006 | Oda içi olay yayını | P0 | Awaiting User Approval |
+| RT-001 | WebSocket sunucusu | P0 | Done |
+| RT-002 | Bağlantı kimlik doğrulaması | P0 | Done |
+| RT-003 | Oda üyeliği kontrolü | P0 | Done |
+| RT-004 | Oda bazlı bağlantı yönetimi | P0 | Done |
+| RT-005 | Mesaj şemaları ve doğrulama | P0 | Done |
+| RT-006 | Oda içi olay yayını | P0 | Done |
 | RT-007 | Bağlantı kopması ve yeniden bağlanma | P0 | Done |
-| RT-008 | Bağlantı temizliği ve kaynak yönetimi | P0 | Backlog |
-| RT-009 | Rate limiting | P0 | Backlog |
+| RT-008 | Bağlantı temizliği ve kaynak yönetimi | P0 | Done |
+| RT-009 | Rate limiting | P0 | Done |
 | RT-010 | Eşzamanlılık ve bağlantı testleri | P0 | Backlog |
 | RT-011 | Cloud Run WebSocket kısıtlarının doğrulanması | P0 | Backlog |
 | RT-012 | Gerçek zamanlı iletişim maliyet değerlendirmesi | P1 | Backlog |
@@ -215,18 +225,18 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| CARD-001 | Kart veri modeli (denge etiketi dahil) | P0 | Backlog |
+| CARD-001 | Kart veri modeli (denge etiketi dahil) | P0 | Done |
 | CARD-002 | Meslek kartları | P0 | Awaiting User Approval |
 | CARD-003 | Sağlık durumu kartları | P0 | Awaiting User Approval |
 | CARD-004 | Hobi ve beceri kartları | P0 | Awaiting User Approval |
 | CARD-005 | Eşya kartları | P0 | Awaiting User Approval |
 | CARD-006 | Gizli sır kartları | P0 | Awaiting User Approval |
 | CARD-007 | Felaket senaryosu modeli ve 5 senaryo metni | P0 | Awaiting User Approval |
-| CARD-008 | Rastgele kart dağıtımı | P0 | Backlog |
-| CARD-009 | Oyuncuya özel gizli veri | P0 | Backlog |
-| CARD-010 | Kart açıklama kuralları | P0 | Backlog |
+| CARD-008 | Rastgele kart dağıtımı | P0 | Done |
+| CARD-009 | Oyuncuya özel gizli veri | P0 | Done |
+| CARD-010 | Kart açıklama kuralları | P0 | Done |
 | CARD-011 | İçerik doğrulama | P0 | Awaiting User Approval |
-| CARD-012 | Kart denge testleri | P1 | Backlog |
+| CARD-012 | Kart denge testleri | P1 | Done |
 
 ## Faz 7 — Oyun motoru
 
@@ -245,9 +255,9 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 | ENG-011 | Kazanma koşulları | P0 | Done |
 | ENG-012 | Maç sonu | P0 | Done |
 | ENG-013 | Yeniden bağlanma ve oyun kurtarma | P0 | Done |
-| ENG-014 | İdempotent eylemler | P0 | Backlog |
+| ENG-014 | İdempotent eylemler | P0 | Done |
 | ENG-015 | Gizli bilgi izolasyonu | P0 | Done |
-| ENG-016 | Oyun motoru birim testleri | P0 | Backlog |
+| ENG-016 | Oyun motoru birim testleri | P0 | Done |
 
 ## Faz 8 — Oyun UI entegrasyonu
 
@@ -270,10 +280,10 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 
 | ID | Başlık | Öncelik | Durum |
 |---|---|---|---|
-| SAFE-001 | İstek ve girdi doğrulama | P0 | Backlog |
-| SAFE-002 | Rate limiting | P0 | Backlog |
+| SAFE-001 | İstek ve girdi doğrulama | P0 | Done |
+| SAFE-002 | Rate limiting | P0 | Done |
 | SAFE-003 | Oda izolasyonu | P0 | Done |
-| SAFE-004 | Gizli kart erişim testleri | P0 | Backlog |
+| SAFE-004 | Gizli kart erişim testleri | P0 | Done |
 | SAFE-005 | Oyuncu raporlama | P0 | Done |
 | SAFE-006 | Oyuncu engelleme | P0 | Done |
 | SAFE-007 | Oda sahibi moderasyonu (lobiden atma) | P0 | Done |
