@@ -22,6 +22,30 @@ class RoomRepository {
   Future<RoomView> fetch(String roomId) async =>
       RoomView.fromJson(await _api.get('/v1/rooms/$roomId'));
 
+  /// Hazır durumu (yalnızca oyuncu, lobide). Sonuç `room.ready_changed` ile gelir.
+  Future<void> setReady(String roomId, {required bool ready}) async {
+    await _api.post('/v1/rooms/$roomId/ready', body: {'ready': ready});
+  }
+
+  /// Kapasite (oda sahibi, lobide).
+  Future<RoomView> setCapacity(String roomId, int capacity) async =>
+      RoomView.fromJson(
+        await _api.patch(
+          '/v1/rooms/$roomId/settings',
+          body: {'capacity': capacity},
+        ),
+      );
+
+  /// Üyeyi odadan atar (oda sahibi, lobide).
+  Future<void> kick(String roomId, String userId) async {
+    await _api.post('/v1/rooms/$roomId/kick', body: {'user_id': userId});
+  }
+
+  /// Oyunu başlatır (oda sahibi). Ekran `game.*` olaylarıyla güncellenir.
+  Future<void> start(String roomId) async {
+    await _api.post('/v1/rooms/$roomId/start');
+  }
+
   /// İdempotent: üye değilse de başarılıdır.
   Future<void> leave(String roomId) async {
     await _api.post('/v1/rooms/$roomId/leave');

@@ -53,3 +53,11 @@ Map<String, Object?> apiError(
     'details': details ?? <String, Object?>{},
   },
 };
+
+/// Gövdesiz `204` yanıtı.
+abstract final class ResponseBodyNoContent {
+  static ResponseBody get value => ResponseBody.fromString('', 204);
+}
+
+/// `200` JSON yanıtı.
+ResponseBody jsonOk(Object? body) => jsonResponse(body, 200);

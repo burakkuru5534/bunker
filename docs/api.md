@@ -307,8 +307,11 @@ X-App-Version: 1.0.0
   "state_version": 42, "ts": "2026-11-02T18:00:00Z", "payload": { } }
 ```
 
-- `state_version` oyun durumunu değiştiren olaylarda bulunur. İstemci, bildiği sürümden **1 fazlası dışında** bir sürüm görürse `sync` gönderir.
-- Oyun sürmüyorsa (lobi) `state_version` oda sürümüdür.
+- `state_version` **iki ayrı sayaçtır**: `room.*` olayları oda sürümünü (`RoomView.version`), `game.*` olayları oyunun sürümünü (`game.state_version`) taşır; oyun sürerken iki akış aynı bağlantıda karışık gelir. Sürümsüz olaylar (`chat.message`, `game.player_connection`) sıraya girmez.
+- `session.snapshot` zarfında `state_version` yoktur; başlangıç değerleri yükten okunur: `room.version` ve (oyun varsa) `game.state_version`.
+- Aynı işlemin olayları aynı sürümü paylaşır: oda sahibi ayrılınca `room.member_left` + `room.host_changed`; başlatmada `game.started` + `game.your_cards` + `game.phase_changed` (sürüm 1).
+- İstemci kuralı (akış başına): bilinen sürümün +1'i yeni grubu açar ve iletilir; açık grubun sürümüyle gelen sonraki olaylar da iletilir; snapshot'taki sürüme eşit veya küçük olanlar yok sayılır; daha büyük bir boşlukta `sync` gönderilir ve yeni snapshot gelene kadar sürümlü olaylar atlanır. `room.returned_to_lobby` sonrası oyun sayacı sıfırlanır (yeni oyun 1'den başlar).
+- Olay üretmeden oda sürümünü artıran işlemler vardır (oyun başlatma ve bitişi oda sürümünü +1 yapar): sonraki ilk oda olayında istemci boşluk görür ve `sync` ile eşitlenir. Bu bilinçli bir sadeleştirmedir (nadir, kendiliğinden düzelir).
 
 ### İstemci → sunucu
 

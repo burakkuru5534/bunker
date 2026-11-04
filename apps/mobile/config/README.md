@@ -17,7 +17,7 @@ cp config/local.example.json config/local.json
 ```
 
 - **Android emülatörü:** `10.0.2.2` bilgisayarın `localhost`'udur — örnekteki değer olduğu gibi çalışır.
-- **Gerçek telefon (aynı Wi‑Fi):** `10.0.2.2` yerine bilgisayarın yerel IP'sini yazın (ör. `http://192.168.1.20:8080`).
+- **Gerçek telefon (aynı Wi‑Fi):** `10.0.2.2` yerine bilgisayarın yerel IP'sini yazın (ör. `http://192.168.1.20:8080`). IP'yi Windows'ta `ipconfig` → "IPv4 Address" satırı verir. Backend'i ilk çalıştırdığınızda Windows Güvenlik Duvarı izin sorarsa yalnızca **Özel ağlar**'a izin verin; telefon ve bilgisayar aynı Wi‑Fi'da olmalı (misafir ağları cihazları birbirinden ayırabilir). Telefonun tarayıcısında `http://<IP>:8080/health` açılıyorsa bağlantı hazırdır.
 
 ## Çalıştırma
 

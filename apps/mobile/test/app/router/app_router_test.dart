@@ -8,6 +8,7 @@ import 'package:siginak/app/router/app_router.dart';
 import 'package:siginak/app/router/app_routes.dart';
 import 'package:siginak/core/network/api_client_provider.dart';
 import 'package:siginak/core/network/update_required_provider.dart';
+import 'package:siginak/core/realtime/realtime_client_provider.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/session_store.dart';
 import 'package:siginak/core/ui/not_found_screen.dart';
@@ -22,6 +23,7 @@ import 'package:siginak/features/startup/presentation/update_required_screen.dar
 
 import '../../helpers/fake_backend.dart';
 import '../../helpers/fake_http_adapter.dart';
+import '../../helpers/fake_ws.dart';
 
 import '../../helpers/pump_app.dart';
 
@@ -29,7 +31,22 @@ void main() {
   const roomId = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
   late FakeBackend backend;
-  setUp(() => backend = FakeBackend());
+  late FakeWsConnector ws;
+  setUp(() {
+    backend = FakeBackend();
+    ws = FakeWsConnector();
+  });
+
+  /// Animasyonu süren ekranlarda (oda: bağlanıyor göstergesi) pumpAndSettle
+  /// bitmez; sabit sayıda kare ilerletilir.
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
+  /// Oda ekranının bağlandığı oda.
+  String? wsRoom() => ws.uris.lastOrNull?.queryParameters['room_id'];
 
   Future<ProviderContainer> startApp(
     WidgetTester tester, {
@@ -40,9 +57,12 @@ void main() {
       const SiginakApp(),
       wrapInMaterialApp: false,
       secureStore: store,
-      overrides: [apiHttpAdapterProvider.overrideWithValue(backend.adapter)],
+      overrides: [
+        apiHttpAdapterProvider.overrideWithValue(backend.adapter),
+        wsConnectorProvider.overrideWithValue(ws.call),
+      ],
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
     return ProviderScope.containerOf(tester.element(find.byType(SiginakApp)));
   }
 
@@ -94,10 +114,10 @@ void main() {
     await signIn(tester);
 
     await tester.tap(find.text('Oda oluştur'));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(RoomScreen), findsOneWidget);
-    expect(find.text('Oda: ${FakeBackend.createdRoomId}'), findsOneWidget);
+    expect(wsRoom(), FakeBackend.createdRoomId);
     expect(router(c).canPop(), isFalse);
   });
 
@@ -108,10 +128,10 @@ void main() {
     await tester.tap(find.text('Koda katıl'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'K7M2QX');
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(RoomScreen), findsOneWidget);
-    expect(find.text('Oda: ${FakeBackend.joinedRoomId}'), findsOneWidget);
+    expect(wsRoom(), FakeBackend.joinedRoomId);
     expect(router(c).canPop(), isFalse);
   });
 
@@ -120,10 +140,10 @@ void main() {
     await signIn(tester);
 
     router(c).go(AppRoutes.room(roomId));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.byType(RoomScreen), findsOneWidget);
-    expect(find.text('Oda: $roomId'), findsOneWidget);
+    expect(wsRoom(), roomId);
   });
 
   testWidgets('Geçersiz oda kimliği ve bilinmeyen adres bulunamadı gösterir', (
@@ -201,7 +221,7 @@ void main() {
     await startApp(tester, store: await storedSession());
 
     expect(find.byType(RoomScreen), findsOneWidget);
-    expect(find.text('Oda: $roomId'), findsOneWidget);
+    expect(wsRoom(), roomId);
   });
 
   testWidgets('Oturum doğrulanamazsa açılışta hata ve tekrar dene', (

@@ -603,6 +603,168 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Bu kod geçerli değil. Kontrol edip tekrar dene.'**
   String get joinInvalidCode;
+
+  /// No description provided for @roomLobbyTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Lobi'**
+  String get roomLobbyTitle;
+
+  /// No description provided for @roomLeave.
+  ///
+  /// In tr, this message translates to:
+  /// **'Odadan ayrıl'**
+  String get roomLeave;
+
+  /// No description provided for @roomLeaveTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Odadan ayrılmak istiyor musun?'**
+  String get roomLeaveTitle;
+
+  /// No description provided for @roomLeaveMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Lobiden ayrılırsan davet koduyla tekrar katılabilirsin.'**
+  String get roomLeaveMessage;
+
+  /// No description provided for @roomLeaveConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ayrıl'**
+  String get roomLeaveConfirm;
+
+  /// No description provided for @roomInviteCode.
+  ///
+  /// In tr, this message translates to:
+  /// **'Davet kodu'**
+  String get roomInviteCode;
+
+  /// No description provided for @roomCopy.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kopyala'**
+  String get roomCopy;
+
+  /// No description provided for @roomCopied.
+  ///
+  /// In tr, this message translates to:
+  /// **'Davet kodu kopyalandı'**
+  String get roomCopied;
+
+  /// No description provided for @roomCapacity.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığınak kapasitesi'**
+  String get roomCapacity;
+
+  /// No description provided for @roomCapacityHelp.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyun sonunda sığınağa girecek kişi sayısı'**
+  String get roomCapacityHelp;
+
+  /// No description provided for @roomCapacityValue.
+  ///
+  /// In tr, this message translates to:
+  /// **'{count} kişi'**
+  String roomCapacityValue(int count);
+
+  /// No description provided for @roomPlayers.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyuncular ({count}/{max})'**
+  String roomPlayers(int count, int max);
+
+  /// No description provided for @roomYou.
+  ///
+  /// In tr, this message translates to:
+  /// **'sen'**
+  String get roomYou;
+
+  /// No description provided for @roomReady.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hazırım'**
+  String get roomReady;
+
+  /// No description provided for @roomStart.
+  ///
+  /// In tr, this message translates to:
+  /// **'Başlat'**
+  String get roomStart;
+
+  /// No description provided for @roomStartTooFew.
+  ///
+  /// In tr, this message translates to:
+  /// **'Başlatmak için en az {min} oyuncu gerekli ({count}/{min})'**
+  String roomStartTooFew(int count, int min);
+
+  /// No description provided for @roomStartTooMany.
+  ///
+  /// In tr, this message translates to:
+  /// **'En fazla {max} oyuncuyla başlatılabilir'**
+  String roomStartTooMany(int max);
+
+  /// No description provided for @roomStartNotReady.
+  ///
+  /// In tr, this message translates to:
+  /// **'Herkesin hazır olması bekleniyor ({ready}/{total})'**
+  String roomStartNotReady(int ready, int total);
+
+  /// No description provided for @roomWaitingHost.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oda sahibinin oyunu başlatması bekleniyor.'**
+  String get roomWaitingHost;
+
+  /// No description provided for @roomKick.
+  ///
+  /// In tr, this message translates to:
+  /// **'Odadan at'**
+  String get roomKick;
+
+  /// No description provided for @roomKickTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} odadan atılsın mı?'**
+  String roomKickTitle(String name);
+
+  /// No description provided for @roomKickMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Atılan oyuncu bu odaya tekrar katılamaz.'**
+  String get roomKickMessage;
+
+  /// No description provided for @roomKickConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'At'**
+  String get roomKickConfirm;
+
+  /// No description provided for @roomConnecting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Odaya bağlanılıyor…'**
+  String get roomConnecting;
+
+  /// No description provided for @roomReconnect.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yeniden bağlan'**
+  String get roomReconnect;
+
+  /// No description provided for @roomGameStarted.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyun başladı.'**
+  String get roomGameStarted;
+
+  /// No description provided for @roomGameFinished.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oyun bitti.'**
+  String get roomGameFinished;
 }
 
 class _AppLocalizationsDelegate

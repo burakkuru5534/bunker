@@ -301,4 +301,98 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get joinInvalidCode =>
       'Bu kod geçerli değil. Kontrol edip tekrar dene.';
+
+  @override
+  String get roomLobbyTitle => 'Lobi';
+
+  @override
+  String get roomLeave => 'Odadan ayrıl';
+
+  @override
+  String get roomLeaveTitle => 'Odadan ayrılmak istiyor musun?';
+
+  @override
+  String get roomLeaveMessage =>
+      'Lobiden ayrılırsan davet koduyla tekrar katılabilirsin.';
+
+  @override
+  String get roomLeaveConfirm => 'Ayrıl';
+
+  @override
+  String get roomInviteCode => 'Davet kodu';
+
+  @override
+  String get roomCopy => 'Kopyala';
+
+  @override
+  String get roomCopied => 'Davet kodu kopyalandı';
+
+  @override
+  String get roomCapacity => 'Sığınak kapasitesi';
+
+  @override
+  String get roomCapacityHelp => 'Oyun sonunda sığınağa girecek kişi sayısı';
+
+  @override
+  String roomCapacityValue(int count) {
+    return '$count kişi';
+  }
+
+  @override
+  String roomPlayers(int count, int max) {
+    return 'Oyuncular ($count/$max)';
+  }
+
+  @override
+  String get roomYou => 'sen';
+
+  @override
+  String get roomReady => 'Hazırım';
+
+  @override
+  String get roomStart => 'Başlat';
+
+  @override
+  String roomStartTooFew(int count, int min) {
+    return 'Başlatmak için en az $min oyuncu gerekli ($count/$min)';
+  }
+
+  @override
+  String roomStartTooMany(int max) {
+    return 'En fazla $max oyuncuyla başlatılabilir';
+  }
+
+  @override
+  String roomStartNotReady(int ready, int total) {
+    return 'Herkesin hazır olması bekleniyor ($ready/$total)';
+  }
+
+  @override
+  String get roomWaitingHost => 'Oda sahibinin oyunu başlatması bekleniyor.';
+
+  @override
+  String get roomKick => 'Odadan at';
+
+  @override
+  String roomKickTitle(String name) {
+    return '$name odadan atılsın mı?';
+  }
+
+  @override
+  String get roomKickMessage => 'Atılan oyuncu bu odaya tekrar katılamaz.';
+
+  @override
+  String get roomKickConfirm => 'At';
+
+  @override
+  String get roomConnecting => 'Odaya bağlanılıyor…';
+
+  @override
+  String get roomReconnect => 'Yeniden bağlan';
+
+  @override
+  String get roomGameStarted => 'Oyun başladı.';
+
+  @override
+  String get roomGameFinished => 'Oyun bitti.';
 }

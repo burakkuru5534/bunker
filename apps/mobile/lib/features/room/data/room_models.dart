@@ -24,6 +24,14 @@ class RoomMember {
   final bool isReady;
   final bool connected;
 
+  RoomMember copyWith({bool? isReady, MemberRole? role}) => RoomMember(
+    userId: userId,
+    nickname: nickname,
+    role: role ?? this.role,
+    isReady: isReady ?? this.isReady,
+    connected: connected,
+  );
+
   static RoomMember fromJson(Object? json) {
     final m = _map(json);
     return RoomMember(
@@ -78,6 +86,35 @@ class RoomView {
 
   /// Aktif üyeler, katılma sırasıyla.
   final List<RoomMember> members;
+
+  /// Oyuncular (izleyiciler hariç).
+  Iterable<RoomMember> get players =>
+      members.where((m) => m.role == MemberRole.player);
+
+  RoomMember? memberOf(String? userId) {
+    for (final m in members) {
+      if (m.userId == userId) return m;
+    }
+    return null;
+  }
+
+  RoomView copyWith({
+    RoomStatus? status,
+    String? hostUserId,
+    int? capacity,
+    String? Function()? currentGameId,
+    int? version,
+    List<RoomMember>? members,
+  }) => RoomView(
+    id: id,
+    inviteCode: inviteCode,
+    status: status ?? this.status,
+    hostUserId: hostUserId ?? this.hostUserId,
+    capacity: capacity ?? this.capacity,
+    currentGameId: currentGameId != null ? currentGameId() : this.currentGameId,
+    version: version ?? this.version,
+    members: members != null ? List.unmodifiable(members) : this.members,
+  );
 
   /// Bozuk yanıtta `ApiException(invalidResponse)` fırlatır.
   static RoomView fromJson(Object? json) {

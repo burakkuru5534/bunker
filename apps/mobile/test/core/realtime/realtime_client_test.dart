@@ -70,26 +70,121 @@ void main() {
   });
 
   group('state_version', () {
+    /// Gerçek sunucu gibi: snapshot zarfında sürüm yok, sürümler payload'da.
+    void snapshot(FakeWsSocket s, {required int room, int? game}) =>
+        s.serverSend(
+          'session.snapshot',
+          payload: {
+            'room': {'version': room},
+            'game': game == null ? null : {'state_version': game},
+          },
+        );
+
+    List<String> delivered() => [
+      for (final e in events)
+        if (e.type != 'session.snapshot') '${e.type}@${e.stateVersion}',
+    ];
+
     test('snapshot sonrası sıralı olaylar iletilir, kopyalar atılır', () {
       fakeAsync((async) {
         setUpClient(async);
         connected(async);
         final s = connector.last;
 
+        snapshot(s, room: 3, game: 10);
         s
-          ..serverSend('session.snapshot', stateVersion: 10)
+          ..serverSend('game.phase_changed', stateVersion: 10) // snapshot'ta
           ..serverSend('game.phase_changed', stateVersion: 11)
-          ..serverSend('game.phase_changed', stateVersion: 11) // kopya
           ..serverSend('game.vote_progress', stateVersion: 9) // eski
           ..serverSend('game.card_revealed', stateVersion: 12);
         async.flushMicrotasks();
 
-        expect(events.map((e) => e.type), [
-          'session.snapshot',
-          'game.phase_changed',
-          'game.card_revealed',
+        expect(delivered(), ['game.phase_changed@11', 'game.card_revealed@12']);
+        expect(client.versionOf(VersionStream.game), 12);
+        expect(client.versionOf(VersionStream.room), 3);
+      });
+    });
+
+    test('aynı işlemin aynı sürümlü olayları birlikte iletilir', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        final s = connector.last;
+
+        snapshot(s, room: 5);
+        s
+          // Oda sahibi ayrıldı: member_left + host_changed aynı sürüm.
+          ..serverSend('room.member_left', stateVersion: 6)
+          ..serverSend('room.host_changed', stateVersion: 6)
+          // Oyun başladı: üç olay oyun sürümü 1 ile.
+          ..serverSend('game.started', stateVersion: 1)
+          ..serverSend('game.your_cards', stateVersion: 1)
+          ..serverSend('game.phase_changed', stateVersion: 1)
+          ..serverSend('game.phase_changed', stateVersion: 2);
+        async.flushMicrotasks();
+
+        expect(delivered(), [
+          'room.member_left@6',
+          'room.host_changed@6',
+          'game.started@1',
+          'game.your_cards@1',
+          'game.phase_changed@1',
+          'game.phase_changed@2',
         ]);
-        expect(client.stateVersion, 12);
+        expect(sentTypes(s), isEmpty);
+      });
+    });
+
+    test('oda ve oyun sürümleri birbirini etkilemez', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        final s = connector.last;
+
+        snapshot(s, room: 8, game: 40);
+        s
+          ..serverSend('game.vote_progress', stateVersion: 41)
+          ..serverSend('room.member_left', stateVersion: 9) // oyunda ayrılma
+          ..serverSend('game.player_eliminated', stateVersion: 42);
+        async.flushMicrotasks();
+
+        expect(delivered(), [
+          'game.vote_progress@41',
+          'room.member_left@9',
+          'game.player_eliminated@42',
+        ]);
+        expect(sentTypes(s), isEmpty);
+      });
+    });
+
+    test('snapshot\'ta görülen sürüm, açık grup sayılmaz', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        final s = connector.last;
+
+        snapshot(s, room: 6);
+        s.serverSend('room.host_changed', stateVersion: 6); // eski kuyruk
+        async.flushMicrotasks();
+
+        expect(delivered(), isEmpty);
+      });
+    });
+
+    test('lobiye dönünce oyun sürümü sıfırlanır', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        final s = connector.last;
+
+        snapshot(s, room: 10, game: 30);
+        s
+          ..serverSend('room.returned_to_lobby', stateVersion: 11)
+          ..serverSend('game.started', stateVersion: 1); // yeni oyun
+        async.flushMicrotasks();
+
+        expect(delivered(), ['room.returned_to_lobby@11', 'game.started@1']);
+        expect(client.versionOf(VersionStream.game), 1);
       });
     });
 
@@ -101,16 +196,21 @@ void main() {
           connected(async);
           final s = connector.last;
 
+          snapshot(s, room: 2, game: 10);
           s
-            ..serverSend('session.snapshot', stateVersion: 10)
             ..serverSend('game.phase_changed', stateVersion: 13) // boşluk
             ..serverSend('game.phase_changed', stateVersion: 14) // atlanır
-            ..serverSend('session.snapshot', stateVersion: 14)
-            ..serverSend('game.card_revealed', stateVersion: 15);
+            ..serverSend('room.member_left', stateVersion: 3); // atlanır
+          snapshot(s, room: 3, game: 14);
+          s.serverSend('game.card_revealed', stateVersion: 15);
           async.flushMicrotasks();
 
           expect(sentTypes(s), ['sync']);
-          expect(events.map((e) => e.stateVersion), [10, 14, 15]);
+          expect(delivered(), ['game.card_revealed@15']);
+          expect(
+            events.where((e) => e.type == 'session.snapshot'),
+            hasLength(2),
+          );
         });
       },
     );
@@ -124,6 +224,18 @@ void main() {
         async.flushMicrotasks();
 
         expect(events, isEmpty);
+      });
+    });
+
+    test('sürümsüz oyun olayı (bağlantı durumu) her zaman iletilir', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        snapshot(connector.last, room: 1, game: 5);
+        connector.last.serverSend('game.player_connection');
+        async.flushMicrotasks();
+
+        expect(events.last.type, 'game.player_connection');
       });
     });
 
@@ -238,18 +350,29 @@ void main() {
       fakeAsync((async) {
         setUpClient(async);
         connected(async);
-        connector.last.serverSend('session.snapshot', stateVersion: 3);
+        connector.last.serverSend(
+          'session.snapshot',
+          payload: {
+            'room': {'version': 3},
+          },
+        );
         async.flushMicrotasks();
 
         connector.last.serverClose(1006);
         async.elapse(const Duration(seconds: 1));
-        connector.last.serverSend('game.phase_changed', stateVersion: 4);
+        connector.last.serverSend('room.member_left', stateVersion: 4);
         async.flushMicrotasks();
-        expect(events.map((e) => e.stateVersion), [3]); // snapshot bekleniyor
+        expect(events.map((e) => e.type), ['session.snapshot']); // bekleniyor
 
-        connector.last.serverSend('session.snapshot', stateVersion: 7);
+        connector.last.serverSend(
+          'session.snapshot',
+          payload: {
+            'room': {'version': 7},
+          },
+        );
         async.flushMicrotasks();
-        expect(events.map((e) => e.stateVersion), [3, 7]);
+        expect(events, hasLength(2));
+        expect(client.versionOf(VersionStream.room), 7);
       });
     });
   });

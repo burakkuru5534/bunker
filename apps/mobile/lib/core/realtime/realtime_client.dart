@@ -41,6 +41,19 @@ enum RealtimeStopReason {
   replaced,
 }
 
+/// Sürüm akışı: oda olayları ve oyun olayları ayrı sayaç taşır.
+enum VersionStream {
+  room,
+  game;
+
+  /// Olay türünün akışı; sürümsüz türler için `null`.
+  static VersionStream? of(String type) => type.startsWith('room.')
+      ? room
+      : type.startsWith('game.')
+      ? game
+      : null;
+}
+
 @immutable
 class RealtimeState {
   const RealtimeState(this.status, {this.stopReason, this.roomId});
@@ -64,8 +77,14 @@ class RealtimeState {
 ///
 /// - Bir anda tek odaya bağlanır (`/v1/ws?room_id=...`).
 /// - Token `Authorization` başlığıyla gider; **URL'ye yazılmaz**.
-/// - `state_version` izlenir: kopya/eski olaylar atılır, boşluk görülürse
-///   `sync` istenir (yeni `session.snapshot` gelene kadar olay atlanır).
+/// - Sürümler iki ayrı akışta izlenir (docs/api.md §5 "Zarf"): `room.*`
+///   olayları oda sürümünü, `game.*` olayları oyun sürümünü taşır. Başlangıç
+///   değerleri `session.snapshot` içinden gelir (`room.version`,
+///   `game.state_version`). Aynı işlemin olayları aynı sürümü paylaşır
+///   (ör. `member_left` + `host_changed`, `game.started` + `your_cards` +
+///   `phase_changed`): bilinen sürümün +1'i yeni bir grubu açar, açık grubun
+///   sürümüyle gelen olaylar da iletilir. Eski/kopya olaylar atılır; boşlukta
+///   `sync` istenir (yeni snapshot gelene kadar sürümlü olay atlanır).
 /// - Beklenmedik kopmalarda üstel geri çekilmeyle yeniden bağlanır
 ///   (0,5 sn → en fazla 10 sn, ±%20 rastgele sapma).
 /// - 4001 / 4003 / 4008 / 4026 kodlarında yeniden denemez.
@@ -103,7 +122,8 @@ class RealtimeClient {
   Timer? _retryTimer;
   int _attempt = 0;
   int _generation = 0;
-  int? _stateVersion;
+  final Map<VersionStream, int?> _known = {};
+  final Set<VersionStream> _openBatch = {};
   bool _awaitingSnapshot = false;
   bool _disposed = false;
 
@@ -115,8 +135,8 @@ class RealtimeClient {
 
   RealtimeState get state => _state;
 
-  /// Bilinen son `state_version`.
-  int? get stateVersion => _stateVersion;
+  /// Akışın bilinen son sürümü (snapshot öncesi `null`).
+  int? versionOf(VersionStream stream) => _known[stream];
 
   /// Odaya bağlanır. Başka bir odaya bağlıysa önce o bağlantıyı kapatır.
   void connect(String roomId) {
@@ -129,7 +149,7 @@ class RealtimeClient {
     _teardown(closeCode: 1000);
     _roomId = roomId;
     _attempt = 0;
-    _stateVersion = null;
+    _resetVersions();
     _awaitingSnapshot = true;
     _setState(RealtimeStatus.connecting);
     unawaited(_open());
@@ -140,7 +160,7 @@ class RealtimeClient {
     final socket = _socket;
     _teardown();
     _roomId = null;
-    _stateVersion = null;
+    _resetVersions();
     _setState(RealtimeStatus.idle);
     await socket?.close(1000);
   }
@@ -228,29 +248,59 @@ class RealtimeClient {
     if (envelope == null) return;
 
     if (envelope.type == 'session.snapshot') {
-      _stateVersion = envelope.stateVersion;
+      _applySnapshotVersions(envelope.payload);
       _awaitingSnapshot = false;
       _events.add(envelope);
       return;
     }
 
     final version = envelope.stateVersion;
-    if (version == null) {
-      _events.add(envelope); // ör. chat.message — sürümsüz
+    final stream = VersionStream.of(envelope.type);
+    if (version == null || stream == null) {
+      _events.add(envelope); // ör. chat.message, game.player_connection
       return;
     }
     if (_awaitingSnapshot) return; // snapshot gelince zaten güncellenecek
 
-    final known = _stateVersion;
+    final known = _known[stream];
     if (known == null || version == known + 1) {
-      _stateVersion = version;
-      _events.add(envelope);
+      _known[stream] = version;
+      _openBatch.add(stream);
+      _deliver(envelope);
+    } else if (version == known && _openBatch.contains(stream)) {
+      _deliver(envelope); // aynı işlemin bir sonraki olayı
     } else if (version <= known) {
-      // kopya veya eski olay: yok say
+      // kopya veya snapshot'tan önce kuyruğa girmiş eski olay: yok say
     } else {
-      _log('sürüm boşluğu: $known → $version, sync isteniyor');
+      _log('sürüm boşluğu (${stream.name}): $known → $version, sync');
       requestSync();
     }
+  }
+
+  void _deliver(WsEnvelope envelope) {
+    // Lobiye dönüş: sonraki oyun sürümleri yeniden 1'den başlar.
+    if (envelope.type == 'room.returned_to_lobby') {
+      _known[VersionStream.game] = null;
+      _openBatch.remove(VersionStream.game);
+    }
+    _events.add(envelope);
+  }
+
+  void _applySnapshotVersions(Map<String, Object?> payload) {
+    _resetVersions();
+    final room = payload['room'];
+    if (room is Map<String, Object?> && room['version'] is int) {
+      _known[VersionStream.room] = room['version']! as int;
+    }
+    final game = payload['game'];
+    if (game is Map<String, Object?> && game['state_version'] is int) {
+      _known[VersionStream.game] = game['state_version']! as int;
+    }
+  }
+
+  void _resetVersions() {
+    _known.clear();
+    _openBatch.clear();
   }
 
   void _onClosed(int generation, WsSocket socket) {

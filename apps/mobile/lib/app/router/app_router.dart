@@ -66,7 +66,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           if (!AppRoutes.isValidRoomId(roomId)) {
             return NotFoundScreen(onGoHome: () => context.go(AppRoutes.home));
           }
-          return RoomScreen(roomId: roomId);
+          return RoomScreen(
+            roomId: roomId,
+            onExit: () => context.go(AppRoutes.home),
+          );
         },
       ),
       GoRoute(
