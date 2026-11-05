@@ -35,6 +35,7 @@ Toplu silmeler küçük partilerle ve **`id = any(array(select id … order by �
 | Hareketsiz açık odalar (ROOM-010) | `status <> 'closed' and status <> 'in_game' and updated_at < $1` (kapatmadan önce kilitli yeniden denetim + kimse bağlı değil) | `rooms_open_updated_at_idx` (kısmi, 0005) |
 | Eski kapalı odalar (ROOM-010) | `status = 'closed' and closed_at < $1`, 500'lük partiler | `rooms_closed_at_idx` (kısmi, 0005) |
 | Sonuçlanmış raporlar (SAFE-009, 180 gün) | `status in (actioned, dismissed) and resolved_at < $1`, partiler | `reports_resolved_at_idx` (kısmi, 0006) |
+| Kullanılmayan hesaplar (SAFE-014, 90 gün) | `deleted_at is null and last_seen_at < $1` + oturum ve aktif oda yok (`not exists`), `order by last_seen_at`, partiler; her hesap kilitli yeniden denetimle | `users_active_last_seen_idx` (kısmi, 0008) |
 | Moderasyon kuyruğu | `status in ('open', 'reviewing') order by created_at` | `reports_queue_idx` (kısmi) |
 
 ## Yabancı anahtar indeksleri

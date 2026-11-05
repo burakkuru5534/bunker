@@ -16,7 +16,7 @@ Ayrıntı: [ADR-0008](decisions/0008-opaque-session-tokens.md).
 | İptal | `sessions.revoked_at`; doğrulama her istekte sunucu tarafında yapılır |
 | Doğrulama maliyeti | Bellekte kısa ömürlü (≤60 sn) önbellek; iptal edilen oturum en geç 60 sn içinde geçersiz olur |
 | Taşıma | REST: `Authorization: Bearer`. WS: `Authorization` başlığı. **Token URL'de asla yer almaz.** |
-| Kurtarma | Uygulama silinirse / cihaz değişirse misafir hesabı kurtarılamaz; kullanıcıya ilk açılışta bildirilir |
+| Kurtarma | Uygulama silinirse / cihaz değişirse misafir hesabı kurtarılamaz; kullanıcıya ilk açılışta bildirilir. Erişilemeyen hesap 90 gün sonra otomatik silinir (§6) |
 | Token biçimi (AUTH-001) | 32 bayt → base64url **dolgusuz, 43 karakter**. Hash ham 32 bayt üzerinden SHA-256. Biçimi bozuk token veritabanına sorulmadan `401` alır (`auth.HashToken`). `Bearer` şema adı büyük/küçük harf duyarsız |
 | Takma ad (AUTH-001) | NFC + kırpma; 3–16 karakter; **yalnızca Latin alfabesi** harfleri (Türkçe dahil), 0–9, boşluk, `_`; en az bir harf; ardışık boşluk yok; ayrılmış adlar yok; küfür filtresi (SAFE-013). Latin'e benzeyen başka alfabe harfleriyle (ör. Kiril "а") başkasını taklit etme ve birleşik işaret yığınları engellenir. Karşılaştırma Türkçe kurallarıyla (`IŞIK` = `ışık`, `I` ≠ `i`) |
 | Son kullanım yazımı (AUTH-001) | `sessions.last_used_at` ve `users.last_seen_at` her istekte değil, **en fazla saatte bir** güncellenir (istek başına yazma olmasın) |
@@ -91,6 +91,7 @@ Bellek içi token bucket (tek instance olduğu için yeterli).
 | Oyun sonuçları, kartlar, tur sonuçları | Kalıcı (kullanıcı silme talebinde anonimleştirilir) |
 | Oylar (`votes`) | Kalıcı, yalnızca sunucu |
 | Oturumlar | Süresi dolunca silinir |
+| Hesaplar | Kullanıcı silene kadar (`DELETE /v1/me`). **90 gündür kullanılmayan** (`last_seen_at`), oturumu ve aktif odası kalmamış hesap — artık hiçbir cihazdan erişilemez — bakım işinde `DELETE /v1/me` ile aynı şekilde anonimleştirilir (SAFE-014; `account.Anonymize`) |
 | Odalar | Lobide/bitmiş, 6 saattir hareketsiz ve kimse bağlı değilse kapanır (üyeler serbest bırakılır); kapandıktan 7 gün sonra silinir. Oyunlar ve raporlar kalır, oda bağları boşalır |
 | Raporlar | Açık/incelemedeki raporlar silinmez; sonuçlanan (actioned/dismissed) rapor sonuçlandıktan **180 gün** sonra silinir. Rapor, odanın son 50 mesajının kopyasını içerir; sohbetin 30 günlük silinmesinden etkilenmez |
 

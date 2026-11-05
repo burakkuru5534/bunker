@@ -3,6 +3,7 @@ package maintenance
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -196,5 +197,116 @@ func TestStartStop(t *testing.T) {
 	}
 	if err := job.Stop(context.Background()); err != nil { // ikinci Stop güvenli
 		t.Fatal(err)
+	}
+}
+
+// SAFE-014: 90 gündür kullanılmayan, oturumu ve aktif odası kalmamış hesap
+// DELETE /v1/me ile aynı şekilde anonimleştirilir; diğerlerine dokunulmaz.
+func TestIntegrationInactiveUsers(t *testing.T) {
+	db := testdb.New(t)
+	e := env{t, db}
+	old := func(nick string, days int) string {
+		return e.id(`insert into users (nickname, created_at, last_seen_at)
+			values ($1, now() - $2::interval, now() - $2::interval) returning id::text`, nick, fmt.Sprintf("%d days", days))
+	}
+	orphan := old("Yetim", 91)          // silinir
+	expired := old("Suresi", 95)        // süresi dolmuş oturumu var: önce oturum, sonra hesap silinir
+	recent := old("Yakin", 89)          // 90 gün dolmadı
+	withSession := old("Oturumlu", 120) // geçerli oturumu var (ör. saat farkı): kalır
+	inRoom := old("Odada", 120)         // aktif odası var: kalır
+	friend := e.user("Arkadas")
+	already := old("Silinmis", 200)
+	e.exec(`update users set deleted_at = now() - interval '1 day' where id = $1`, already)
+
+	e.exec(`insert into sessions (user_id, token_hash, created_at, expires_at) values
+		($1, sha256('x'::bytea), now() - interval '95 days', now() - interval '5 days'),
+		($2, sha256('y'::bytea), now(), now() + interval '1 day')`, expired, withSession)
+	r := e.room("KNACAA", "in_game", 0, inRoom, friend)
+	e.exec(`insert into room_members (room_id, user_id, nickname, role, left_at) values ($1, $2, 'EskiAd', 'player', now() - interval '100 days')`,
+		e.room("XYDRAA", "lobby", 0, e.user("Evsahibi")), orphan)
+	e.exec(`insert into chat_messages (room_id, user_id, client_msg_id, body) values ($1, $2, gen_random_uuid(), 'merhaba')`, r, inRoom)
+	e.exec(`insert into blocks (blocker_id, blocked_id) values ($1, $2), ($2, $1), ($3, $2)`, orphan, friend, recent)
+
+	job := newJob(t, db, nil)
+	st, err := job.RunOnce(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.InactiveUsers != 2 || st.Sessions != 1 {
+		t.Fatalf("istatistik %+v; 2 hesap ve 1 oturum beklenir", st)
+	}
+	deleted := func(id string) bool {
+		return e.count(`select count(*) from users where id = $1 and deleted_at is not null and nickname = 'Silinmiş oyuncu'`, id) == 1
+	}
+	for id, want := range map[string]bool{orphan: true, expired: true, recent: false, withSession: false, inRoom: false, friend: false} {
+		if deleted(id) != want {
+			t.Errorf("kullanıcı %s silindi=%v, beklenen %v", id, !want, want)
+		}
+	}
+	// Anonimleştirme DELETE /v1/me ile aynı: geçmiş üyelikteki ad, engellemeler.
+	if e.count(`select count(*) from room_members where user_id = $1 and nickname = 'Silinmiş oyuncu'`, orphan) != 1 {
+		t.Error("geçmiş üyelikteki takma ad anonimleşmedi")
+	}
+	if e.count(`select count(*) from blocks where blocker_id = $1 or blocked_id = $1`, orphan) != 0 ||
+		e.count(`select count(*) from blocks`) != 1 {
+		t.Error("engellemeler yanlış silindi")
+	}
+	if e.count(`select count(*) from chat_messages where user_id = $1`, inRoom) != 1 {
+		t.Error("odadaki kullanıcının mesajı silindi")
+	}
+	// Daha önce silinmiş hesabın silinme zamanı değişmez (yeniden işlenmez).
+	if e.count(`select count(*) from users where id = $1 and deleted_at < now() - interval '12 hours'`, already) != 1 {
+		t.Error("silinmiş hesap yeniden işlendi")
+	}
+	if st, err := job.RunOnce(context.Background()); err != nil || st != (Stats{}) {
+		t.Fatalf("ikinci çalıştırma %+v %v", st, err)
+	}
+}
+
+// Seçimden sonra hesap kullanılırsa (kilitli yeniden denetim) silinmez.
+func TestIntegrationInactiveUserRecheck(t *testing.T) {
+	db := testdb.New(t)
+	e := env{t, db}
+	u := e.id(`insert into users (nickname, last_seen_at) values ('Geri', now() - interval '100 days') returning id::text`)
+	job := newJob(t, db, nil)
+	cutoff := time.Now().Add(-DefaultRetention.InactiveUser)
+	e.exec(`update users set last_seen_at = now() where id = $1`, u)
+	if ok, err := job.deleteInactiveUser(context.Background(), u, cutoff); err != nil || ok {
+		t.Fatalf("kullanılan hesap silindi: %v %v", ok, err)
+	}
+	e.exec(`update users set last_seen_at = now() - interval '100 days' where id = $1`, u)
+	e.exec(`insert into sessions (user_id, token_hash, expires_at) values ($1, sha256('z'::bytea), now() + interval '1 day')`, u)
+	if ok, _ := job.deleteInactiveUser(context.Background(), u, cutoff); ok {
+		t.Fatal("oturumu olan hesap silindi")
+	}
+	e.exec(`delete from sessions where user_id = $1`, u)
+	if ok, err := job.deleteInactiveUser(context.Background(), u, cutoff); err != nil || !ok {
+		t.Fatalf("aday hesap silinmedi: %v %v", ok, err)
+	}
+}
+
+// Uygun olmayan hesaplar aday sorgusuna girmemeli: girseydi en eski oldukları
+// için partiyi doldurur, "ilerleme yok" ile çalıştırma erken biterdi.
+func TestIntegrationInactiveUsersSkipIneligibleCandidates(t *testing.T) {
+	db := testdb.New(t)
+	e := env{t, db}
+	user := func(nick string, days int) string {
+		return e.id(`insert into users (nickname, last_seen_at) values ($1, now() - $2::interval) returning id::text`,
+			nick, fmt.Sprintf("%d days", days))
+	}
+	gone := user("Silinmis", 300)
+	e.exec(`update users set deleted_at = now() - interval '200 days' where id = $1`, gone)
+	withSession := user("Oturumlu", 250)
+	e.exec(`insert into sessions (user_id, token_hash, expires_at) values ($1, sha256('s'::bytea), now() + interval '1 day')`, withSession)
+	e.room("SKPAAA", "in_game", 0, user("Odada", 200))
+	for i, d := range []int{120, 110, 100} {
+		user(fmt.Sprintf("Aday%d", i), d)
+	}
+
+	job := newJob(t, db, nil)
+	job.ret.Batch, job.ret.MaxBatches = 1, 5
+	st, err := job.RunOnce(context.Background())
+	if err != nil || st.InactiveUsers != 3 {
+		t.Fatalf("%d hesap silindi (3 beklenir) %v", st.InactiveUsers, err)
 	}
 }

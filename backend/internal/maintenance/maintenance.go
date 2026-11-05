@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/burakkuru5534/bunker/backend/internal/account"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
 )
@@ -25,6 +26,7 @@ type Retention struct {
 	AbandonedRoom  time.Duration // lobide/bitmiş, hareketsiz ve kimsenin bağlı olmadığı oda kapanır
 	ClosedRoom     time.Duration // kapalı oda silinir (oyunlar ve raporlar kalır)
 	ResolvedReport time.Duration // sonuçlanmış rapor silinir (açık raporlar kalır)
+	InactiveUser   time.Duration // bu kadar kullanılmayan, oturumu kalmamış hesap silinir (SAFE-014)
 	Batch          int           // parti büyüklüğü
 	MaxBatches     int           // iş başına çalıştırma başına en fazla parti
 }
@@ -32,16 +34,16 @@ type Retention struct {
 // DefaultRetention, üretim değerleridir.
 var DefaultRetention = Retention{
 	Chat: 30 * 24 * time.Hour, AbandonedRoom: 6 * time.Hour, ClosedRoom: 7 * 24 * time.Hour,
-	ResolvedReport: 180 * 24 * time.Hour, Batch: 500, MaxBatches: 20,
+	ResolvedReport: 180 * 24 * time.Hour, InactiveUser: 90 * 24 * time.Hour, Batch: 500, MaxBatches: 20,
 }
 
 // Stats, bir çalıştırmanın sonucudur.
 type Stats struct {
-	ChatMessages, Sessions, AbandonedRooms, ClosedRooms, Reports int
+	ChatMessages, Sessions, AbandonedRooms, ClosedRooms, Reports, InactiveUsers int
 }
 
 func (s Stats) total() int {
-	return s.ChatMessages + s.Sessions + s.AbandonedRooms + s.ClosedRooms + s.Reports
+	return s.ChatMessages + s.Sessions + s.AbandonedRooms + s.ClosedRooms + s.Reports + s.InactiveUsers
 }
 
 // Job, temizlik işidir.
@@ -90,6 +92,10 @@ func (j *Job) RunOnce(ctx context.Context) (Stats, error) {
 		select id from sessions where expires_at < $1 order by expires_at limit $2))`, now)
 	keep(err)
 	st.AbandonedRooms, err = j.closeAbandoned(ctx, now.Add(-j.ret.AbandonedRoom))
+	keep(err)
+	// Oturumlar ve terk edilmiş odalar önce temizlenir: aday hesabın oturumu
+	// ve aktif odası kalmamış olmalı.
+	st.InactiveUsers, err = j.deleteInactiveUsers(ctx, now.Add(-j.ret.InactiveUser))
 	keep(err)
 	// Oda silinince üyelikler ve mesajlar da silinir (cascade); oyunlar ve
 	// raporlar kalır, odaya bağları boşalır (set null).
@@ -225,6 +231,84 @@ func (j *Job) closeRoom(ctx context.Context, roomID string, cutoff time.Time) (b
 	return ok, err
 }
 
+// inactiveUsersSQL, silinecek hesap adaylarıdır: cutoff'tan beri kullanılmamış,
+// hiç oturumu kalmamış (misafir hesaba artık hiçbir cihazdan erişilemez) ve
+// aktif odası olmayan. Oturum en geç son kullanımdan 90 gün sonra dolar
+// (security.md §1), bu yüzden 90 günlük cutoff'ta oturum zaten kalmamıştır.
+const inactiveUsersSQL = `select id::text from users u
+	where deleted_at is null and last_seen_at < $1
+	  and not exists (select 1 from sessions s where s.user_id = u.id)
+	  and not exists (select 1 from room_members m where m.user_id = u.id and m.left_at is null)
+	order by last_seen_at limit $2`
+
+// deleteInactiveUsers, kullanılmayan misafir hesapları DELETE /v1/me ile aynı
+// şekilde anonimleştirir (SAFE-014). Her hesap ayrı transaction'da, satır
+// kilidiyle koşullar yeniden denetlenerek silinir.
+func (j *Job) deleteInactiveUsers(ctx context.Context, cutoff time.Time) (int, error) {
+	deleted := 0
+	for range j.ret.MaxBatches {
+		var ids []string
+		err := j.db.Read(ctx, func(q persistence.Querier) error {
+			rows, err := q.Query(ctx, inactiveUsersSQL, cutoff, j.ret.Batch)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var id string
+				if err := rows.Scan(&id); err != nil {
+					return err
+				}
+				ids = append(ids, id)
+			}
+			return rows.Err()
+		})
+		if err != nil {
+			return deleted, err
+		}
+		progressed := false
+		for _, id := range ids {
+			ok, err := j.deleteInactiveUser(ctx, id, cutoff)
+			if err != nil {
+				return deleted, err
+			}
+			if ok {
+				deleted++
+				progressed = true
+			}
+		}
+		if len(ids) < j.ret.Batch || !progressed {
+			break
+		}
+	}
+	return deleted, nil
+}
+
+// deleteInactiveUser, kullanıcı satırını kilitleyip koşulları yeniden
+// denetler (seçimden sonra kullanılmış olabilir) ve anonimleştirir.
+func (j *Job) deleteInactiveUser(ctx context.Context, userID string, cutoff time.Time) (bool, error) {
+	var ok bool
+	err := j.db.Tx(ctx, func(tx pgx.Tx) error {
+		var eligible bool
+		err := tx.QueryRow(ctx, `select u.deleted_at is null and u.last_seen_at < $2
+			and not exists (select 1 from sessions s where s.user_id = u.id)
+			and not exists (select 1 from room_members m where m.user_id = u.id and m.left_at is null)
+			from users u where u.id = $1 for update`, userID, cutoff).Scan(&eligible)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && !eligible) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := account.Anonymize(ctx, tx, userID); err != nil {
+			return err
+		}
+		ok = true
+		return nil
+	})
+	return ok, err
+}
+
 // Start, işi arka planda çalıştırır: ilk çalıştırma firstDelay sonra
 // (açılış yükünü artırmasın diye), sonra her interval'de.
 func (j *Job) Start(firstDelay, interval time.Duration) {
@@ -256,7 +340,7 @@ func (j *Job) Start(firstDelay, interval time.Duration) {
 				j.logger.Warn("temizlik işi hatayla bitti", "error", err, "stats", st)
 			case st.total() > 0:
 				j.logger.Info("temizlik işi", "chat_messages", st.ChatMessages, "sessions", st.Sessions,
-					"abandoned_rooms", st.AbandonedRooms, "closed_rooms", st.ClosedRooms, "reports", st.Reports,
+					"abandoned_rooms", st.AbandonedRooms, "closed_rooms", st.ClosedRooms, "reports", st.Reports, "inactive_users", st.InactiveUsers,
 					"duration", time.Since(start).String())
 			}
 		}

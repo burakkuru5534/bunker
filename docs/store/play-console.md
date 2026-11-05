@@ -20,7 +20,7 @@ Uygulama misafir hesap açar (benzersiz, kalıcı kimlik) → Play'in hesap silm
 | Web'den silme bağlantısı | `…/gizlilik.html#hesap-silme` (bölümde e-posta ile talep yolu var) | Play: yeniden yükleme gerektirmeyen web yolu zorunlu |
 | Silinen / tutulan veri | Oturumlar, sohbet mesajları, engellemeler silinir; takma ad her yerde "Silinmiş oyuncu" olur; oyun sonuçları adsız kalır; raporlar güvenlik amacıyla belirtilen süre boyunca tutulur | `internal/account`, security.md §6 |
 
-**Açık konu:** Uygulamayı silen veya cihazını değiştiren misafir kullanıcı, e-postayla silme isteğinde hesabını kanıtlayamaz (hesapta e-posta yok, takma ad benzersiz değil). Öneri: oturumu 90 gündür kullanılmayan (artık hiçbir cihazdan erişilemeyen) misafir hesapları otomatik silmek/anonimleştirmek. Play de "toplanan veriyi 90 gün içinde otomatik silme/anonimleştirme"yi silme yolu olarak kabul ediyor. Bu, ayrı bir görevde yapılacak (SAFE-014); yapılınca gizlilik metnine eklenir.
+Erişimi kaybeden kullanıcı: Uygulamayı silen veya cihazını değiştiren misafir kullanıcı, e-postayla silme isteğinde hesabını kanıtlayamaz (hesapta e-posta yok, takma ad benzersiz değil). Bu yüzden 90 gün kullanılmayan, oturumu kalmamış hesaplar bakım işinde otomatik anonimleştirilir (SAFE-014). Play de "toplanan veriyi 90 gün içinde otomatik silme/anonimleştirme"yi silme yolu olarak kabul eder. Gizlilik metninin silme bölümü e-posta talebini ve bu kuralı açıklar.
 
 ## 3. Veri güvenliği (Data safety) formu
 

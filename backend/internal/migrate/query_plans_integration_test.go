@@ -92,6 +92,12 @@ var hotQueries = []planQuery{
 		select id from reports where status in ('actioned', 'dismissed') and resolved_at < $1
 		order by resolved_at limit 500))`,
 		func(s *seedIDs) []any { return []any{s.cutoff} }, "reports_resolved_at_idx"},
+	{"kullanılmayan hesaplar", `select id::text from users u
+		where deleted_at is null and last_seen_at < $1
+		  and not exists (select 1 from sessions s where s.user_id = u.id)
+		  and not exists (select 1 from room_members m where m.user_id = u.id and m.left_at is null)
+		order by last_seen_at limit 500`,
+		func(s *seedIDs) []any { return []any{s.cutoff} }, "users_active_last_seen_idx"},
 	{"moderasyon kuyruğu", `select id, reason, created_at from reports where status in ('open', 'reviewing')
 		order by created_at limit 50`,
 		func(*seedIDs) []any { return nil }, "reports_queue_idx"},

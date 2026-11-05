@@ -36,10 +36,7 @@ func NewService(db *persistence.DB, a *auth.Service, rooms *room.Service, logger
 // Delete, hesabı siler (docs/security.md §1):
 //  1. Aktif odadan "Ayrıl" ile aynı yoldan ayrılır (oyundaysa oyunda da
 //     elenmiş sayılır; sahiplik devredilir).
-//  2. Tek transaction'da: takma ad "Silinmiş oyuncu" ve deleted_at (oyun
-//     geçmişinde böyle görünür), geçmiş oda üyeliklerindeki takma ad da;
-//     tüm oturumlar, kendi sohbet mesajları ve engelleme kayıtları (iki yönde)
-//     silinir.
+//  2. Tek transaction'da Anonymize.
 //  3. Oturum önbelleği düşürülür (açık istekler bile artık doğrulanamaz).
 //
 // Raporlar moderasyon için kalır (reporter_id/reported_id kullanıcıya bağlı;
@@ -58,31 +55,39 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal) error {
 			return err
 		}
 	}
-	err = s.db.Tx(ctx, func(tx pgx.Tx) error {
-		for _, q := range []string{
-			`update users set nickname = $2, deleted_at = coalesce(deleted_at, now()) where id = $1`,
-			`update room_members set nickname = $2 where user_id = $1`,
-		} {
-			if _, err := tx.Exec(ctx, q, p.UserID, auth.DeletedNickname); err != nil {
-				return err
-			}
-		}
-		for _, q := range []string{
-			`delete from sessions where user_id = $1`,
-			`delete from chat_messages where user_id = $1`,
-			`delete from blocks where blocker_id = $1 or blocked_id = $1`,
-		} {
-			if _, err := tx.Exec(ctx, q, p.UserID); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	err = s.db.Tx(ctx, func(tx pgx.Tx) error { return Anonymize(ctx, tx, p.UserID) })
 	if err != nil {
 		return err
 	}
 	s.auth.ForgetUser(p.UserID)
 	s.logger.Info("hesap silindi", "user_id", p.UserID, "left_room", roomID != "")
+	return nil
+}
+
+// Anonymize, hesap silmenin veritabanı kısmıdır (tek transaction içinde
+// çağrılır): takma ad "Silinmiş oyuncu" ve deleted_at (oyun geçmişinde böyle
+// görünür), geçmiş oda üyeliklerindeki takma ad da; tüm oturumlar, kendi
+// sohbet mesajları ve engelleme kayıtları (iki yönde) silinir. Aktif odadan
+// ayrılma ve oturum önbelleği çağıranın işidir. Hem DELETE /v1/me hem
+// kullanılmayan hesap temizliği (internal/maintenance, SAFE-014) kullanır.
+func Anonymize(ctx context.Context, tx pgx.Tx, userID string) error {
+	for _, q := range []string{
+		`update users set nickname = $2, deleted_at = coalesce(deleted_at, now()) where id = $1`,
+		`update room_members set nickname = $2 where user_id = $1`,
+	} {
+		if _, err := tx.Exec(ctx, q, userID, auth.DeletedNickname); err != nil {
+			return err
+		}
+	}
+	for _, q := range []string{
+		`delete from sessions where user_id = $1`,
+		`delete from chat_messages where user_id = $1`,
+		`delete from blocks where blocker_id = $1 or blocked_id = $1`,
+	} {
+		if _, err := tx.Exec(ctx, q, userID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
