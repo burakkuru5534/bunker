@@ -274,6 +274,7 @@ class PlayerTile extends StatelessWidget {
     required this.isMe,
     required this.isTurn,
     this.onVote,
+    this.onMenu,
     super.key,
   });
 
@@ -283,6 +284,9 @@ class PlayerTile extends StatelessWidget {
 
   /// Doluysa oyuncu oylanabilir: kutu vurgulanır, dokununca çağrılır.
   final VoidCallback? onVote;
+
+  /// Oylama dışında dokununca: oyuncu menüsü (Raporla / Engelle).
+  final VoidCallback? onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +318,7 @@ class PlayerTile extends StatelessWidget {
             )
           : null,
       child: InkWell(
-        onTap: onVote,
+        onTap: onVote ?? onMenu,
         child: Semantics(
           button: onVote != null,
           hint: onVote != null ? l.gameVoteFor(p.nickname) : null,

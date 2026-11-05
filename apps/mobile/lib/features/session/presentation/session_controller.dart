@@ -186,6 +186,13 @@ class SessionController extends Notifier<SessionState> {
     state = _authenticated(session);
   }
 
+  /// Hesabı sunucuda siler, sonra cihazdaki oturumu kapatır. Hata
+  /// [ApiException] olarak fırlatılır (oturum korunur).
+  Future<void> deleteAccount() async {
+    await _repo.deleteAccount();
+    await signOut();
+  }
+
   /// Oturumu kapatır ve cihazdan siler (ör. 401, hesap silme).
   Future<void> signOut() async {
     await _store.clear();

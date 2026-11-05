@@ -467,4 +467,29 @@ void main() {
       expect(find.byKey(const ValueKey('door-closed')), findsNothing);
     });
   });
+
+  testWidgets('Oyuncu menüsü: başkasına dokununca açılır, kendime değil', (
+    tester,
+  ) async {
+    final menus = <String>[];
+    await pumpWithProviders(
+      tester,
+      Scaffold(
+        body: GameBody(
+          game: game(phase: 'DISCUSSION'),
+          myUserId: 'u1',
+          clock: () => now,
+          onAction: (a) async {},
+          onPlayerMenu: (p) => menus.add(p.userId),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('player-u1')));
+    await tester.tap(find.byKey(const ValueKey('player-u2')));
+    await tester.pump();
+
+    expect(menus, ['u2']);
+  });
 }

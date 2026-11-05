@@ -22,6 +22,7 @@ class GameBody extends StatefulWidget {
     required this.game,
     required this.myUserId,
     this.onAction,
+    this.onPlayerMenu,
     this.clock = DateTime.now,
     super.key,
   });
@@ -31,6 +32,9 @@ class GameBody extends StatefulWidget {
 
   /// Eylemi gönderir; hata gösterimi çağıranındır. `null` → salt okunur.
   final Future<void> Function(GameAction action)? onAction;
+
+  /// Başka bir oyuncunun kutusuna dokunulunca (oylama hedefi değilse).
+  final ValueChanged<Participant>? onPlayerMenu;
 
   /// Cihaz saati (testlerde sahte saat verilir).
   final DateTime Function() clock;
@@ -178,6 +182,11 @@ class _GameBodyState extends State<GameBody> {
                       onVote: voteTargets.contains(p.userId)
                           ? () => unawaited(_vote(p, tiebreak: false))
                           : null,
+                      onMenu:
+                          widget.onPlayerMenu == null ||
+                              p.userId == widget.myUserId
+                          ? null
+                          : () => widget.onPlayerMenu!(p),
                     );
                   },
                 ),

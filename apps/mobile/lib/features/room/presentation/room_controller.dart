@@ -252,6 +252,11 @@ class RoomController extends Notifier<RoomState> {
     }
   }
 
+  /// Engellediğim kullanıcının mevcut mesajlarını gizler.
+  void hideChatFrom(String userId) {
+    state = state.copyWith(chat: state.chat.withoutUser(userId));
+  }
+
   /// Sohbet paneli açıkken: mesajlar görüldü.
   void markChatSeen() {
     final seen = state.chat.seen();

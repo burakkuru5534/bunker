@@ -26,6 +26,7 @@ class LobbyView extends StatefulWidget {
     required this.onCapacity,
     required this.onKick,
     required this.onStart,
+    this.onMemberMenu,
     super.key,
   });
 
@@ -34,6 +35,9 @@ class LobbyView extends StatefulWidget {
   final Future<void> Function(int capacity) onCapacity;
   final Future<void> Function(String userId) onKick;
   final Future<void> Function() onStart;
+
+  /// Başka bir üyeye dokunulunca: oyuncu menüsü (Raporla / Engelle).
+  final ValueChanged<RoomMember>? onMemberMenu;
 
   @override
   State<LobbyView> createState() => _LobbyViewState();
@@ -125,6 +129,10 @@ class _LobbyViewState extends State<LobbyView> {
                   onKick: isHost && m.userId != state.myUserId && _busy == null
                       ? () => unawaited(_confirmKick(m))
                       : null,
+                  onTap:
+                      widget.onMemberMenu == null || m.userId == state.myUserId
+                      ? null
+                      : () => widget.onMemberMenu!(m),
                 ),
             ],
           ),
@@ -271,6 +279,7 @@ class _MemberTile extends StatelessWidget {
     required this.isHost,
     required this.isMe,
     required this.onKick,
+    this.onTap,
   });
 
   final RoomMember member;
@@ -278,6 +287,7 @@ class _MemberTile extends StatelessWidget {
   final bool isHost;
   final bool isMe;
   final VoidCallback? onKick;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -294,6 +304,7 @@ class _MemberTile extends StatelessWidget {
     return ListTile(
       key: ValueKey('member-${member.userId}'),
       contentPadding: EdgeInsets.zero,
+      onTap: onTap,
       // Lobide bağlantı olayı yok (api.md §5); `connected` yalnızca
       // snapshot anını gösterir, bu yüzden lobide durum gösterilmez.
       leading: PlayerAvatar(nickname: member.nickname, seat: seat),

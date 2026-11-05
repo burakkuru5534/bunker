@@ -66,6 +66,11 @@ class SessionRepository {
   }
 
   /// `POST /v1/sessions/refresh`: eski token iptal olur.
+  /// Hesabı siler (`DELETE /v1/me`; geri alınamaz).
+  Future<void> deleteAccount() async {
+    await _api.delete('/v1/me');
+  }
+
   Future<RefreshedToken> refresh() async {
     final json = _object(await _api.post('/v1/sessions/refresh', body: {}));
     return (

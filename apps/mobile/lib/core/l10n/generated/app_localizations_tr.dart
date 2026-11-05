@@ -660,4 +660,101 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get chatSpectatorNote => 'İzleyiciler yazamaz.';
+
+  @override
+  String get modReport => 'Raporla';
+
+  @override
+  String get modBlock => 'Engelle';
+
+  @override
+  String modReportTitle(String name) {
+    return '$name adlı oyuncuyu raporla';
+  }
+
+  @override
+  String get modReasonHarassment => 'Taciz veya zorbalık';
+
+  @override
+  String get modReasonHate => 'Nefret söylemi';
+
+  @override
+  String get modReasonSpam => 'Spam veya reklam';
+
+  @override
+  String get modReasonCheating => 'Hile';
+
+  @override
+  String get modReasonOther => 'Diğer';
+
+  @override
+  String get modReportNote => 'Not (isteğe bağlı)';
+
+  @override
+  String get modReportSend => 'Gönder';
+
+  @override
+  String get modReportSent => 'Raporun alındı. Teşekkürler.';
+
+  @override
+  String modBlockTitle(String name) {
+    return '$name engellensin mi?';
+  }
+
+  @override
+  String get modBlockMessage =>
+      'Mesajlarını artık görmezsin. Oyunu etkilemez; engeli Ayarlar\'dan kaldırabilirsin.';
+
+  @override
+  String modBlocked(String name) {
+    return '$name engellendi.';
+  }
+
+  @override
+  String get blocksTitle => 'Engellenen oyuncular';
+
+  @override
+  String get blocksEmpty => 'Engellediğin kimse yok.';
+
+  @override
+  String get blocksUnblock => 'Engeli kaldır';
+
+  @override
+  String blocksUnblocked(String name) {
+    return '$name artık engelli değil.';
+  }
+
+  @override
+  String get settingsTitle => 'Ayarlar';
+
+  @override
+  String get settingsNickname => 'Takma ad';
+
+  @override
+  String get settingsAccount => 'Hesap';
+
+  @override
+  String get settingsDeleteAccount => 'Hesabımı sil';
+
+  @override
+  String get settingsDeleteTitle => 'Hesabın silinsin mi?';
+
+  @override
+  String get settingsDeleteMessage =>
+      'Takma adın ve oturumların silinir, mesajların kaldırılır. Bulunduğun odadan çıkarsın; oyun sürüyorsa elenmiş sayılırsın. Bu işlem geri alınamaz.';
+
+  @override
+  String get settingsDeleteContinue => 'Devam';
+
+  @override
+  String get settingsDeleteFinalTitle => 'Emin misin?';
+
+  @override
+  String get settingsDeleteFinalMessage =>
+      'Hesabın kalıcı olarak silinecek ve geri getirilemeyecek.';
+
+  @override
+  String settingsVersion(String version) {
+    return 'Sürüm $version';
+  }
 }

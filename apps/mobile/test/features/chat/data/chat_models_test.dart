@@ -68,4 +68,11 @@ void main() {
     final s = const ChatState().withPending([p]).withMessage(msg(1, 'a'));
     expect(s.pending, [p]); // birleştirme bekleyenleri korur
   });
+
+  test('engellenenin mesajları gizlenir', () {
+    final s = const ChatState()
+        .withHistory([msg(1, 'a'), msg(2, 'b'), msg(3, 'a')])
+        .withoutUser('a');
+    expect(s.messages.map((m) => m.id), [2]);
+  });
 }

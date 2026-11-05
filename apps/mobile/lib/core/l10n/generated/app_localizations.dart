@@ -1221,6 +1221,174 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'İzleyiciler yazamaz.'**
   String get chatSpectatorNote;
+
+  /// No description provided for @modReport.
+  ///
+  /// In tr, this message translates to:
+  /// **'Raporla'**
+  String get modReport;
+
+  /// No description provided for @modBlock.
+  ///
+  /// In tr, this message translates to:
+  /// **'Engelle'**
+  String get modBlock;
+
+  /// No description provided for @modReportTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} adlı oyuncuyu raporla'**
+  String modReportTitle(String name);
+
+  /// No description provided for @modReasonHarassment.
+  ///
+  /// In tr, this message translates to:
+  /// **'Taciz veya zorbalık'**
+  String get modReasonHarassment;
+
+  /// No description provided for @modReasonHate.
+  ///
+  /// In tr, this message translates to:
+  /// **'Nefret söylemi'**
+  String get modReasonHate;
+
+  /// No description provided for @modReasonSpam.
+  ///
+  /// In tr, this message translates to:
+  /// **'Spam veya reklam'**
+  String get modReasonSpam;
+
+  /// No description provided for @modReasonCheating.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hile'**
+  String get modReasonCheating;
+
+  /// No description provided for @modReasonOther.
+  ///
+  /// In tr, this message translates to:
+  /// **'Diğer'**
+  String get modReasonOther;
+
+  /// No description provided for @modReportNote.
+  ///
+  /// In tr, this message translates to:
+  /// **'Not (isteğe bağlı)'**
+  String get modReportNote;
+
+  /// No description provided for @modReportSend.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gönder'**
+  String get modReportSend;
+
+  /// No description provided for @modReportSent.
+  ///
+  /// In tr, this message translates to:
+  /// **'Raporun alındı. Teşekkürler.'**
+  String get modReportSent;
+
+  /// No description provided for @modBlockTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} engellensin mi?'**
+  String modBlockTitle(String name);
+
+  /// No description provided for @modBlockMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Mesajlarını artık görmezsin. Oyunu etkilemez; engeli Ayarlar\'dan kaldırabilirsin.'**
+  String get modBlockMessage;
+
+  /// No description provided for @modBlocked.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} engellendi.'**
+  String modBlocked(String name);
+
+  /// No description provided for @blocksTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Engellenen oyuncular'**
+  String get blocksTitle;
+
+  /// No description provided for @blocksEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'Engellediğin kimse yok.'**
+  String get blocksEmpty;
+
+  /// No description provided for @blocksUnblock.
+  ///
+  /// In tr, this message translates to:
+  /// **'Engeli kaldır'**
+  String get blocksUnblock;
+
+  /// No description provided for @blocksUnblocked.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} artık engelli değil.'**
+  String blocksUnblocked(String name);
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ayarlar'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsNickname.
+  ///
+  /// In tr, this message translates to:
+  /// **'Takma ad'**
+  String get settingsNickname;
+
+  /// No description provided for @settingsAccount.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesap'**
+  String get settingsAccount;
+
+  /// No description provided for @settingsDeleteAccount.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesabımı sil'**
+  String get settingsDeleteAccount;
+
+  /// No description provided for @settingsDeleteTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesabın silinsin mi?'**
+  String get settingsDeleteTitle;
+
+  /// No description provided for @settingsDeleteMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Takma adın ve oturumların silinir, mesajların kaldırılır. Bulunduğun odadan çıkarsın; oyun sürüyorsa elenmiş sayılırsın. Bu işlem geri alınamaz.'**
+  String get settingsDeleteMessage;
+
+  /// No description provided for @settingsDeleteContinue.
+  ///
+  /// In tr, this message translates to:
+  /// **'Devam'**
+  String get settingsDeleteContinue;
+
+  /// No description provided for @settingsDeleteFinalTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Emin misin?'**
+  String get settingsDeleteFinalTitle;
+
+  /// No description provided for @settingsDeleteFinalMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesabın kalıcı olarak silinecek ve geri getirilemeyecek.'**
+  String get settingsDeleteFinalMessage;
+
+  /// No description provided for @settingsVersion.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sürüm {version}'**
+  String settingsVersion(String version);
 }
 
 class _AppLocalizationsDelegate

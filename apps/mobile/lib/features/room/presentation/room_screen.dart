@@ -13,6 +13,7 @@ import 'package:siginak/core/ui/connection_banner.dart';
 import 'package:siginak/core/ui/state_views.dart';
 import 'package:siginak/features/chat/chat.dart';
 import 'package:siginak/features/game/game.dart';
+import 'package:siginak/features/moderation/moderation.dart';
 import 'package:siginak/features/room/data/room_models.dart';
 import 'package:siginak/features/room/presentation/lobby_view.dart';
 import 'package:siginak/features/room/presentation/room_controller.dart';
@@ -85,6 +86,16 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     if (mounted) setState(() => _leaving = false);
   }
 
+  void _playerMenu(String userId, String nickname) => unawaited(
+    showPlayerActions(
+      context,
+      userId: userId,
+      nickname: nickname,
+      roomId: widget.roomId,
+      onBlocked: () => _controller.hideChatFrom(userId),
+    ),
+  );
+
   void _openChat() {
     final provider = roomControllerProvider(widget.roomId);
     unawaited(
@@ -156,11 +167,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           onCapacity: (c) => _run(() => _controller.setCapacity(c)),
           onKick: (userId) => _run(() => _controller.kick(userId)),
           onStart: () => _run(_controller.start),
+          onMemberMenu: (m) => _playerMenu(m.userId, m.nickname),
         ),
         RoomStatus.inGame when state.game != null => GameBody(
           game: state.game!,
           myUserId: state.myUserId,
           onAction: (a) => _run(() => _controller.act(a)),
+          onPlayerMenu: (p) => _playerMenu(p.userId, p.nickname),
         ),
         RoomStatus.inGame => _StatusMessage(text: l.roomGameStarted),
         RoomStatus.finished => _FinishedView(

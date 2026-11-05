@@ -124,6 +124,13 @@ class ChatState {
     );
   }
 
+  /// Engellenen kullanıcının mesajlarını gizler (sunucu sonrakileri süzer).
+  ChatState withoutUser(String userId) => ChatState(
+    messages: List.unmodifiable(messages.where((m) => m.userId != userId)),
+    pending: pending,
+    lastSeenId: lastSeenId,
+  );
+
   ChatState withPending(List<PendingMessage> pending) => ChatState(
     messages: messages,
     pending: List.unmodifiable(pending),

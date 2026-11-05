@@ -675,4 +675,83 @@ void main() {
       expect(find.byTooltip('Sohbet'), findsOneWidget);
     });
   });
+
+  group('oyuncu menüsü', () {
+    testWidgets('Lobide üyeye dokun → engelle → mesajları gizlenir', (
+      tester,
+    ) async {
+      backend.on(
+        'POST',
+        '/v1/blocks',
+        (r) async => ResponseBodyNoContent.value,
+      );
+      await pump(tester);
+      await snapshot(tester);
+      ws.last.serverSend(
+        'chat.message',
+        payload: chatJson(1, 'u2', 'Mehmet', 'rahatsız edici'),
+      );
+      await frames(tester);
+
+      // Kendime dokunmak menü açmaz.
+      await tester.tap(find.text('Ayşe (sen)'));
+      await frames(tester);
+      expect(find.text('Raporla'), findsNothing);
+
+      await tester.tap(find.text('Mehmet'));
+      await frames(tester);
+      await tester.tap(find.text('Engelle'));
+      await frames(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'Engelle'));
+      await frames(tester);
+      expect(backend.calls, contains('POST /v1/blocks'));
+
+      await tester.tap(find.byTooltip('Sohbet'));
+      await frames(tester);
+      expect(find.text('rahatsız edici'), findsNothing);
+    });
+
+    testWidgets('Oyunda oyuncu kutusuna dokun → rapor bu odayla gider', (
+      tester,
+    ) async {
+      String? reportBody;
+      backend.on('POST', '/v1/reports', (r) async {
+        reportBody = jsonEncode(r.data);
+        return jsonResponse({'id': 'x'}, 201);
+      });
+      await pump(tester);
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snapshotPayload(
+          roomId: roomId,
+          me: 'u-guest',
+          status: 'in_game',
+          members: [wsMember('u-guest', 'Ayşe'), wsMember('u2', 'Mehmet')],
+          game: snapshotGame(
+            participants: [
+              participantJson('u-guest', 'Ayşe', 0),
+              participantJson('u2', 'Mehmet', 1),
+            ],
+            phase: 'DISCUSSION',
+          ),
+        ),
+      );
+      await frames(tester);
+
+      await tester.tap(find.byKey(const ValueKey('player-u2')));
+      await frames(tester);
+      await tester.tap(find.text('Raporla'));
+      await frames(tester);
+      await tester.tap(find.byKey(const ValueKey('reason-cheating')));
+      await frames(tester);
+      await tester.tap(find.text('Gönder'));
+      await frames(tester);
+
+      expect(jsonDecode(reportBody!), {
+        'reported_user_id': 'u2',
+        'room_id': roomId,
+        'reason': 'cheating',
+      });
+    });
+  });
 }
