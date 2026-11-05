@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/game"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
 	"github.com/burakkuru5534/bunker/backend/internal/testdb"
 )
@@ -32,12 +34,40 @@ type env struct {
 	room *room.Service
 	srv  *httptest.Server
 	ip   atomic.Int64
+	logs *syncBuffer
+}
+
+// syncBuffer, sunucu goroutine'lerinin eşzamanlı yazdığı log tamponudur.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+// events, verilen güvenlik olayının log satırlarıdır (SAFE-011).
+func (b *syncBuffer) events(name string) []map[string]any {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var out []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(b.buf.String()), "\n") {
+		var m map[string]any
+		if json.Unmarshal([]byte(line), &m) == nil && m["security_event"] == name {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 func newEnv(t *testing.T, mutate func(*Options)) *env {
 	t.Helper()
 	db := testdb.New(t)
-	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	logs := &syncBuffer{}
+	logger := observability.NewLogger(logs, slog.LevelDebug, observability.FormatJSON)
 	hub := NewHub(logger)
 	authSvc := auth.NewService(db.DB, nil, logger)
 	authHTTP := auth.NewHTTP(authSvc, 1)
@@ -64,7 +94,7 @@ func newEnv(t *testing.T, mutate func(*Options)) *env {
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	t.Cleanup(hub.Shutdown)
-	return &env{t: t, db: db, hub: hub, srv: srv, disc: disc, game: gameSvc, room: roomSvc}
+	return &env{t: t, db: db, hub: hub, srv: srv, disc: disc, game: gameSvc, room: roomSvc, logs: logs}
 }
 
 func (e *env) rest(method, path, token, body string) map[string]any {
@@ -213,6 +243,14 @@ func TestWSRejections(t *testing.T) {
 	}
 	if e.hub.Count() != 0 {
 		t.Fatalf("reddedilenler hub'da: %d", e.hub.Count())
+	}
+	// SAFE-011: yetki ve üyelik retleri güvenlik olayıdır; sürüm reddi değildir.
+	if ev := e.logs.events("auth_failed"); len(ev) != 2 || ev[0]["route"] != "GET /v1/ws" || ev[0]["close_code"] != float64(4001) {
+		t.Fatalf("auth_failed: %v", ev)
+	}
+	denied := e.logs.events("access_denied")
+	if len(denied) != 3 || denied[0]["user_id"] == nil || denied[0]["room_id"] != roomID || denied[0]["close_code"] != float64(4003) {
+		t.Fatalf("access_denied: %v", denied)
 	}
 	// WebSocket olmayan istek: 426 (Accept).
 	res, err := http.Get(e.srv.URL + "/v1/ws?room_id=" + roomID)
@@ -509,5 +547,20 @@ func TestWSChat(t *testing.T) {
 		if chat := p["chat"].([]any); len(chat) != want {
 			t.Fatalf("%d geçmişi %d mesaj, beklenen %d", i, len(chat), want)
 		}
+	}
+}
+
+// Bağlantı denemesi sınırı aşılınca 4008 ve rate_limited güvenlik olayı.
+func TestWSConnectRateLimitIsSecurityEvent(t *testing.T) {
+	e := newEnv(t, func(o *Options) { o.ConnectLimit = 1 })
+	roomID, _, tokens, users := e.roomWith(1)
+	first := e.dial(dialOpts{token: tokens[0], roomID: roomID})
+	read(t, first)
+	if got := closeCode(t, e.dial(dialOpts{token: tokens[0], roomID: roomID})); got != 4008 {
+		t.Fatalf("ikinci deneme %d", got)
+	}
+	ev := e.logs.events("rate_limited")
+	if len(ev) != 1 || ev[0]["user_id"] != users[0] || ev[0]["close_code"] != float64(4008) || ev[0]["client_ip"] == nil {
+		t.Fatalf("rate_limited: %v", ev)
 	}
 }

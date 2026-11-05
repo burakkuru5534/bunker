@@ -4,7 +4,20 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 )
+
+// ClientIPContext, istemci IP'sini bağlama koyar; yalnızca güvenlik olayları
+// loglar (observability.Security, SAFE-011). Erişim logu IP yazmaz.
+func ClientIPContext(trustedHops int) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := observability.WithClientIP(r.Context(), ClientIP(r, trustedHops))
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
 
 // ClientIP, isteğin istemci IP'sini döndürür (sıklık sınırı için).
 //

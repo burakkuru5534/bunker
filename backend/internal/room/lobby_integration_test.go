@@ -113,6 +113,14 @@ func TestIntegrationKick(t *testing.T) {
 	if e := lastEvent(a); e.Type != EventMemberKicked || e.Payload.(map[string]any)["user_id"] != uid {
 		t.Fatalf("member_kicked: %+v", e)
 	}
+	// Güvenlik olayı: kim, kimi, hangi odadan; reddedilen deneme ayrıca access_denied.
+	if ev := securityEvents(t, a.logs, "member_kicked"); len(ev) != 1 || ev[0]["target_user_id"] != uid ||
+		ev[0]["room_id"] != roomID || ev[0]["user_id"] == nil {
+		t.Fatalf("member_kicked olayı: %v", ev)
+	}
+	if ev := securityEvents(t, a.logs, "access_denied"); len(ev) != 1 || ev[0]["route"] != "POST /v1/rooms/{roomId}/kick" {
+		t.Fatalf("access_denied olayı: %v", ev)
+	}
 	// Atılan: odayı göremez, geri dönemez, başka oda kurabilir.
 	if g := a.do("GET", "/v1/rooms/"+roomID, tok, ""); g.code != 404 {
 		t.Fatal("atılan odayı göremez")

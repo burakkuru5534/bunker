@@ -18,6 +18,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/game"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
 	"github.com/burakkuru5534/bunker/backend/internal/moderation"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
 	"github.com/burakkuru5534/bunker/backend/internal/testdb"
 )
@@ -27,12 +28,27 @@ type api struct {
 	env     *testdb.Env
 	handler http.Handler
 	ip      atomic.Int64
+	logs    *bytes.Buffer
+}
+
+// securityEvents, verilen güvenlik olayının log satırlarıdır (SAFE-011).
+func securityEvents(t *testing.T, logs *bytes.Buffer, name string) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(logs.String()), "\n") {
+		var m map[string]any
+		if json.Unmarshal([]byte(line), &m) == nil && m["security_event"] == name {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 func newAPI(t *testing.T) *api {
 	t.Helper()
 	env := testdb.New(t)
-	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	var logs bytes.Buffer
+	logger := observability.NewLogger(&logs, slog.LevelDebug, observability.FormatJSON)
 	authSvc := auth.NewService(env.DB, nil, logger)
 	authHTTP := auth.NewHTTP(authSvc, 1)
 	gameSvc := game.NewService(env.DB, nil, logger)
@@ -47,7 +63,7 @@ func newAPI(t *testing.T) *api {
 			NewHTTP(NewService(env.DB, authSvc, roomSvc, logger), authHTTP.Require).Register(mux)
 		},
 	})
-	return &api{t: t, env: env, handler: h}
+	return &api{t: t, env: env, handler: h, logs: &logs}
 }
 
 type resp struct {
@@ -122,6 +138,10 @@ func TestIntegrationDeleteInLobby(t *testing.T) {
 
 	if r := a.do("DELETE", "/v1/me", refreshed, ""); r.code != 204 {
 		t.Fatalf("sil: %d %s", r.code, r.raw)
+	}
+	if ev := securityEvents(t, a.logs, "account_deleted"); len(ev) != 1 || ev[0]["user_id"] != me ||
+		ev[0]["left_room"] != true || ev[0]["client_ip"] == nil {
+		t.Fatalf("account_deleted olayı: %v", ev)
 	}
 	// Oturumlar geçersiz.
 	for _, tk := range []string{tok, refreshed} {

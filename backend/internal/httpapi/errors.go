@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"math"
 	"mime"
 	"net/http"
@@ -93,7 +94,36 @@ func WriteAppError(w http.ResponseWriter, r *http.Request, err error) {
 	if ae.Err != nil {
 		logger.Debug("istek hatası", "code", string(ae.Code), "error", ae.Err.Error())
 	}
+	logDenied(r, ae.Code)
 	WriteError(w, r, StatusOf(ae.Code), string(ae.Code), ae.Message, details)
+}
+
+// deniedEvents, reddedilen isteğin güvenlik olayıdır (SAFE-011). Oyun kuralı
+// hataları (409) ve doğrulama (400) güvenlik olayı değildir.
+var deniedEvents = map[apperr.Code]observability.SecurityEvent{
+	apperr.Unauthorized: observability.EventAuthFailed,
+	apperr.Forbidden:    observability.EventAccessDenied,
+	apperr.NotAMember:   observability.EventAccessDenied,
+	apperr.Kicked:       observability.EventAccessDenied,
+	apperr.RateLimited:  observability.EventRateLimited,
+}
+
+// logDenied, reddedilen isteği güvenlik olayı olarak loglar: kod, yöntem ve
+// rota kalıbı (kimlikler kalıpta yer tutucudur; yol yalnızca kalıp yoksa).
+func logDenied(r *http.Request, code apperr.Code) {
+	event, ok := deniedEvents[code]
+	if !ok {
+		return
+	}
+	route := r.Pattern
+	if route == "" {
+		route = r.URL.Path
+	}
+	observability.Security(r.Context(), nil, slog.LevelWarn, event, "istek reddedildi",
+		slog.String("code", string(code)),
+		slog.String("method", r.Method),
+		slog.String("route", route),
+	)
 }
 
 func retryAfterSeconds(e *apperr.Error) int {

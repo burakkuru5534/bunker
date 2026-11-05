@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/observability"
 )
 
@@ -173,5 +174,71 @@ func TestStatusRecorderPassesThroughHijackAndFlush(t *testing.T) {
 	plain.Flush() // panik olmamalı
 	if plain.Unwrap() == nil {
 		t.Fatal("Unwrap alttaki yazıcıyı döndürmeli")
+	}
+}
+
+// SAFE-011: reddedilen istekler güvenlik olayıdır; IP yalnızca orada.
+func TestDeniedRequestsAreSecurityEvents(t *testing.T) {
+	cases := []struct {
+		code  apperr.Code
+		event string
+	}{
+		{apperr.Unauthorized, "auth_failed"},
+		{apperr.Forbidden, "access_denied"},
+		{apperr.NotAMember, "access_denied"},
+		{apperr.Kicked, "access_denied"},
+		{apperr.RateLimited, "rate_limited"},
+		{apperr.InvalidPhase, ""},
+		{apperr.ValidationFailed, ""},
+		{apperr.NotFound, ""},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.code), func(t *testing.T) {
+			var buf bytes.Buffer
+			h := NewRouter(Options{
+				Logger:           observability.NewLogger(&buf, slog.LevelDebug, observability.FormatJSON),
+				MinAppVersion:    testMin,
+				TrustedProxyHops: 1,
+				Register: func(mux *http.ServeMux) {
+					mux.Handle("POST /v1/rooms/{id}/start", Handle(func(http.ResponseWriter, *http.Request) error {
+						return apperr.New(tc.code, "x")
+					}))
+				},
+			})
+			req := httptest.NewRequest(http.MethodPost, "/v1/rooms/0b9d4c1e-0000-4000-8000-000000000001/start", nil)
+			req.Header.Set(AppVersionHeader, "0.2.0")
+			req.Header.Set("X-Forwarded-For", "198.51.100.9, 203.0.113.7")
+			h.ServeHTTP(httptest.NewRecorder(), req)
+
+			var sec map[string]any
+			for _, m := range logLines(t, &buf) {
+				if m["security_event"] != nil {
+					sec = m
+				}
+				if m["message"] == "http istek" && m["client_ip"] != nil {
+					t.Error("erişim logunda IP var")
+				}
+			}
+			if tc.event == "" {
+				if sec != nil {
+					t.Fatalf("güvenlik olayı olmamalı: %v", sec)
+				}
+				return
+			}
+			if sec == nil {
+				t.Fatalf("güvenlik olayı yok: %s", buf.String())
+			}
+			for k, want := range map[string]any{
+				"security_event": tc.event, "code": string(tc.code), "method": "POST",
+				"route": "POST /v1/rooms/{id}/start", "client_ip": "203.0.113.7", "severity": "WARNING",
+			} {
+				if sec[k] != want {
+					t.Errorf("%s = %v, beklenen %v", k, sec[k], want)
+				}
+			}
+			if sec["request_id"] == nil {
+				t.Error("request_id yok")
+			}
+		})
 	}
 }

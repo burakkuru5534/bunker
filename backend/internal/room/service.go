@@ -9,6 +9,7 @@ import (
 
 	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 )
 
@@ -401,9 +402,12 @@ func (s *Service) Kick(ctx context.Context, p auth.Principal, roomID, targetID s
 		if err := kickMember(ctx, tx, r.ID, targetID); err != nil {
 			return change{}, err
 		}
-		s.logger.Info("üye atıldı", "room_id", r.ID, "target_user_id", targetID)
 		return change{events: []Event{{Type: EventMemberKicked, Payload: map[string]any{"user_id": targetID}}}}, nil
 	})
+	if err == nil {
+		observability.Security(ctx, s.logger, slog.LevelInfo, observability.EventMemberKicked, "üye atıldı",
+			slog.String("user_id", p.UserID), slog.String("room_id", roomID), slog.String("target_user_id", targetID))
+	}
 	return err
 }
 

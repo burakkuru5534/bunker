@@ -30,9 +30,22 @@ func newAPI(t *testing.T, trustedHops int) *apiTest {
 	h := NewHTTP(NewService(env.DB, nil, logger), trustedHops)
 	router := httpapi.NewRouter(httpapi.Options{
 		Logger: logger, MinAppVersion: httpapi.Version{Major: 0, Minor: 1, Patch: 0},
-		RequestTimeout: 5 * time.Second, Register: h.Register,
+		RequestTimeout: 5 * time.Second, Register: h.Register, TrustedProxyHops: trustedHops,
 	})
 	return &apiTest{t: t, handler: router, logs: &logs}
+}
+
+// events, verilen güvenlik olayının log satırlarıdır (SAFE-011).
+func (a *apiTest) events(name string) []map[string]any {
+	a.t.Helper()
+	var out []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(a.logs.String()), "\n") {
+		var m map[string]any
+		if json.Unmarshal([]byte(line), &m) == nil && m["security_event"] == name {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 type resp struct {
@@ -139,6 +152,14 @@ func TestIntegrationHTTPUnauthorized(t *testing.T) {
 	if r := a.do("POST", "/v1/sessions/refresh", "", ""); r.code != 401 {
 		t.Fatalf("refresh yetkisiz: %d", r.code)
 	}
+	// Her ret güvenlik olayıdır; denenen token loglanmaz.
+	ev := a.events("auth_failed")
+	if len(ev) != 5 || ev[0]["client_ip"] != "192.0.2.10" || ev[0]["route"] != "GET /v1/me" {
+		t.Fatalf("auth_failed olayları: %v", ev)
+	}
+	if strings.Contains(a.logs.String(), strings.Repeat("A", TokenLength)) || strings.Contains(a.logs.String(), "dXNlcjpwYXNz") {
+		t.Fatal("denenen kimlik bilgisi loglandı")
+	}
 }
 
 func TestIntegrationHTTPGuestValidation(t *testing.T) {
@@ -183,6 +204,15 @@ func TestIntegrationHTTPGuestRateLimit(t *testing.T) {
 	if r.code != 429 || errCode(r) != "RATE_LIMITED" || retry < 1 || retry > 12 {
 		t.Fatalf("6. istek 429 + Retry-After: %d %q %s", r.code, r.header.Get("Retry-After"), r.raw)
 	}
+	// Açılan hesaplar ve ret, gerçek istemci IP'siyle güvenlik olayıdır.
+	created := a.events("session_created")
+	if len(created) != GuestLimit || created[0]["client_ip"] != "203.0.113.7" || created[0]["user_id"] == "" {
+		t.Fatalf("session_created: %v", created)
+	}
+	limited := a.events("rate_limited")
+	if len(limited) != 1 || limited[0]["client_ip"] != "203.0.113.7" || limited[0]["route"] != "POST /v1/sessions/guest" {
+		t.Fatalf("rate_limited: %v", limited)
+	}
 	// İstemcinin yazdığı sol girdiler sınırı aşmaya yaramaz.
 	if r := send("1.1.1.1, 203.0.113.7"); r.code != 429 {
 		t.Fatalf("sahte XFF ile atlatılamamalı: %d", r.code)
@@ -217,6 +247,10 @@ func TestIntegrationHTTPUserRateLimitAndHeaderOnly(t *testing.T) {
 	r := a.do("GET", "/v1/me", alice, "")
 	if r.code != 429 || errCode(r) != "RATE_LIMITED" || r.header.Get("Retry-After") == "" {
 		t.Fatalf("31. istek 429 olmalı: %d %s", r.code, r.raw)
+	}
+	// Kullanıcı sınırı olayı kimin olduğunu taşır.
+	if ev := a.events("rate_limited"); len(ev) != 1 || ev[0]["user_id"] == nil || ev[0]["route"] != "GET /v1/me" {
+		t.Fatalf("kullanıcı sınırı olayı: %v", ev)
 	}
 	// Sınır kullanıcı başınadır.
 	if r := a.do("GET", "/v1/me", bob, ""); r.code != 200 {

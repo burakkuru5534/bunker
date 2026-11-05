@@ -98,3 +98,28 @@ Bellek içi token bucket (tek instance olduğu için yeterli).
 - Temizlik sunucu içinde saatte bir çalışır (`internal/maintenance`; açılıştan 2 dk sonra ilk çalıştırma), partiler hâlinde ve çalıştırma başına üst sınırla; harici zamanlayıcı ve ek maliyet yok. Sunucu kapalıyken (min-instances 0) çalışmaz, ilk açılışta birikeni temizler.
 - Veriler AB bölgesinde (Supabase) tutulur. **KVKK** kapsamında yurt dışına veri aktarımı ve aydınlatma metni gereklilikleri SAFE-008'de ele alınır; hukuki metinler için bir uzmana danışılması önerilir.
 - Google Play "Veri güvenliği" formu SAFE-012 / REL-008'de doldurulur.
+
+## 7. Güvenlik logları (SAFE-011)
+
+Güvenlik açısından anlamlı olaylar tek tip alanlarla loglanır (`observability.Security`). Cloud Logging'de `jsonPayload.security_event` alanıyla süzülür; olay adları sabittir (panel ve uyarılar bunlara dayanır).
+
+| Olay | Seviye | Ne zaman | Ek alanlar |
+|---|---|---|---|
+| `auth_failed` | WARNING | Geçersiz, süresi dolmuş veya iptal edilmiş token (REST 401, WS 4001) | `route`, `method`/`close_code` |
+| `access_denied` | WARNING | Yetki, üyelik veya atılma reddi (REST 403 `FORBIDDEN`/`NOT_A_MEMBER`/`KICKED`, WS 4003) | `user_id`, `route`, (WS) `room_id` |
+| `rate_limited` | WARNING | Sıklık sınırı (REST 429, WS bağlantı denemesi 4008) | `user_id` (oturumluysa), `route` |
+| `session_created` | INFO | Misafir hesap açıldı | `user_id` |
+| `account_deleted` | INFO | `DELETE /v1/me` | `user_id`, `left_room` |
+| `report_created` | INFO | Yeni rapor (açık rapor tekrarı olay değildir) | `report_id`, `user_id`, `reported_id`, `room_id`, `reason` |
+| `user_blocked` | INFO | Yeni engel (tekrarı olay değildir) | `user_id`, `blocked_id` |
+| `member_kicked` | INFO | Oda sahibi üyeyi attı | `user_id` (sahip), `room_id`, `target_user_id` |
+
+- Her olayda istek varsa `request_id` ve izleme alanı, oturum varsa `user_id` bulunur. **`client_ip` yalnızca güvenlik olaylarında** yazılır (`httpapi.ClientIPContext`, güvenilir vekil sayısına göre); erişim logu ve diğer loglar IP yazmaz.
+- **Loglanmayanlar:** token ve `Authorization` başlığı (denenen geçersiz token dahil), sohbet içeriği, rapor notu ve rapordaki mesaj kopyası, takma ad. Gizli anahtar adları ayrıca maskelenir (`[REDACTED]`).
+- `route` rota kalıbıdır (`POST /v1/rooms/{roomId}/kick`); kimlikler kalıpta yer tutucudur.
+- Oyun kuralı hataları (409), doğrulama (400) ve bulunamadı (404) güvenlik olayı değildir. Üye olmayanın oda isteği REST'te 404 döndüğü için (varlık sızmasın) olay üretmez; WS'te 4003 `access_denied` olarak görünür. Kapanmış bir odaya yeniden bağlanan meşru istemciler de `access_denied` üretir; tek başına saldırı göstergesi değildir.
+- Kullanılmayan hesapların otomatik silinmesi (SAFE-014) tek tek değil, temizlik işinin toplam sayısıyla loglanır.
+
+Saklama ve maliyet (Kasım 2026, Google Cloud Observability fiyat sayfası): Cloud Logging'de proje başına aylık ilk 50 GiB ücretsiz, fazlası $0,50/GiB; `_Default` kovası 30 gün saklar (30 günden uzun saklama ücretli). Güvenlik olayları ayrı kovaya alınmaz; 30 gün yeterli kabul edilir. Kullanıcı tanımlı log tabanlı metrikler (uyarı için) Cloud Monitoring özel metriği olarak **ücretlidir**; kurulmadan önce onay alınır (REL-004).
+
+Örnek sorgu (Logs Explorer): `jsonPayload.security_event="auth_failed"` veya `jsonPayload.security_event=~"rate_limited|access_denied" AND jsonPayload.client_ip="203.0.113.7"`.

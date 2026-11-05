@@ -21,14 +21,16 @@ type Options struct {
 	ProjectID      string
 	MinAppVersion  Version
 	RequestTimeout time.Duration
+	// TrustedProxyHops: istemci IP'si için güvenilir vekil sayısı (ClientIP).
+	TrustedProxyHops int
 	// Register, modüllerin rotalarını ekler (ör. "POST /v1/rooms").
 	Register func(mux *http.ServeMux)
 }
 
 // NewRouter, middleware zinciriyle sarılmış yönlendiriciyi döndürür.
 //
-// Sıra (dıştan içe): RequestID → AccessLog → Recover → RequireAppVersion →
-// LimitBody → Timeout → ServeMux. AccessLog, Recover'ın dışında olduğundan
+// Sıra (dıştan içe): RequestID → ClientIPContext → AccessLog → Recover →
+// RequireAppVersion → LimitBody → Timeout → ServeMux. AccessLog, Recover'ın dışında olduğundan
 // panic sonucu dönen 500 de loglanır.
 //
 // Eşleşmeyen yol veya yöntem için standart 404 NOT_FOUND döner ("/" kalıbı
@@ -49,6 +51,7 @@ func NewRouter(opts Options) http.Handler {
 
 	return Chain(mux,
 		RequestID(),
+		ClientIPContext(opts.TrustedProxyHops),
 		AccessLog(logger, opts.ProjectID),
 		Recover(),
 		RequireAppVersion(opts.MinAppVersion),

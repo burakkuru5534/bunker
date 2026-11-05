@@ -18,6 +18,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/testdb"
 )
 
@@ -28,6 +29,20 @@ type api struct {
 	events  *recorder
 	handler http.Handler
 	ip      int
+	logs    *bytes.Buffer
+}
+
+// securityEvents, verilen güvenlik olayının log satırlarıdır (SAFE-011).
+func securityEvents(t *testing.T, logs *bytes.Buffer, name string) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(logs.String()), "\n") {
+		var m map[string]any
+		if json.Unmarshal([]byte(line), &m) == nil && m["security_event"] == name {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // recorder, yayınlanan olayları kaydeder.
@@ -46,7 +61,8 @@ func (r *recorder) all() []Event {
 func newAPI(t *testing.T) *api {
 	t.Helper()
 	env := testdb.New(t)
-	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	var logs bytes.Buffer
+	logger := observability.NewLogger(&logs, slog.LevelDebug, observability.FormatJSON)
 	rec := &recorder{}
 	authHTTP := auth.NewHTTP(auth.NewService(env.DB, nil, logger), 1)
 	svc := NewService(env.DB, nil, rec, logger)
@@ -55,7 +71,7 @@ func newAPI(t *testing.T) *api {
 		Logger: logger, MinAppVersion: httpapi.Version{Minor: 1}, RequestTimeout: 5 * time.Second,
 		Register: func(mux *http.ServeMux) { authHTTP.Register(mux); roomHTTP.Register(mux) },
 	})
-	return &api{t: t, env: env, svc: svc, events: rec, handler: h}
+	return &api{t: t, env: env, svc: svc, events: rec, handler: h, logs: &logs}
 }
 
 type resp struct {

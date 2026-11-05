@@ -14,6 +14,7 @@ import (
 
 	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 	"github.com/burakkuru5534/bunker/backend/internal/ratelimit"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
@@ -51,13 +52,20 @@ func (s *Service) Block(ctx context.Context, p auth.Principal, target string) er
 	if err := validTarget(p, target, "user_id"); err != nil {
 		return err
 	}
-	return s.db.Tx(ctx, func(tx pgx.Tx) error {
+	var added bool
+	err := s.db.Tx(ctx, func(tx pgx.Tx) error {
 		if err := userExists(ctx, tx, target); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `insert into blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, p.UserID, target)
+		tag, err := tx.Exec(ctx, `insert into blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, p.UserID, target)
+		added = tag.RowsAffected() == 1
 		return err
 	})
+	if err == nil && added {
+		observability.Security(ctx, s.logger, slog.LevelInfo, observability.EventUserBlocked, "oyuncu engellendi",
+			slog.String("user_id", p.UserID), slog.String("blocked_id", target))
+	}
+	return err
 }
 
 // Unblock, engeli kaldırır (yoksa değişiklik yok).
@@ -158,7 +166,9 @@ func (s *Service) Report(ctx context.Context, p auth.Principal, req ReportReques
 
 	reported := strings.ToLower(req.ReportedUserID)
 	var id string
+	created := false
 	err := s.db.Tx(ctx, func(tx pgx.Tx) error {
+		created = false
 		var shared bool
 		if err := tx.QueryRow(ctx, `select bool_and(present) from (
 			select exists (select 1 from room_members where room_id = $1 and user_id = u)
@@ -179,6 +189,7 @@ func (s *Service) Report(ctx context.Context, p auth.Principal, req ReportReques
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
+		created = true
 		return tx.QueryRow(ctx, `insert into reports (reporter_id, reported_id, room_id, reason, note, messages_snapshot)
 			select $1, $2, $3, $4, $5, coalesce(jsonb_agg(m order by m.created_at, m.id), '[]'::jsonb)
 			from (select c.id, c.user_id, u.nickname, c.body as text, c.created_at
@@ -189,8 +200,13 @@ func (s *Service) Report(ctx context.Context, p auth.Principal, req ReportReques
 	if err != nil {
 		return "", err
 	}
-	s.logger.Info("oyuncu raporlandı", "report_id", id, "reporter_id", p.UserID, "reported_id", reported,
-		"room_id", req.RoomID, "reason", req.Reason)
+	if !created {
+		return id, nil // açık rapor zaten vardı: yeni olay yok
+	}
+	// Not ve mesaj kopyası loglanmaz (kişisel içerik); yalnızca kimlikler.
+	observability.Security(ctx, s.logger, slog.LevelInfo, observability.EventReportCreated, "oyuncu raporlandı",
+		slog.String("report_id", id), slog.String("user_id", p.UserID), slog.String("reported_id", reported),
+		slog.String("room_id", req.RoomID), slog.String("reason", req.Reason))
 	return id, nil
 }
 

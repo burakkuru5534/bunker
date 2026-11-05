@@ -277,10 +277,11 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 		logger.Warn("veritabanı yok: /v1 uç noktaları kayıtlı değil (yalnızca yerel)")
 	}
 	return httpapi.NewRouter(httpapi.Options{
-		Logger:         logger,
-		ProjectID:      cfg.GCPProjectID,
-		MinAppVersion:  minVersion,
-		RequestTimeout: cfg.RequestTimeout,
+		Logger:           logger,
+		ProjectID:        cfg.GCPProjectID,
+		MinAppVersion:    minVersion,
+		RequestTimeout:   cfg.RequestTimeout,
+		TrustedProxyHops: cfg.TrustedProxyHops,
 		Register: func(mux *http.ServeMux) {
 			health.Register(mux)
 			for _, register := range modules {

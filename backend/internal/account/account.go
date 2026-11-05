@@ -13,6 +13,7 @@ import (
 
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
 )
@@ -60,7 +61,8 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal) error {
 		return err
 	}
 	s.auth.ForgetUser(p.UserID)
-	s.logger.Info("hesap silindi", "user_id", p.UserID, "left_room", roomID != "")
+	observability.Security(ctx, s.logger, slog.LevelInfo, observability.EventAccountDeleted, "hesap silindi",
+		slog.String("user_id", p.UserID), slog.Bool("left_room", roomID != ""))
 	return nil
 }
 

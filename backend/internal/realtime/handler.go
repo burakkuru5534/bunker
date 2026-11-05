@@ -12,6 +12,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/ratelimit"
 )
 
@@ -99,10 +100,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	p, err := h.auth.Authenticate(hctx, raw)
 	if err != nil {
-		reject(httpapi.CloseCodeFor(err), "yetkisiz")
+		code := httpapi.CloseCodeFor(err)
+		h.denied(r.Context(), code, "", "")
+		reject(code, "yetkisiz")
 		return
 	}
 	if ok, _ := h.connects.Allow(p.UserID); !ok {
+		h.denied(r.Context(), httpapi.CloseTooMany, p.UserID, "")
 		reject(httpapi.CloseTooMany, "çok fazla bağlantı denemesi")
 		return
 	}
@@ -115,6 +119,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if code == httpapi.CloseInternal {
 			h.logger.Error("ws anlık görüntüsü kurulamadı", "user_id", p.UserID, "room_id", roomID, "error", err)
 		}
+		h.denied(r.Context(), code, p.UserID, roomID)
 		reject(code, "odaya bağlanılamadı")
 		return
 	}
@@ -149,6 +154,30 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	<-writerDone
 	code, _ := c.closeStatus()
 	h.logger.Info("ws kapandı", "user_id", p.UserID, "room_id", roomID, "code", int(code))
+}
+
+// deniedEvents, WS kapanış kodlarının güvenlik olaylarıdır (SAFE-011).
+var deniedEvents = map[int]observability.SecurityEvent{
+	httpapi.CloseUnauthorized: observability.EventAuthFailed,
+	httpapi.CloseNotMember:    observability.EventAccessDenied,
+	httpapi.CloseTooMany:      observability.EventRateLimited,
+}
+
+// denied, reddedilen bağlantıyı güvenlik olayı olarak loglar (kod güvenlik
+// olayı değilse — ör. 5xx, sürüm — bir şey yapmaz).
+func (h *Handler) denied(ctx context.Context, code int, userID, roomID string) {
+	event, ok := deniedEvents[code]
+	if !ok {
+		return
+	}
+	attrs := []slog.Attr{slog.String("route", "GET /v1/ws"), slog.Int("close_code", code)}
+	if userID != "" {
+		attrs = append(attrs, slog.String("user_id", userID))
+	}
+	if roomID != "" {
+		attrs = append(attrs, slog.String("room_id", roomID))
+	}
+	observability.Security(ctx, h.logger, slog.LevelWarn, event, "ws bağlantısı reddedildi", attrs...)
 }
 
 // snapshot, session.snapshot zarfını kodlar.

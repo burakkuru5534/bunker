@@ -17,11 +17,13 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/auth"
 	"github.com/burakkuru5534/bunker/backend/internal/httpapi"
+	"github.com/burakkuru5534/bunker/backend/internal/observability"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
 	"github.com/burakkuru5534/bunker/backend/internal/testdb"
 )
 
 type api struct {
+	logs    *bytes.Buffer
 	t       *testing.T
 	env     *testdb.Env
 	handler http.Handler
@@ -32,7 +34,8 @@ type api struct {
 func newAPI(t *testing.T) *api {
 	t.Helper()
 	env := testdb.New(t)
-	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	var logs bytes.Buffer
+	logger := observability.NewLogger(&logs, slog.LevelDebug, observability.FormatJSON)
 	authHTTP := auth.NewHTTP(auth.NewService(env.DB, nil, logger), 1)
 	roomHTTP := room.NewHTTP(room.NewService(env.DB, nil, nil, logger), authHTTP.Require)
 	svc := NewService(env.DB, logger)
@@ -41,7 +44,7 @@ func newAPI(t *testing.T) *api {
 		Logger: logger, MinAppVersion: httpapi.Version{Minor: 1}, RequestTimeout: 5 * time.Second,
 		Register: func(mux *http.ServeMux) { authHTTP.Register(mux); roomHTTP.Register(mux); modHTTP.Register(mux) },
 	})
-	return &api{t: t, env: env, handler: h, svc: svc}
+	return &api{t: t, env: env, handler: h, svc: svc, logs: &logs}
 }
 
 type resp struct {
@@ -102,6 +105,19 @@ func (a *api) val(sql string, args ...any) any {
 	return v
 }
 
+// events, verilen güvenlik olayının log satırlarıdır (SAFE-011).
+func (a *api) events(name string) []map[string]any {
+	a.t.Helper()
+	var out []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(a.logs.String()), "\n") {
+		var m map[string]any
+		if json.Unmarshal([]byte(line), &m) == nil && m["security_event"] == name {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 func TestIntegrationBlocks(t *testing.T) {
 	a := newAPI(t)
 	tok, me := a.guest("Burak")
@@ -111,6 +127,11 @@ func TestIntegrationBlocks(t *testing.T) {
 		if r := a.do("POST", "/v1/blocks", tok, `{"user_id":"`+target+`"}`); r.code != 204 {
 			t.Fatalf("engelle: %d %s", r.code, r.raw)
 		}
+	}
+	// Güvenlik olayı yalnızca yeni engelde (tekrar engel olay üretmez).
+	if ev := a.events("user_blocked"); len(ev) != 2 || ev[0]["user_id"] != me || ev[0]["blocked_id"] != x ||
+		ev[0]["request_id"] == nil || ev[0]["client_ip"] == nil {
+		t.Fatalf("user_blocked: %v", ev)
 	}
 	r := a.do("GET", "/v1/blocks", tok, "")
 	if r.code != 200 || len(r.list) != 2 {
@@ -207,6 +228,14 @@ func TestIntegrationReport(t *testing.T) {
 		snapshot[0]["nickname"] != "Kotu Adam" || snapshot[0]["user_id"] != reported {
 		t.Fatalf("kanıt: %d, ilk %v, son %v", len(snapshot), snapshot[0], snapshot[len(snapshot)-1])
 	}
+	// Güvenlik olayı: kimlikler var; not ve mesaj içerikleri loglanmaz.
+	if ev := a.events("report_created"); len(ev) != 1 || ev[0]["report_id"] != id || ev[0]["user_id"] != reporter ||
+		ev[0]["reported_id"] != reported || ev[0]["reason"] != "harassment" {
+		t.Fatalf("report_created: %v", ev)
+	}
+	if strings.Contains(a.logs.String(), "hakaret") || strings.Contains(a.logs.String(), "mesaj 55") {
+		t.Fatal("rapor notu veya mesaj içeriği loglandı")
+	}
 	// Kanıt, sohbet silinse de kalır.
 	if _, err := a.env.Migrate.Exec(context.Background(), `delete from chat_messages where room_id = $1`, roomID); err != nil {
 		t.Fatal(err)
@@ -220,6 +249,9 @@ func TestIntegrationReport(t *testing.T) {
 	}
 	if n := a.val(`select count(*) from reports`).(int64); n != 1 {
 		t.Fatalf("%d rapor", n)
+	}
+	if ev := a.events("report_created"); len(ev) != 1 {
+		t.Fatalf("tekrar rapor yeni olay üretti: %d", len(ev))
 	}
 	// Rapor kapandıysa aynı kişi yeniden raporlanabilir.
 	if _, err := a.env.Migrate.Exec(context.Background(), `update reports set status = 'dismissed', resolved_at = now() where id = $1`, id); err != nil {

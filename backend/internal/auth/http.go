@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -74,13 +75,15 @@ func (h *HTTP) Require(next http.Handler) http.Handler {
 			httpapi.WriteAppError(w, r, err)
 			return
 		}
+		ctx := context.WithValue(r.Context(), principalKey{}, p)
+		ctx = observability.WithLogger(ctx, observability.LoggerFrom(ctx).With("user_id", p.UserID))
+		r = r.WithContext(ctx)
+		// Sıklık sınırı olayı da user_id taşısın diye bağlamdan sonra.
 		if ok, wait := h.userLimit.Allow(p.UserID); !ok {
 			httpapi.WriteAppError(w, r, apperr.RateLimit(wait))
 			return
 		}
-		ctx := context.WithValue(r.Context(), principalKey{}, p)
-		ctx = observability.WithLogger(ctx, observability.LoggerFrom(ctx).With("user_id", p.UserID))
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -120,7 +123,8 @@ func (h *HTTP) createGuest(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	observability.LoggerFrom(r.Context()).Info("misafir oturumu oluşturuldu", "user_id", iss.User.ID)
+	observability.Security(r.Context(), nil, slog.LevelInfo, observability.EventSessionCreated,
+		"misafir oturumu oluşturuldu", slog.String("user_id", iss.User.ID))
 	writeToken(w, http.StatusCreated, iss, true)
 	return nil
 }
