@@ -44,16 +44,43 @@ Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgRE
 - Supabase `anon` / `service_role` anahtarları mobil uygulamaya **asla** konmaz; backend'in de bunlara ihtiyacı yoktur.
 - Tüm sorgular parametreli (pgx/sqlc) → SQL injection yok.
 
-## 3. Gizli değerler
+## 3. Gizli değerler (SAFE-010)
 
-| Değer | Yerel | Test / Prod |
+### Envanter
+
+| Değer | Kullanan | Yerel | CI | Test / Prod (Cloud Run) |
+|---|---|---|---|---|
+| `DATABASE_URL` (uygulama rolü `bunker_<env>_app`) | sunucu | `backend/.env` (prod: `.env.prod`) | Yok — CI geçici PostgreSQL kullanır (gizli değil) | Secret Manager → ortam değişkeni |
+| `MIGRATION_DATABASE_URL` (migration rolü `bunker_<env>_migrator`) | `cmd/migrate` | Aynı `.env` | Yok | **Cloud Run'a verilmez**; migration geliştirici makinesinden çalışır |
+| Supabase veritabanı yönetici (`postgres`) şifresi | yalnızca rol kurulumu (SQL editörü) | Hiçbir dosyada değil; Supabase panelinde | — | — |
+| Supabase API anahtarları (publishable / `sb_secret_…`) | **kullanılmıyor** (uygulama Supabase API'sine bağlanmaz) | — | — | — |
+
+- Mobil uygulamada gizli değer yoktur: yalnızca API/WS adresleri ve yasal sayfa adresleri (`--dart-define`, gizli değil). Oturum token'ı cihazda Keystore'da tutulur (§1).
+- Yapılandırma gizli değerleri yalnızca ortam değişkeninden okur (`config.Secret`: loglarda ve hata mesajlarında maskeli). `.env` yalnızca `APP_ENV` boş/`local` iken okunur; bulutta dosya okunmaz.
+- `.env*` (`.env.example` hariç), anahtar/sertifika dosyaları ve servis hesabı JSON'ları `.gitignore`'dadır. `.env.example` yalnızca anahtar adlarını içerir.
+
+### Depoya sızmaya karşı
+
+- `backend/cmd/secretscan` bilinen biçimleri arar: Supabase gizli anahtarı, JWT, parolalı PostgreSQL adresi, özel anahtar, servis hesabı JSON'u, `*_SECRET_KEY=` / `PGPASSWORD=` atamaları. Bulguda değer yazılmaz (dosya:satır:tür). Test/belge yer tutucuları (`cokgizli`, `<parola>`, `${…}`) bulgu değildir; bilinçli bir örnek satıra `secretscan:ignore` yazılır.
+- **CI:** `.github/workflows/secrets.yml` her push ve PR'da izlenen tüm dosyaları tarar.
+- **Commit öncesi (isteğe bağlı):** `git config core.hooksPath .githooks` → `.githooks/pre-commit` commit'e hazırlanan içeriği tarar, bulgu varsa commit durur.
+- Geçmiş taraması (5 Kasım 2026, 83 commit): gerçek gizli değer bulunmadı; eşleşmelerin hepsi test yer tutucusu.
+
+### Cloud Run'da (REL-003; kaynak oluşturma onayla)
+
+- Her ortamın kendi Secret Manager secret'ı (`DATABASE_URL`) ve kendi servis hesabı vardır; servis hesabı yalnızca kendi secret'ı için `roles/secretmanager.secretAccessor` iznine sahiptir. Secret, Cloud Run'a ortam değişkeni olarak sürüm numarasıyla (`:N`, `latest` değil) bağlanır; yeni sürüm yeni dağıtımla devreye girer.
+- Maliyet (Kasım 2026, Secret Manager fiyat sayfası): faturalandırma hesabı başına ayda 6 aktif secret sürümü ve 10.000 erişim ücretsiz; fazlası aktif sürüm başına ~0,06 $/ay, 10.000 erişim 0,03 $. Cloud Run secret'ı örnek başlarken okur; test + prod iki secret ile ücretsiz kotada kalınır. Eski sürümler devre dışı bırakılıp yok edilir (yok edilen sürüm ücretlendirilmez).
+
+### Döndürme (rotation)
+
+| Ne | Ne zaman | Nasıl |
 |---|---|---|
-| `DATABASE_URL` | `.env` (git'e girmez) | Google Secret Manager |
-| Diğer | — | Gerektiğinde Secret Manager |
+| Uygulama / migration rolü şifresi | Sızma şüphesi; ekipten ayrılan biri; yılda bir | `go run ./cmd/dbsetup init -env <test\|prod> -role <app\|migrator> …` yeni şifre üretir, `.env`'e yazar ve Supabase SQL editöründe çalıştırılacak `ALTER ROLE … PASSWORD 'SCRAM-SHA-256$…'` ifadesini verir (düz şifre Supabase'e gitmez). Bulutta: yeni secret sürümü → yeni dağıtım → eski sürümü devre dışı bırak. `dbsetup check` ile doğrula |
+| Supabase `postgres` yönetici şifresi | Sızma şüphesi | Supabase panelinde Project Settings → Database → "Reset database password" (menü adları değişebilir). Uygulama bu rolü kullanmadığı için başka değişiklik gerekmez |
+| Supabase API gizli anahtarı | Sızma şüphesi | Panelde Project Settings → API Keys: anahtarı iptal et / yenisini oluştur. Uygulama kullanmadığı için başka değişiklik gerekmez |
+| Kullanıcı oturum token'ları | Sunucu tarafı sızma şüphesi | `update sessions set revoked_at = now()` (tümü) — herkes yeniden misafir hesap açar; token'lar yalnızca SHA-256 özetiyle saklandığı için veritabanı sızıntısı tek başına token vermez |
 
-- Cloud Run servis hesabı yalnızca kendi secret'ları için `roles/secretmanager.secretAccessor` iznine sahiptir.
-- Test ve prod ayrı servis hesapları ve ayrı secret'lar kullanır.
-- `.env.example` yalnızca anahtar adlarını içerir, değer içermez.
+**Açık madde (kullanıcı):** Geliştirme sırasında Supabase `postgres` şifresi ve `SUPABASE_SECRET_KEY` bir sohbet ortamına yazıldı. Bu değerler hiçbir dosyada ve git geçmişinde yok (tarandı), ancak **ikisi de yukarıdaki tabloya göre yenilenmelidir.** Yenileme tamamlanınca bu madde kaldırılır.
 
 ## 4. Tehditler ve önlemler
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Sığınak — commit'e hazırlanan dosyalarda gizli değer arar (SAFE-010).
+# Bir kez etkinleştirin:  git config core.hooksPath .githooks
+# Bulgu varsa commit durur; değer ekrana yazılmaz.
+root="$(git rev-parse --show-toplevel)" || exit 1
+if ! command -v go >/dev/null 2>&1; then
+  echo "secretscan: go bulunamadı, tarama atlandı (CI yine tarar)" >&2
+  exit 0
+fi
+cd "$root/backend" || exit 1
+exec go run ./cmd/secretscan -staged
