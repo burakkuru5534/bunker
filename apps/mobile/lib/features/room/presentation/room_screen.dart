@@ -160,6 +160,10 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
         message: l.realtimeReplaced,
         onRetry: _controller.reconnect,
       );
+    } else if (state.loadFailed &&
+        (room == null ||
+            (room.status == RoomStatus.inGame && state.game == null))) {
+      body = ErrorView(message: l.roomLoadFailed, onRetry: _controller.reload);
     } else if (room == null) {
       body = LoadingView(message: l.roomConnecting);
     } else {
@@ -180,7 +184,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           onPlayerMenu: (p) => _playerMenu(p.userId, p.nickname),
           online: online,
         ),
-        RoomStatus.inGame => _StatusMessage(text: l.roomGameStarted),
+        // Tutarsız görüntü: denetleyici yeniden ister (loadFailed'a kadar).
+        RoomStatus.inGame => LoadingView(message: l.roomConnecting),
         RoomStatus.finished => _FinishedView(
           state: state,
           onRematch: () => _run(_controller.rematch),

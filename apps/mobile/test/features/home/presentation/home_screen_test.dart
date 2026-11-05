@@ -109,6 +109,27 @@ void main() {
     );
   });
 
+  testWidgets('Ağ hatasında snackbar; oda açılmaz, tekrar denenebilir', (
+    tester,
+  ) async {
+    await pump(tester);
+    backend.on('POST', '/v1/rooms', networkFailure);
+
+    await tester.tap(find.text('Oda oluştur'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('İnternet bağlantını kontrol edip tekrar dene.'),
+      findsOneWidget,
+    );
+    expect(opened, isEmpty);
+
+    backend.restore('POST', '/v1/rooms');
+    await tester.tap(find.text('Oda oluştur'));
+    await tester.pumpAndSettle();
+    expect(opened, [FakeBackend.createdRoomId]);
+  });
+
   testWidgets('Zaten odadaysa uyarı ve "Odana dön"', (tester) async {
     const existing = '33333333-3333-4333-8333-333333333333';
     backend.on(

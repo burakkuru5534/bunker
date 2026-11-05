@@ -215,6 +215,113 @@ void main() {
     expect(read().room!.members, hasLength(2));
   });
 
+  group('yüklenemeyen oda (PLAY-011)', () {
+    void badSnapshot() => ws.last.serverSend(
+      'session.snapshot',
+      // Oyun süren oda ama oyun durumu yok: tutarsız görüntü.
+      payload: snapshotPayload(
+        roomId: roomId,
+        me: 'u1',
+        status: 'in_game',
+        members: [wsMember('u1', 'Ayşe')],
+      ),
+    );
+    List<Object?> syncs() => [
+      for (final m in ws.last.sent)
+        if ((jsonDecode(m) as Map)['type'] == 'sync') m,
+    ];
+
+    test('tutarsız görüntü yeniden istenir; 3. hatada vazgeçilir', () async {
+      c.listen(provider, (_, _) {});
+      await flush();
+      for (var i = 0; i < 2; i++) {
+        badSnapshot();
+        await flush();
+      }
+      expect(syncs(), hasLength(2));
+      expect(read().loadFailed, isFalse);
+      expect(read().room, isNull);
+
+      badSnapshot();
+      await flush();
+      expect(syncs(), hasLength(2)); // döngü durdu
+      expect(read().loadFailed, isTrue);
+
+      // Tekrar dene: sync, sayaç sıfır; geçerli görüntü odayı yükler.
+      c.read(provider.notifier).reload();
+      await flush();
+      expect(syncs(), hasLength(3));
+      expect(read().loadFailed, isFalse);
+      badSnapshot();
+      await flush();
+      expect(syncs(), hasLength(4)); // sayaç sıfırlandığı için yine istenir
+      expect(read().loadFailed, isFalse);
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snapshotPayload(
+          roomId: roomId,
+          me: 'u1',
+          members: [wsMember('u1', 'Ayşe')],
+        ),
+      );
+      await flush();
+      expect(read().room, isNotNull);
+    });
+
+    test(
+      'hatadan sonra yeniden bağlanınca gelen geçerli görüntü hatayı kaldırır',
+      () async {
+        c.listen(provider, (_, _) {});
+        await flush();
+        for (var i = 0; i < 3; i++) {
+          badSnapshot();
+          await flush();
+        }
+        expect(read().loadFailed, isTrue);
+
+        ws.last.serverClose(1006);
+        await Future<void>.delayed(const Duration(seconds: 1)); // geri çekilme
+        await flush();
+        expect(ws.sockets, hasLength(2));
+        ws.last.serverSend(
+          'session.snapshot',
+          payload: snapshotPayload(
+            roomId: roomId,
+            me: 'u1',
+            members: [wsMember('u1', 'Ayşe')],
+          ),
+        );
+        await flush();
+        expect(read().loadFailed, isFalse);
+        expect(read().room, isNotNull);
+      },
+    );
+
+    test('başarılı görüntü sayacı sıfırlar', () async {
+      await open();
+      for (var i = 0; i < 2; i++) {
+        badSnapshot();
+        await flush();
+      }
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snapshotPayload(
+          roomId: roomId,
+          me: 'u1',
+          version: 6,
+          members: [wsMember('u1', 'Ayşe')],
+        ),
+      );
+      await flush();
+      for (var i = 0; i < 2; i++) {
+        badSnapshot();
+        await flush();
+      }
+      expect(read().loadFailed, isFalse);
+      expect(syncs(), hasLength(4));
+    });
+  });
+
   test('eylemler doğru uç noktalara gider', () async {
     final routes = <String>[];
     for (final (m, path) in [

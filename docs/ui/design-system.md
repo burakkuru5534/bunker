@@ -115,6 +115,23 @@ Ortak bileşenler `lib/core/ui/` altında; yalnızca bir feature'ın kullandıkl
 
 Her veri gösteren ekran şu dört durumu tasarlar: **yükleniyor**, **içerik**, **boş**, **hata**. Gerçek zamanlı ekranlar ek olarak **bağlantı koptu** durumunu `ConnectionBanner` ile gösterir; içerik son bilinen durumla görünür kalır, eylem düğmeleri devre dışı olur.
 
+Ekran ekran uygulama (PLAY-011; her satır widget testiyle doğrulanır):
+
+| Ekran | Yükleniyor | Boş | Hata | Not |
+|---|---|---|---|---|
+| Açılış | "Oturumun kontrol ediliyor…" (`/me`) | — | Metin + **Tekrar dene** (oturum korunur); 401 → hoş geldin | Sürüm eski → güncelleme ekranı |
+| Hoş geldin | Düğmede gösterge, ikinci basış yok | — | Alan hatası satır içinde; diğerleri snackbar | |
+| Ana ekran | "Oda oluştur" düğmesinde gösterge | — | Snackbar; `ALREADY_IN_ROOM` → "Odana dön" | |
+| Koda katıl | Düğmede gösterge | — | Koda göre satır içi metin; ağ hatası da satır içinde | |
+| Oda (lobi/oyun) | "Odaya bağlanılıyor…" | — | 4008 → hata + **Tekrar dene**; görüntü 3 kez çözülemezse "Oda yüklenemedi" + **Tekrar dene** (`sync`), çıkış düğmesi açık | Bağlantı şeridi (PLAY-009); eylem hataları snackbar |
+| Maç sonu | "Sonuçlar yükleniyor…" (`game.finished` kaçırıldıysa) | — | Metin + **Tekrar dene** (otomatik yeniden deneme yok) | |
+| Sohbet paneli | — | "Henüz mesaj yok. İlk sen yaz!" | Mesaj başına "Gönderilemedi" + dokunarak aynı kimlikle yeniden gönder | İzleyicide salt okunur |
+| Raporla / Engelle | Düğmede gösterge | — | Rapor: pencerede satır içi; engelle: snackbar | |
+| Engellenenler | Gösterge | "Engellediğin kimse yok." | Metin + **Tekrar dene** | |
+| Ayarlar | Düğmelerde gösterge | — | Snackbar; hesap silme hatasında oturum korunur | Yasal bağlantı açılamazsa snackbar |
+
+Genel kurallar: hata metinleri `messageForApiError` ile koddan çevrilir (bilinmeyen kod genel metne düşer, iptal edilen istek gösterilmez); 401 her yerde oturumu kapatır; 426 güncelleme ekranına götürür; sunucu yanıtı bozuksa `invalidResponse` (5xx ise "sunucuda sorun" metni). Gerçek zamanlı olay yükü bozuksa istemci `sync` ister.
+
 ## 5. Düzen kuralları
 
 - Hedef ekran genişliği 360–430 dp (Android telefon); 320 dp'de taşma olmamalı (PLAY-012).

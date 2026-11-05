@@ -395,7 +395,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String get roomReconnect => 'Yeniden bağlan';
 
   @override
-  String get roomGameStarted => 'Oyun başladı.';
+  String get roomLoadFailed =>
+      'Oda yüklenemedi. Tekrar dene; sorun sürerse odadan çıkıp yeniden katıl.';
 
   @override
   String get roomGameFinished => 'Oyun bitti.';

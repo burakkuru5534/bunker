@@ -139,7 +139,7 @@
   "roomKickConfirm": "At",
   "roomConnecting": "Odaya bağlanılıyor…",
   "roomReconnect": "Yeniden bağlan",
-  "roomGameStarted": "Oyun başladı.",
+  "roomLoadFailed": "Oda yüklenemedi. Tekrar dene; sorun sürerse odadan çıkıp yeniden katıl.",
   "roomGameFinished": "Oyun bitti.",
 
   "gameTitle": "Oyun",

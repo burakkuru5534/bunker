@@ -41,6 +41,7 @@ class RoomState {
     this.exit,
     this.result,
     this.chat = const ChatState(),
+    this.loadFailed = false,
   });
 
   /// İlk `session.snapshot` gelene kadar `null`.
@@ -57,6 +58,10 @@ class RoomState {
 
   /// Sohbet (snapshot geçmişi + `chat.message` + bekleyen mesajlarım).
   final ChatState chat;
+
+  /// Sunucunun anlık görüntüsü art arda çözülemedi: ekran yükleniyor yerine
+  /// hata + "Tekrar dene" gösterir ([RoomController.reload]).
+  final bool loadFailed;
 
   RoomMember? get me => room?.memberOf(myUserId);
 
@@ -79,6 +84,7 @@ class RoomState {
     RoomExit? exit,
     GameResult? Function()? result,
     ChatState? chat,
+    bool? loadFailed,
   }) => RoomState(
     room: room ?? this.room,
     myUserId: myUserId ?? this.myUserId,
@@ -87,6 +93,7 @@ class RoomState {
     exit: exit ?? this.exit,
     result: result != null ? result() : this.result,
     chat: chat ?? this.chat,
+    loadFailed: loadFailed ?? this.loadFailed,
   );
 }
 
@@ -131,6 +138,12 @@ class RoomController extends Notifier<RoomState> {
 
   final String roomId;
 
+  /// Bu kadar anlık görüntü art arda çözülemezse istemci `sync` istemeyi
+  /// bırakır ve hata gösterir (sonsuz eşitleme döngüsü olmasın).
+  static const maxSnapshotFailures = 3;
+
+  int _snapshotFailures = 0;
+
   RealtimeClient get _client => ref.read(realtimeClientProvider);
   RoomRepository get _repo => ref.read(roomRepositoryProvider);
 
@@ -156,6 +169,18 @@ class RoomController extends Notifier<RoomState> {
 
   /// Yeniden bağlanma beklemesini atlayıp hemen dener ("Tekrar dene").
   void retryConnection() => _client.onAppResumed();
+
+  /// Oda yüklenemediğinde ("Tekrar dene"): sayacı sıfırlar ve taze anlık
+  /// görüntü ister (bağlıysa `sync`, değilse hemen bağlanır).
+  void reload() {
+    _snapshotFailures = 0;
+    state = state.copyWith(loadFailed: false);
+    if (_client.state.status == RealtimeStatus.stopped) {
+      _client.connect(roomId);
+    } else {
+      _client.onAppResumed();
+    }
+  }
 
   /// Başka cihazda açıldığı için duran bağlantıyı yeniden kurar.
   void reconnect() => _client.connect(roomId);
@@ -298,8 +323,14 @@ class RoomController extends Notifier<RoomState> {
     if (!ref.mounted || state.exit != null) return;
     try {
       _apply(e);
+      if (e.type == 'session.snapshot') _snapshotFailures = 0;
     } on Exception {
       // ApiException / FormatException: beklenmeyen biçim → tam görüntü.
+      if (e.type == 'session.snapshot' &&
+          ++_snapshotFailures >= maxSnapshotFailures) {
+        state = state.copyWith(loadFailed: true);
+        return;
+      }
       _client.requestSync();
     }
   }
@@ -314,12 +345,19 @@ class RoomController extends Notifier<RoomState> {
       final game = p['game'];
       final serverTime = p['server_time'];
       final history = p['chat'];
+      final roomView = RoomView.fromJson(p['room']);
+      // Oyun süren odada oyun durumu her zaman gelir (realtime/snapshot.go);
+      // gelmediyse görüntü tutarsızdır → yeniden istenir.
+      if (roomView.status == RoomStatus.inGame && game == null) {
+        throw const FormatException('in_game odada oyun yok');
+      }
       state = state.copyWith(
         chat: state.chat.withHistory([
           if (history is List)
             for (final m in history) ?ChatMessage.tryParse(m),
         ]),
-        room: RoomView.fromJson(p['room']),
+        room: roomView,
+        loadFailed: false,
         myUserId: me is Map<String, Object?> && me['user_id'] is String
             ? me['user_id']! as String
             : null,

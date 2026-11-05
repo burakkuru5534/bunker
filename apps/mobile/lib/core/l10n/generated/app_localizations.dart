@@ -760,11 +760,11 @@ abstract class AppLocalizations {
   /// **'Yeniden bağlan'**
   String get roomReconnect;
 
-  /// No description provided for @roomGameStarted.
+  /// No description provided for @roomLoadFailed.
   ///
   /// In tr, this message translates to:
-  /// **'Oyun başladı.'**
-  String get roomGameStarted;
+  /// **'Oda yüklenemedi. Tekrar dene; sorun sürerse odadan çıkıp yeniden katıl.'**
+  String get roomLoadFailed;
 
   /// No description provided for @roomGameFinished.
   ///

@@ -403,6 +403,37 @@ void main() {
     });
   });
 
+  testWidgets('Oda yüklenemezse hata + Tekrar dene (PLAY-011)', (tester) async {
+    await pump(tester);
+    for (var i = 0; i < 3; i++) {
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snapshotPayload(
+          roomId: roomId,
+          me: 'u-guest',
+          status: 'in_game',
+          members: [wsMember('u-guest', 'Ayşe')],
+        ),
+      );
+      await frames(tester, 2);
+      if (i < 2) expect(find.text('Odaya bağlanılıyor…'), findsOneWidget);
+    }
+    expect(
+      find.text(
+        'Oda yüklenemedi. Tekrar dene; sorun sürerse odadan çıkıp yeniden katıl.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Odadan ayrıl'), findsOneWidget); // çıkış yolu açık
+
+    await tester.tap(find.text('Tekrar dene'));
+    await frames(tester, 2);
+    expect(find.text('Odaya bağlanılıyor…'), findsOneWidget);
+    expect(ws.last.sent.last, contains('"sync"'));
+    await snapshot(tester);
+    expect(find.text('K7M2QX'), findsOneWidget);
+  });
+
   testWidgets('Başka cihazda açılınca durur; yeniden bağlanılabilir', (
     tester,
   ) async {
