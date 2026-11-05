@@ -76,28 +76,57 @@ class ConnectionBanner extends StatelessWidget {
                   content.$2.withValues(alpha: 0.16),
                   theme.colorScheme.surface,
                 ),
-                child: Row(
-                  children: [
-                    Icon(content.$3, size: 18, color: content.$2),
-                    const SizedBox(width: AppSpacing.s2),
-                    Expanded(
-                      child: Text(
-                        message ?? content.$1,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: content.$2,
+                child: _layout(
+                  context,
+                  label: Row(
+                    children: [
+                      Icon(content.$3, size: 18, color: content.$2),
+                      const SizedBox(width: AppSpacing.s2),
+                      Expanded(
+                        child: Text(
+                          message ?? content.$1,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: content.$2,
+                          ),
                         ),
                       ),
-                    ),
-                    if (state == ConnectionBannerState.offline &&
-                        onRetry != null)
-                      TextButton(
-                        onPressed: onRetry,
-                        child: Text(l10n.actionRetry),
-                      ),
-                  ],
+                    ],
+                  ),
+                  retry:
+                      state == ConnectionBannerState.offline && onRetry != null
+                      ? TextButton(
+                          onPressed: onRetry,
+                          child: Text(l10n.actionRetry),
+                        )
+                      : null,
                 ),
               ),
             ),
+    );
+  }
+
+  /// Metin ve "Tekrar dene" yan yana; büyük yazı ölçeğinde düğme alta iner
+  /// (PLAY-012: 320 dp, %200 yazı).
+  static Widget _layout(
+    BuildContext context, {
+    required Widget label,
+    required Widget? retry,
+  }) {
+    if (retry == null) return label;
+    if (MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          label,
+          Align(alignment: AlignmentDirectional.centerEnd, child: retry),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: label),
+        retry,
+      ],
     );
   }
 }

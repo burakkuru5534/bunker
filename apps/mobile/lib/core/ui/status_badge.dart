@@ -40,9 +40,11 @@ class StatusBadge extends StatelessWidget {
       StatusBadgeKind.turn => (scheme.primary, null),
     };
 
+    // Yükseklik en az 28; büyük yazı ölçeğinde büyür, dar alanda metin
+    // kısaltılır (PLAY-012).
     return Container(
-      height: 28,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      constraints: const BoxConstraints(minHeight: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AppRadius.full),
@@ -54,9 +56,14 @@ class StatusBadge extends StatelessWidget {
             Icon(icon, size: 14, color: fg),
             const SizedBox(width: AppSpacing.s1),
           ],
-          Text(
-            labelOf(context.l10n, kind),
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fg),
+          Flexible(
+            child: Text(
+              labelOf(context.l10n, kind),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: fg),
+            ),
           ),
         ],
       ),

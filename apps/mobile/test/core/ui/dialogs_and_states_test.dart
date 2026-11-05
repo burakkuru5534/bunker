@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/confirm_dialog.dart';
 import 'package:siginak/core/ui/state_views.dart';
+import 'package:siginak/features/startup/presentation/update_required_screen.dart';
 
 import '../../helpers/pump_themed.dart';
+import '../../helpers/small_screen.dart';
 
 void main() {
   Future<bool?> openDialog(WidgetTester t, String tapLabel) async {
@@ -77,5 +80,40 @@ void main() {
       const EmptyState(icon: Icons.block, message: 'Engellediğin kimse yok.'),
     );
     expect(find.text('Engellediğin kimse yok.'), findsOneWidget);
+  });
+
+  testWidgets('320 dp ve %200 yazı: durum görünümleri ve onay penceresi', (
+    t,
+  ) async {
+    useSmallScreen(t);
+    for (final w in <Widget>[
+      LoadingView(message: 'Sonuçlar yükleniyor, lütfen bekle. ' * 6),
+      ErrorView(
+        message: 'Oda yüklenemedi. Tekrar dene; sorun sürerse odadan çıkıp yeniden katıl.',
+        onRetry: () {},
+      ),
+      const EmptyState(
+        icon: Icons.block_rounded,
+        message: 'Engellediğin kimse yok.',
+      ),
+    ]) {
+      await pumpThemed(t, w);
+      expect(t.takeException(), isNull, reason: '$w');
+    }
+    await openDialog(t, 'Vazgeç');
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('320 dp ve %200 yazı: güncelleme ekranı', (t) async {
+    useSmallScreen(t);
+    await t.pumpWidget(
+      const MaterialApp(
+        locale: Locale('tr'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: testLocalizationsDelegates,
+        home: UpdateRequiredScreen(),
+      ),
+    );
+    expect(t.takeException(), isNull);
   });
 }

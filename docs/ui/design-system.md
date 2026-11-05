@@ -134,7 +134,8 @@ Genel kurallar: hata metinleri `messageForApiError` ile koddan çevrilir (bilinm
 
 ## 5. Düzen kuralları
 
-- Hedef ekran genişliği 360–430 dp (Android telefon); 320 dp'de taşma olmamalı (PLAY-012).
+- Hedef ekran genişliği 360–430 dp (Android telefon); 320 dp'de taşma olmamalı (PLAY-012). Her ekranın widget testinde 320×568 dp ve %200 yazı ölçeğinde taşma, 360 dp'de dokunma hedefi (48 dp) ve etiket kuralları denetlenir (`test/helpers/small_screen.dart`).
+- Büyük yazı ölçeğinde: ızgara çevresindeki alanlar (izleyici şeridi en fazla %15, eylem alanı en fazla %35 yükseklik) kaydırılır; üst çubukta tur/aşama/süre kırpılmaz, gerekirse küçülür; davet kodu ve bağlantı şeridindeki "Tekrar dene" alt satıra iner.
 - Ekran kenar boşluğu `space4` (16 dp).
 - Oyuncu ızgarası: 2 sütun; ≤4 oyuncuda 1 sütun büyük kutular.
 - Alt eylem alanı her zaman görünür; klavye açılınca sohbet paneli yeniden boyutlanır.

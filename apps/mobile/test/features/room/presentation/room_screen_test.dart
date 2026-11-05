@@ -18,6 +18,7 @@ import '../../../helpers/fake_backend.dart';
 import '../../../helpers/fake_http_adapter.dart';
 import '../../../helpers/fake_ws.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/small_screen.dart';
 
 void main() {
   const roomId = '44444444-4444-4444-8444-444444444444';
@@ -132,6 +133,25 @@ void main() {
     expect(find.text('Oda sahibi'), findsOneWidget);
     expect(find.text('Hazır'), findsOneWidget);
     expect(find.text('Bekliyor'), findsOneWidget);
+  });
+
+  testWidgets('320 dp ve %200 yazı: lobi ve ayrılma onayı taşmaz', (
+    tester,
+  ) async {
+    await pump(tester);
+    useSmallScreen(tester);
+    await snapshot(tester, members: fourReady());
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Odadan ayrıl'));
+    await frames(tester);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Lobi dokunma hedefleri ve etiketler (360 dp)', (tester) async {
+    await pump(tester);
+    useSmallScreen(tester, size: const Size(360, 640), textScale: 1);
+    await snapshot(tester, members: fourReady());
+    await expectAccessibleTapTargets(tester);
   });
 
   testWidgets('Kod kopyalanır', (tester) async {
@@ -573,6 +593,24 @@ void main() {
         find.text('Bağlantı yok. Kısa sürede dönmezsen oyundan çıkarılırsın.'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('320 dp ve %200 yazı: oyun + bağlantı yok şeridi taşmaz', (
+      tester,
+    ) async {
+      await pump(tester);
+      useSmallScreen(tester);
+      await gameSnapshot(tester, 'REVEAL');
+      expect(tester.takeException(), isNull);
+      ws.failNext = 1000;
+      ws.last.serverClose(1006);
+      await frames(tester, 2);
+      await tester.pump(const Duration(seconds: 11));
+      expect(
+        find.text('Bağlantı yok. Kısa sürede dönmezsen oyundan çıkarılırsın.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('Bağlantı yokken kart açılamaz', (tester) async {

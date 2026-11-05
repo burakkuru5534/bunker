@@ -11,6 +11,7 @@ import 'package:siginak/features/session/session.dart';
 import '../../../helpers/fake_backend.dart';
 import '../../../helpers/fake_http_adapter.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/small_screen.dart';
 
 void main() {
   late FakeBackend backend;
@@ -244,5 +245,16 @@ void main() {
     await tester.tap(find.text('Katıl'));
     await tester.pumpAndSettle();
     expect(opened, [FakeBackend.joinedRoomId]);
+  });
+
+  testWidgets('320 dp ve %200 yazı: taşma yok; dokunma hedefleri', (
+    tester,
+  ) async {
+    useSmallScreen(tester);
+    await pump(tester);
+    expect(tester.takeException(), isNull);
+    useSmallScreen(tester, size: const Size(360, 640), textScale: 1);
+    await tester.pumpAndSettle();
+    await expectAccessibleTapTargets(tester);
   });
 }

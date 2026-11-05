@@ -6,6 +6,7 @@ import 'package:siginak/features/chat/chat.dart';
 
 import '../../../helpers/chat.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/small_screen.dart';
 
 void main() {
   late List<String> sent;
@@ -123,5 +124,30 @@ void main() {
     await pump(tester, const ChatState(), canWrite: false);
     expect(find.text('İzleyiciler yazamaz.'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('320 dp ve %200 yazı: taşma yok; dokunma hedefleri', (
+    tester,
+  ) async {
+    useSmallScreen(tester);
+    final chat = const ChatState()
+        .withHistory([
+          msg(1, 'u2', text: 'Uzun bir mesaj ' * 8),
+          msg(2, 'me', text: 'kısa'),
+        ])
+        .withPending([
+          const PendingMessage(
+            clientMsgId: 'c2',
+            text: 'olmadı',
+            error: ApiException(kind: ApiErrorKind.rateLimited),
+          ),
+        ]);
+    await pump(tester, chat);
+    expect(tester.takeException(), isNull);
+    await pump(tester, chat, canWrite: false);
+    expect(tester.takeException(), isNull);
+    useSmallScreen(tester, size: const Size(360, 640), textScale: 1);
+    await pump(tester, chat);
+    await expectAccessibleTapTargets(tester);
   });
 }

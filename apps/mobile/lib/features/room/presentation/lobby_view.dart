@@ -200,35 +200,53 @@ class _InviteCodeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
+    final codeBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l.roomInviteCode, style: theme.textTheme.labelLarge),
+        const SizedBox(height: AppSpacing.s1),
+        // Kod tek satırda kalır; sığmazsa küçülür (bölünmüş kod okunmaz).
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: SelectableText(
+            code,
+            style: theme.textTheme.headlineLarge?.copyWith(
+              fontFamily: AppFonts.display,
+              letterSpacing: 4,
+            ),
+          ),
+        ),
+      ],
+    );
+    final copy = AppButton.secondary(
+      label: l.roomCopy,
+      icon: Icons.copy_rounded,
+      expand: false,
+      onPressed: onCopy,
+    );
+    // Büyük yazı ölçeğinde veya dar ekranda kod ve düğme alt alta
+    // (PLAY-012: 320 dp, %200 yazı).
+    final stacked = MediaQuery.textScalerOf(context).scale(1) > 1.3;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.s4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(l.roomInviteCode, style: theme.textTheme.labelLarge),
-                  const SizedBox(height: AppSpacing.s1),
-                  SelectableText(
-                    code,
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontFamily: AppFonts.display,
-                      letterSpacing: 4,
-                    ),
-                  ),
+                  codeBlock,
+                  const SizedBox(height: AppSpacing.s3),
+                  copy,
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: codeBlock),
+                  const SizedBox(width: AppSpacing.s2),
+                  copy,
                 ],
               ),
-            ),
-            AppButton.secondary(
-              label: l.roomCopy,
-              icon: Icons.copy_rounded,
-              expand: false,
-              onPressed: onCopy,
-            ),
-          ],
-        ),
       ),
     );
   }

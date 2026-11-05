@@ -159,23 +159,20 @@ class _GameBodyState extends State<GameBody> {
           clock: widget.clock,
           onShowScenario: _showScenario,
         ),
-        if (spectator && !intro) _SpectatorBanner(text: l.gameSpectatorBanner),
+        if (spectator && !intro)
+          _Bounded(
+            fraction: 0.15,
+            child: _SpectatorBanner(text: l.gameSpectatorBanner),
+          ),
         Expanded(
           child: intro
               ? _IntroView(game: game)
               : game.phase == GamePhase.elimination &&
                     game.lastElimination != null
               ? EliminationPanel(game: game, result: game.lastElimination!)
-              : GridView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.s3),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: AppSpacing.s2,
-                    crossAxisSpacing: AppSpacing.s2,
-                    mainAxisExtent: 210,
-                  ),
-                  itemCount: game.participants.length,
-                  itemBuilder: (context, i) {
+              : _PlayerGrid(
+                  count: game.participants.length,
+                  tile: (i) {
                     final p = game.participants[i];
                     return PlayerTile(
                       participant: p,
@@ -196,15 +193,18 @@ class _GameBodyState extends State<GameBody> {
                 ),
         ),
         if (!intro)
-          _ActionArea(
-            game: game,
-            myUserId: widget.myUserId,
-            busy: _busy,
-            enabled: widget.online,
-            interactive: widget.onAction != null,
-            onReveal: (c) => unawaited(_reveal(c)),
-            onReady: () => unawaited(_send(const DiscussionReady())),
-            onTiebreak: (p) => unawaited(_vote(p, tiebreak: true)),
+          _Bounded(
+            fraction: 0.35,
+            child: _ActionArea(
+              game: game,
+              myUserId: widget.myUserId,
+              busy: _busy,
+              enabled: widget.online,
+              interactive: widget.onAction != null,
+              onReveal: (c) => unawaited(_reveal(c)),
+              onReady: () => unawaited(_send(const DiscussionReady())),
+              onTiebreak: (p) => unawaited(_vote(p, tiebreak: true)),
+            ),
           ),
         _BottomBar(cards: game.myCards),
       ],
@@ -438,6 +438,53 @@ class _SpectatorBanner extends StatelessWidget {
   }
 }
 
+/// İki sütunlu oyuncu ızgarası. Satır yüksekliği içeriğe göre: elenen
+/// oyuncunun 5 açık kartı ve büyük yazı ölçeği sabit yükseklikli ızgarada
+/// taşıyordu (PLAY-012). Aynı satırdaki iki kutu eşit yükseklikte.
+class _PlayerGrid extends StatelessWidget {
+  const _PlayerGrid({required this.count, required this.tile});
+
+  final int count;
+  final Widget Function(int index) tile;
+
+  @override
+  Widget build(BuildContext context) => ListView.separated(
+    padding: const EdgeInsets.all(AppSpacing.s3),
+    itemCount: (count + 1) ~/ 2,
+    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.s2),
+    itemBuilder: (context, row) => IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: tile(row * 2)),
+          const SizedBox(width: AppSpacing.s2),
+          Expanded(
+            child: row * 2 + 1 < count ? tile(row * 2 + 1) : const SizedBox(),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Izgaranın çevresindeki alanlar büyük yazı ölçeğinde ızgarayı ezmesin:
+/// en fazla ekran yüksekliğinin [fraction] kadarı, fazlası kaydırılır
+/// (PLAY-012; 320×568 dp ve %200 yazıda doğrulanır).
+class _Bounded extends StatelessWidget {
+  const _Bounded({required this.fraction, required this.child});
+
+  final double fraction;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * fraction,
+    ),
+    child: SingleChildScrollView(child: child),
+  );
+}
+
 class _BottomBar extends StatelessWidget {
   const _BottomBar({required this.cards});
 
@@ -450,10 +497,12 @@ class _BottomBar extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.s3),
       child: Row(
         children: [
-          FilledButton.tonalIcon(
-            onPressed: () => unawaited(showMyCardsSheet(context, cards)),
-            icon: const Icon(Icons.style_rounded),
-            label: Text(l.gameMyCards),
+          Flexible(
+            child: FilledButton.tonalIcon(
+              onPressed: () => unawaited(showMyCardsSheet(context, cards)),
+              icon: const Icon(Icons.style_rounded),
+              label: Text(l.gameMyCards, overflow: TextOverflow.ellipsis),
+            ),
           ),
         ],
       ),

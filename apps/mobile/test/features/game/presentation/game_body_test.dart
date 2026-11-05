@@ -7,6 +7,7 @@ import 'package:siginak/features/game/game.dart';
 
 import '../../../helpers/fake_ws.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/small_screen.dart';
 
 void main() {
   final players = [
@@ -194,6 +195,114 @@ void main() {
     }
   });
 
+  testWidgets('320 dp ve %200 yazı: tüm aşamalarda taşma yok', (tester) async {
+    useSmallScreen(tester);
+    final elimination = {
+      'round': 1,
+      'user_id': 'u3',
+      'method': 'vote',
+      'tally': [
+        {'user_id': 'u2', 'votes': 1},
+        {'user_id': 'u3', 'votes': 3},
+      ],
+      'lottery_candidates': <Object?>[],
+      'cards': <Object?>[],
+    };
+    final cases = <String, (GameView, String)>{
+      'tanıtım': (game(phase: 'SCENARIO_INTRO'), 'u1'),
+      'kart açma (sıra bende)': (game(turn: 'u1', revealed: {}), 'u1'),
+      'tartışma': (game(phase: 'DISCUSSION'), 'u1'),
+      'oylama': (game(phase: 'VOTING'), 'u1'),
+      'eşitlik (izleyici)': (
+        game(
+          phase: 'TIE_BREAK',
+          tiebreak: {
+            'candidates': ['u1', 'u2'],
+            'progress': {'cast': 0, 'total': 1},
+          },
+        ),
+        'u3',
+      ),
+      'eleme': (game(phase: 'ELIMINATION', last: elimination), 'u1'),
+    };
+    for (final MapEntry(key: name, value: (g, me)) in cases.entries) {
+      await pump(tester, g, me: me);
+      expect(tester.takeException(), isNull, reason: name);
+      // Üst çubuktaki tur, aşama ve süre kırpılmadan kendi alanında.
+      final box = find.byKey(const ValueKey('phase-status'));
+      final status = tester.getRect(box);
+      final texts = find.descendant(of: box, matching: find.byType(Text));
+      expect(texts, findsAtLeastNWidgets(2), reason: name);
+      for (final text in texts.evaluate()) {
+        final r = tester.getRect(find.byWidget(text.widget));
+        expect(
+          status.left <= r.left + 0.5 && r.right <= status.right + 0.5,
+          isTrue,
+          reason: '$name: $r ⊄ $status',
+        );
+      }
+    }
+    // Kartlarım sayfası ve senaryo penceresi.
+    await pump(tester, game());
+    await tester.tap(find.text('Kartlarım'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'Kartlarım');
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Göktaşı'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sığınakta neler var?'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'senaryo penceresi');
+  });
+
+  testWidgets('Elenenin 5 kartı açıkken kutu taşmaz (normal ve %200 yazı)', (
+    tester,
+  ) async {
+    final all = {
+      'profession': 'Uzun adlı bir meslek kartı metni',
+      'health': 'Şiddetli fıstık alerjisi',
+      'hobby': 'Dağcılık',
+      'item': 'İsviçre çakısı',
+      'secret': 'Sığınağın kapısını açık bırakan oydu',
+    };
+    final g = GameView.fromSnapshot(
+      snapshotGame(
+        participants: [
+          participantJson('u1', 'Ayşe', 0),
+          participantJson(
+            'u2',
+            'Mehmet',
+            1,
+            status: 'eliminated',
+            revealed: all,
+          ),
+          participantJson('u3', 'Zeynep', 2),
+        ],
+        phase: 'DISCUSSION',
+        deadline: now.add(const Duration(seconds: 75)).toIso8601String(),
+        myCards: myCardsJson(),
+      ),
+      serverTime: now,
+      receivedAt: now,
+    );
+    for (final (size, scale) in [
+      (const Size(360, 640), 1.0),
+      (smallScreen, 2.0),
+    ]) {
+      useSmallScreen(tester, size: size, textScale: scale);
+      await pump(tester, g);
+      expect(tester.takeException(), isNull, reason: '$size × $scale');
+      expect(find.text('Sığınağın kapısını açık bırakan oydu'), findsOneWidget);
+    }
+  });
+
+  testWidgets('Dokunma hedefleri ve etiketler (360 dp)', (tester) async {
+    useSmallScreen(tester, size: const Size(360, 640), textScale: 1);
+    await pump(tester, game(turn: 'u1', revealed: {}));
+    await expectAccessibleTapTargets(tester);
+    await pump(tester, game(phase: 'VOTING'));
+    await expectAccessibleTapTargets(tester);
+  });
   group('eylemler', () {
     Future<void> tapAndSettle(WidgetTester tester, Finder f) async {
       await tester.tap(f);

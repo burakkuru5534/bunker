@@ -5,6 +5,7 @@ import 'package:siginak/features/game/game.dart';
 
 import '../../../helpers/fake_ws.dart';
 import '../../../helpers/pump_app.dart';
+import '../../../helpers/small_screen.dart';
 
 void main() {
   late List<String> calls;
@@ -82,5 +83,17 @@ void main() {
       find.text('Oyun erken bitti: oyunda yeterli oyuncu kalmadı.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('320 dp ve %200 yazı: taşma yok; dokunma hedefleri', (
+    tester,
+  ) async {
+    await pump(tester);
+    useSmallScreen(tester);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    useSmallScreen(tester, size: const Size(360, 640), textScale: 1);
+    await tester.pumpAndSettle();
+    await expectAccessibleTapTargets(tester);
   });
 }

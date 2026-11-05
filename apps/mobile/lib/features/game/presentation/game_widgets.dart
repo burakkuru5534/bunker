@@ -119,6 +119,7 @@ class PhaseBar extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
+              flex: 2,
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: game.scenario == null
@@ -135,27 +136,42 @@ class PhaseBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.s2),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (game.round > 0)
-                  Text(
-                    l.gameRound(game.round, game.totalRounds),
-                    style: theme.textTheme.labelMedium,
-                  ),
-                Text(
-                  phaseLabel(l, game.phase).toUpperCase(),
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.primary,
-                  ),
+            // Tur, aşama ve süre her zaman tam görünür: dar ekranda veya
+            // büyük yazı ölçeğinde senaryo düğmesinden yer alır, yine
+            // sığmazsa küçülür (PLAY-012).
+            Flexible(
+              flex: 3,
+              child: FittedBox(
+                key: const ValueKey('phase-status'),
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerEnd,
+                child: Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (game.round > 0)
+                          Text(
+                            l.gameRound(game.round, game.totalRounds),
+                            style: theme.textTheme.labelMedium,
+                          ),
+                        Text(
+                          phaseLabel(l, game.phase).toUpperCase(),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: AppSpacing.s3),
+                    PhaseCountdown(
+                      game: game,
+                      clock: clock,
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(width: AppSpacing.s3),
-            PhaseCountdown(
-              game: game,
-              clock: clock,
-              style: theme.textTheme.titleLarge,
+              ),
             ),
           ],
         ),
@@ -380,8 +396,9 @@ class _MyCardsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
+    // Büyük yazı ölçeğinde 5 kart ekrana sığmayabilir: kaydırılır.
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.screen,
           0,

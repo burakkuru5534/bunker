@@ -12,16 +12,24 @@ class LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Uzun metin ve büyük yazı ölçeğinde kaydırılır (PLAY-012).
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          if (message != null) ...[
-            const SizedBox(height: AppSpacing.s4),
-            Text(message!, style: Theme.of(context).textTheme.bodyMedium),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.screen),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            if (message != null) ...[
+              const SizedBox(height: AppSpacing.s4),
+              Text(
+                message!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -38,7 +46,7 @@ class ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.screen),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -81,7 +89,7 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.screen),
         child: Column(
           mainAxisSize: MainAxisSize.min,
