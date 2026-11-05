@@ -13,6 +13,7 @@
   "connectionReconnecting": "Bağlantı koptu, yeniden bağlanıyoruz…",
   "connectionRestored": "Bağlandı",
   "connectionOffline": "Bağlantı yok",
+  "connectionOfflineInGame": "Bağlantı yok. Kısa sürede dönmezsen oyundan çıkarılırsın.",
 
   "statusReady": "Hazır",
   "statusWaiting": "Bekliyor",

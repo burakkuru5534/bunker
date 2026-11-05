@@ -9,12 +9,12 @@ import 'package:siginak/core/network/api_exception.dart';
 import 'package:siginak/core/realtime/realtime_client.dart';
 import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/confirm_dialog.dart';
-import 'package:siginak/core/ui/connection_banner.dart';
 import 'package:siginak/core/ui/state_views.dart';
 import 'package:siginak/features/chat/chat.dart';
 import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/moderation/moderation.dart';
 import 'package:siginak/features/room/data/room_models.dart';
+import 'package:siginak/features/room/presentation/connection_strip.dart';
 import 'package:siginak/features/room/presentation/lobby_view.dart';
 import 'package:siginak/features/room/presentation/room_controller.dart';
 import 'package:siginak/features/session/session.dart';
@@ -146,6 +146,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     final state = ref.watch(provider);
     final room = state.room;
 
+    // Bağlantı yokken eylemler kapalı; son bilinen durum görünür kalır
+    // (docs/ui/design-system.md "Ekran durumları").
+    final online = state.connection.status == RealtimeStatus.connected;
     final replaced =
         state.connection.status == RealtimeStatus.stopped &&
         state.connection.stopReason == RealtimeStopReason.replaced;
@@ -168,12 +171,14 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           onKick: (userId) => _run(() => _controller.kick(userId)),
           onStart: () => _run(_controller.start),
           onMemberMenu: (m) => _playerMenu(m.userId, m.nickname),
+          online: online,
         ),
         RoomStatus.inGame when state.game != null => GameBody(
           game: state.game!,
           myUserId: state.myUserId,
           onAction: (a) => _run(() => _controller.act(a)),
           onPlayerMenu: (p) => _playerMenu(p.userId, p.nickname),
+          online: online,
         ),
         RoomStatus.inGame => _StatusMessage(text: l.roomGameStarted),
         RoomStatus.finished => _FinishedView(
@@ -211,7 +216,15 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              ConnectionBanner(state: _bannerOf(state)),
+              if (!replaced)
+                ConnectionStrip(
+                  connection: state.connection,
+                  hasRoom: room != null,
+                  onRetry: _controller.retryConnection,
+                  offlineMessage: _aliveInGame(state)
+                      ? l.connectionOfflineInGame
+                      : null,
+                ),
               Expanded(child: body),
             ],
           ),
@@ -220,15 +233,10 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     );
   }
 
-  static ConnectionBannerState _bannerOf(RoomState state) {
-    final c = state.connection;
-    return switch (c.status) {
-      RealtimeStatus.reconnecting => ConnectionBannerState.reconnecting,
-      RealtimeStatus.connecting when state.room != null =>
-        ConnectionBannerState.reconnecting,
-      _ => ConnectionBannerState.hidden,
-    };
-  }
+  /// Oyunda hayattayım: uzun kopma oyundan çıkarılma demektir.
+  static bool _aliveInGame(RoomState state) =>
+      state.room?.status == RoomStatus.inGame &&
+      (state.game?.participantOf(state.myUserId)?.isAlive ?? false);
 }
 
 /// Sonuç: `game.finished` ile geldiyse hemen; yoksa sunucudan yüklenir.

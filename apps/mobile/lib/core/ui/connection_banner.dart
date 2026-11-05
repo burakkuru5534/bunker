@@ -20,10 +20,18 @@ enum ConnectionBannerState {
 
 /// Ekranın üstündeki bağlantı durumu şeridi.
 class ConnectionBanner extends StatelessWidget {
-  const ConnectionBanner({required this.state, this.onRetry, super.key});
+  const ConnectionBanner({
+    required this.state,
+    this.onRetry,
+    this.message,
+    super.key,
+  });
 
   final ConnectionBannerState state;
   final VoidCallback? onRetry;
+
+  /// Durumun varsayılan metni yerine gösterilir (ör. oyunda daha açık uyarı).
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +82,7 @@ class ConnectionBanner extends StatelessWidget {
                     const SizedBox(width: AppSpacing.s2),
                     Expanded(
                       child: Text(
-                        content.$1,
+                        message ?? content.$1,
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: content.$2,
                         ),

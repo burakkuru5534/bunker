@@ -154,6 +154,9 @@ class RoomController extends Notifier<RoomState> {
   /// Uygulama ön plana geldi: bağlıysa eşitle, değilse hemen bağlan.
   void onAppResumed() => _client.onAppResumed();
 
+  /// Yeniden bağlanma beklemesini atlayıp hemen dener ("Tekrar dene").
+  void retryConnection() => _client.onAppResumed();
+
   /// Başka cihazda açıldığı için duran bağlantıyı yeniden kurar.
   void reconnect() => _client.connect(roomId);
 

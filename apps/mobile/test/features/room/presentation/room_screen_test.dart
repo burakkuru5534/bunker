@@ -9,6 +9,7 @@ import 'package:siginak/core/network/api_client_provider.dart';
 import 'package:siginak/core/realtime/realtime_client_provider.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/session_store.dart';
+import 'package:siginak/core/ui/app_buttons.dart';
 import 'package:siginak/features/room/room.dart';
 import 'package:siginak/features/session/session.dart';
 
@@ -322,6 +323,86 @@ void main() {
     expect(find.text('Bağlantı koptu, yeniden bağlanıyoruz…'), findsNothing);
   });
 
+  group('yeniden bağlanma (PLAY-009)', () {
+    const reconnecting = 'Bağlantı koptu, yeniden bağlanıyoruz…';
+
+    testWidgets(
+      'Uzun kopmada "Bağlantı yok" + Tekrar dene; dönünce "Bağlandı"',
+      (tester) async {
+        await pump(tester);
+        await snapshot(tester);
+        expect(
+          find.text('Bağlandı'),
+          findsNothing,
+        ); // ilk bağlantıda gösterilmez
+
+        ws.failNext = 1000;
+        ws.last.serverClose(1006);
+        await frames(tester, 2);
+        expect(find.text(reconnecting), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 9));
+        expect(find.text('Bağlantı yok'), findsNothing);
+        await tester.pump(const Duration(seconds: 2));
+        expect(find.text('Bağlantı yok'), findsOneWidget);
+        expect(find.text(reconnecting), findsNothing);
+
+        // Tekrar dene beklemeyi atlar: hemen yeni deneme.
+        ws.failNext = 0;
+        final attempts = ws.uris.length;
+        await tester.tap(find.text('Tekrar dene'));
+        await frames(tester, 2);
+        expect(ws.uris.length, attempts + 1);
+        expect(ws.sockets, hasLength(2));
+        await snapshot(tester);
+        expect(find.text('Bağlandı'), findsOneWidget);
+        expect(find.text('Bağlantı yok'), findsNothing);
+
+        await tester.pump(const Duration(seconds: 3));
+        expect(find.text('Bağlandı'), findsNothing);
+      },
+    );
+
+    testWidgets('Tekrar dene başarısızsa yeniden turuncu, sonra kırmızı', (
+      tester,
+    ) async {
+      await pump(tester);
+      await snapshot(tester);
+      ws.failNext = 1000;
+      ws.last.serverClose(1006);
+      await frames(tester, 2);
+      await tester.pump(const Duration(seconds: 11));
+      await tester.tap(find.text('Tekrar dene'));
+      await frames(tester, 2);
+      expect(find.text(reconnecting), findsOneWidget);
+      await tester.pump(const Duration(seconds: 11));
+      expect(find.text('Bağlantı yok'), findsOneWidget);
+    });
+
+    testWidgets('Lobide bağlantı yokken eylemler kapalı', (tester) async {
+      await pump(tester);
+      await snapshot(tester, members: fourReady());
+      VoidCallback? start() => tester
+          .widget<AppButton>(find.widgetWithText(AppButton, 'Başlat'))
+          .onPressed;
+      expect(start(), isNotNull);
+      expect(find.byTooltip('Odadan at'), findsWidgets);
+
+      ws.last.serverClose(1006);
+      await frames(tester, 2);
+      expect(start(), isNull);
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+        isNull,
+      );
+      expect(find.byTooltip('Odadan at'), findsNothing);
+
+      await frames(tester, 20);
+      await snapshot(tester, members: fourReady());
+      expect(start(), isNotNull);
+    });
+  });
+
   testWidgets('Başka cihazda açılınca durur; yeniden bağlanılabilir', (
     tester,
   ) async {
@@ -439,6 +520,70 @@ void main() {
       );
       await frames(tester);
     }
+
+    testWidgets('Bağlantı yokken eylemler kapalı; oyunda uyarı daha açık', (
+      tester,
+    ) async {
+      await pump(tester);
+      await gameSnapshot(tester, 'DISCUSSION');
+      VoidCallback? ready() => tester
+          .widget<AppButton>(find.widgetWithText(AppButton, 'Hazırım'))
+          .onPressed;
+      expect(ready(), isNotNull);
+
+      ws.failNext = 1000;
+      ws.last.serverClose(1006);
+      await frames(tester, 2);
+      expect(find.text('Hazırım'), findsOneWidget); // görünür ama kapalı
+      expect(ready(), isNull);
+
+      await tester.pump(const Duration(seconds: 11));
+      expect(
+        find.text('Bağlantı yok. Kısa sürede dönmezsen oyundan çıkarılırsın.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Bağlantı yokken kart açılamaz', (tester) async {
+      await pump(tester);
+      await gameSnapshot(tester, 'REVEAL');
+      ActionChip chip() => tester.widget<ActionChip>(
+        find.byKey(const ValueKey('reveal-profession')),
+      );
+      expect(chip().onPressed, isNotNull);
+      ws.last.serverClose(1006);
+      await frames(tester, 2);
+      expect(chip().onPressed, isNull);
+    });
+
+    testWidgets('Elenmiş oyuncuya oyundan çıkarılma uyarısı gösterilmez', (
+      tester,
+    ) async {
+      await pump(tester);
+      ws.last.serverSend(
+        'session.snapshot',
+        payload: snapshotPayload(
+          roomId: roomId,
+          me: 'u-guest',
+          status: 'in_game',
+          members: gameMembers,
+          game: snapshotGame(
+            participants: [
+              participantJson('u-guest', 'Ayşe', 0, status: 'eliminated'),
+              participantJson('u2', 'Mehmet', 1),
+              participantJson('u3', 'Zeynep', 2),
+            ],
+            phase: 'DISCUSSION',
+          ),
+        ),
+      );
+      await frames(tester);
+      ws.failNext = 1000;
+      ws.last.serverClose(1006);
+      await frames(tester, 2);
+      await tester.pump(const Duration(seconds: 11));
+      expect(find.text('Bağlantı yok'), findsOneWidget);
+    });
 
     testWidgets('Kart açma isteği gider', (tester) async {
       backend.on('POST', '/v1/games/g1/actions', (r) async {

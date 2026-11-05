@@ -148,6 +148,12 @@ abstract class AppLocalizations {
   /// **'Bağlantı yok'**
   String get connectionOffline;
 
+  /// No description provided for @connectionOfflineInGame.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bağlantı yok. Kısa sürede dönmezsen oyundan çıkarılırsın.'**
+  String get connectionOfflineInGame;
+
   /// No description provided for @statusReady.
   ///
   /// In tr, this message translates to:

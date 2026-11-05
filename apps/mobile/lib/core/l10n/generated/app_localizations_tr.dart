@@ -39,6 +39,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get connectionOffline => 'Bağlantı yok';
 
   @override
+  String get connectionOfflineInGame =>
+      'Bağlantı yok. Kısa sürede dönmezsen oyundan çıkarılırsın.';
+
+  @override
   String get statusReady => 'Hazır';
 
   @override

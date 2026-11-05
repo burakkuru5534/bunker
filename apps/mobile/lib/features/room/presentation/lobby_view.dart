@@ -27,6 +27,7 @@ class LobbyView extends StatefulWidget {
     required this.onKick,
     required this.onStart,
     this.onMemberMenu,
+    this.online = true,
     super.key,
   });
 
@@ -39,6 +40,9 @@ class LobbyView extends StatefulWidget {
   /// Başka bir üyeye dokunulunca: oyuncu menüsü (Raporla / Engelle).
   final ValueChanged<RoomMember>? onMemberMenu;
 
+  /// Bağlantı yokken eylemler görünür ama devre dışıdır.
+  final bool online;
+
   @override
   State<LobbyView> createState() => _LobbyViewState();
 }
@@ -47,8 +51,11 @@ class _LobbyViewState extends State<LobbyView> {
   /// Süren istek (aynı düğmeye tekrar basılmasın).
   String? _busy;
 
+  /// Yeni eylem başlatılabilir: süren istek yok ve bağlıyız.
+  bool get _idle => _busy == null && widget.online;
+
   Future<void> _guard(String key, Future<void> Function() action) async {
-    if (_busy != null) return;
+    if (!_idle) return;
     setState(() => _busy = key);
     try {
       await action();
@@ -110,7 +117,7 @@ class _LobbyViewState extends State<LobbyView> {
               const SizedBox(height: AppSpacing.s4),
               _CapacityCard(
                 capacity: room.capacity,
-                editable: isHost && _busy == null,
+                editable: isHost && _idle,
                 onChanged: (c) =>
                     unawaited(_guard('capacity', () => widget.onCapacity(c))),
               ),
@@ -126,7 +133,7 @@ class _LobbyViewState extends State<LobbyView> {
                   seat: i,
                   isHost: m.userId == room.hostUserId,
                   isMe: m.userId == state.myUserId,
-                  onKick: isHost && m.userId != state.myUserId && _busy == null
+                  onKick: isHost && m.userId != state.myUserId && _idle
                       ? () => unawaited(_confirmKick(m))
                       : null,
                   onTap:
@@ -150,7 +157,7 @@ class _LobbyViewState extends State<LobbyView> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(l.roomReady),
                     value: me.isReady,
-                    onChanged: _busy == null
+                    onChanged: _idle
                         ? (v) => unawaited(
                             _guard('ready', () => widget.onReady(v)),
                           )
@@ -162,7 +169,7 @@ class _LobbyViewState extends State<LobbyView> {
                     icon: Icons.play_arrow_rounded,
                     isLoading: _busy == 'start',
                     disabledReason: startReason,
-                    onPressed: startReason == null && _busy == null
+                    onPressed: startReason == null && _idle
                         ? () => unawaited(_guard('start', widget.onStart))
                         : null,
                   )

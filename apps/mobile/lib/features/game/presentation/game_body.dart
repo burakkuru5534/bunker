@@ -23,6 +23,7 @@ class GameBody extends StatefulWidget {
     required this.myUserId,
     this.onAction,
     this.onPlayerMenu,
+    this.online = true,
     this.clock = DateTime.now,
     super.key,
   });
@@ -35,6 +36,9 @@ class GameBody extends StatefulWidget {
 
   /// Başka bir oyuncunun kutusuna dokunulunca (oylama hedefi değilse).
   final ValueChanged<Participant>? onPlayerMenu;
+
+  /// Bağlantı yokken eylem düğmeleri görünür ama devre dışıdır.
+  final bool online;
 
   /// Cihaz saati (testlerde sahte saat verilir).
   final DateTime Function() clock;
@@ -100,7 +104,7 @@ class _GameBodyState extends State<GameBody> {
 
   Future<void> _send(GameAction action) async {
     final onAction = widget.onAction;
-    if (onAction == null || _busy) return;
+    if (onAction == null || _busy || !widget.online) return;
     setState(() => _busy = true);
     try {
       await onAction(action);
@@ -143,7 +147,7 @@ class _GameBodyState extends State<GameBody> {
     final intro =
         game.phase == GamePhase.dealing ||
         game.phase == GamePhase.scenarioIntro;
-    final interactive = widget.onAction != null && !_busy;
+    final interactive = widget.onAction != null && !_busy && widget.online;
     final voteTargets = interactive
         ? {for (final p in game.voteTargets(widget.myUserId)) p.userId}
         : const <String>{};
@@ -196,6 +200,7 @@ class _GameBodyState extends State<GameBody> {
             game: game,
             myUserId: widget.myUserId,
             busy: _busy,
+            enabled: widget.online,
             interactive: widget.onAction != null,
             onReveal: (c) => unawaited(_reveal(c)),
             onReady: () => unawaited(_send(const DiscussionReady())),
@@ -234,6 +239,7 @@ class _ActionArea extends StatelessWidget {
     required this.game,
     required this.myUserId,
     required this.busy,
+    required this.enabled,
     required this.interactive,
     required this.onReveal,
     required this.onReady,
@@ -243,6 +249,9 @@ class _ActionArea extends StatelessWidget {
   final GameView game;
   final String? myUserId;
   final bool busy;
+
+  /// `false` → düğmeler görünür ama basılamaz (bağlantı yok).
+  final bool enabled;
   final bool interactive;
   final ValueChanged<MyCard> onReveal;
   final VoidCallback onReady;
@@ -293,7 +302,8 @@ class _ActionArea extends StatelessWidget {
                             ),
                             label: Text(style.label),
                             tooltip: c.text,
-                            onPressed: allowed.contains(c.category) && !busy
+                            onPressed:
+                                allowed.contains(c.category) && !busy && enabled
                                 ? () => onReveal(c)
                                 : null,
                           );
@@ -322,7 +332,7 @@ class _ActionArea extends StatelessWidget {
                 label: l.gameReadyButton,
                 icon: Icons.check_rounded,
                 isLoading: busy,
-                onPressed: onReady,
+                onPressed: enabled ? onReady : null,
               ),
             ),
           );
@@ -367,7 +377,7 @@ class _ActionArea extends StatelessWidget {
                   for (final p in targets)
                     OutlinedButton(
                       key: ValueKey('tiebreak-${p.userId}'),
-                      onPressed: busy ? null : () => onTiebreak(p),
+                      onPressed: busy || !enabled ? null : () => onTiebreak(p),
                       child: Text(p.nickname),
                     ),
                 ],
