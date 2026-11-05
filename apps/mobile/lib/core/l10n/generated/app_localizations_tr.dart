@@ -757,4 +757,20 @@ class AppLocalizationsTr extends AppLocalizations {
   String settingsVersion(String version) {
     return 'Sürüm $version';
   }
+
+  @override
+  String get legalPrivacy => 'Gizlilik politikası';
+
+  @override
+  String get legalTerms => 'Kullanım koşulları';
+
+  @override
+  String get legalOpenFailed => 'Bağlantı açılamadı.';
+
+  @override
+  String get welcomeLegalNote =>
+      'Başlayarak Kullanım Koşulları\'nı kabul etmiş olursun. Uygulama 13 yaş ve üstü içindir.';
+
+  @override
+  String get settingsLegal => 'Yasal';
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:siginak/core/config/app_version.dart';
+import 'package:siginak/core/config/legal_links.dart';
 import 'package:siginak/core/error/error_messages.dart';
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/network/api_exception.dart';
@@ -11,11 +12,11 @@ import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/theme/game_theme.dart';
 import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/confirm_dialog.dart';
+import 'package:siginak/core/ui/external_link.dart';
 import 'package:siginak/features/session/session.dart';
 
 /// `/settings` — takma ad, engellenenler, hesap silme, sürüm
-/// (docs/ui/screen-map.md §3.5). Gizlilik politikası ve kullanım koşulları
-/// bağlantıları SAFE-008 ile eklenecek.
+/// ve yasal metin bağlantıları (docs/ui/screen-map.md §3.5).
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({required this.onOpenBlockedUsers, super.key});
 
@@ -111,6 +112,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               enabled: !_deleting,
               onTap: () => unawaited(_deleteAccount()),
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.s4,
+                AppSpacing.s3,
+                AppSpacing.s4,
+                0,
+              ),
+              child: Text(l.settingsLegal, style: theme.textTheme.labelLarge),
+            ),
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: Text(l.legalPrivacy),
+              trailing: const Icon(Icons.open_in_new_rounded),
+              onTap: () =>
+                  unawaited(openExternalLink(context, ref, LegalLinks.privacy)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: Text(l.legalTerms),
+              trailing: const Icon(Icons.open_in_new_rounded),
+              onTap: () =>
+                  unawaited(openExternalLink(context, ref, LegalLinks.terms)),
             ),
             const Divider(),
             ListTile(

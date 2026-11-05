@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:siginak/core/config/legal_links.dart';
 import 'package:siginak/core/network/api_client_provider.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/session_store.dart';
+import 'package:siginak/core/ui/external_link.dart';
 import 'package:siginak/features/session/session.dart';
 import 'package:siginak/features/settings/presentation/settings_screen.dart';
 
@@ -16,11 +18,15 @@ void main() {
   late FakeBackend backend;
   late InMemorySecureStore store;
   late int blocksOpened;
+  late List<Uri> opened;
+  late bool openResult;
 
   setUp(() async {
     backend = FakeBackend();
     store = InMemorySecureStore();
     blocksOpened = 0;
+    opened = [];
+    openResult = true;
     await SessionStore(store).save(
       StoredSession(
         token: 't',
@@ -36,7 +42,13 @@ void main() {
       tester,
       SettingsScreen(onOpenBlockedUsers: () => blocksOpened++),
       secureStore: store,
-      overrides: [apiHttpAdapterProvider.overrideWithValue(backend.adapter)],
+      overrides: [
+        apiHttpAdapterProvider.overrideWithValue(backend.adapter),
+        linkOpenerProvider.overrideWithValue((uri) async {
+          opened.add(uri);
+          return openResult;
+        }),
+      ],
     );
     await tester.pumpAndSettle();
     return ProviderScope.containerOf(
@@ -56,6 +68,29 @@ void main() {
 
     await tapAndSettle(tester, find.text('Engellenen oyuncular'));
     expect(blocksOpened, 1);
+  });
+
+  testWidgets('Yasal bağlantılar doğru adresleri açar', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    await pump(tester);
+
+    await tapAndSettle(tester, find.text('Gizlilik politikası'));
+    await tapAndSettle(tester, find.text('Kullanım koşulları'));
+
+    expect(opened, [LegalLinks.privacy, LegalLinks.terms]);
+    expect(find.text('Bağlantı açılamadı.'), findsNothing);
+  });
+
+  testWidgets('Bağlantı açılamazsa hata gösterilir', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    openResult = false;
+    await pump(tester);
+
+    await tapAndSettle(tester, find.text('Gizlilik politikası'));
+
+    expect(find.text('Bağlantı açılamadı.'), findsOneWidget);
   });
 
   testWidgets('Takma ad değiştirilir', (tester) async {

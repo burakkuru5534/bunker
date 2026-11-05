@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:siginak/core/config/legal_links.dart';
 import 'package:siginak/core/network/api_client_provider.dart';
+import 'package:siginak/core/ui/external_link.dart';
 import 'package:siginak/features/session/session.dart';
 
 import '../../../helpers/fake_backend.dart';
@@ -13,13 +15,26 @@ import '../../../helpers/pump_app.dart';
 
 void main() {
   late FakeBackend backend;
-  setUp(() => backend = FakeBackend());
+  late List<Uri> opened;
+  late Object? openError;
+  setUp(() {
+    backend = FakeBackend();
+    opened = [];
+    openError = null;
+  });
 
   Future<ProviderContainer> pump(WidgetTester tester) async {
     await pumpWithProviders(
       tester,
       const WelcomeScreen(),
-      overrides: [apiHttpAdapterProvider.overrideWithValue(backend.adapter)],
+      overrides: [
+        apiHttpAdapterProvider.overrideWithValue(backend.adapter),
+        linkOpenerProvider.overrideWithValue((uri) async {
+          opened.add(uri);
+          if (openError != null) throw openError!;
+          return true;
+        }),
+      ],
     );
     await tester.pumpAndSettle();
     return ProviderScope.containerOf(
@@ -36,6 +51,33 @@ void main() {
     expect(find.textContaining('Son kalanlar sığınağa girer'), findsOneWidget);
     expect(find.textContaining('Hesabın bu cihaza bağlı'), findsOneWidget);
     expect(find.text('Bir takma ad yaz.'), findsNothing);
+  });
+
+  testWidgets('Yaş ve koşul notu görünür; bağlantılar açılır', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    await pump(tester);
+
+    expect(find.textContaining('13 yaş ve üstü'), findsOneWidget);
+    await tester.tap(find.text('Kullanım koşulları'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gizlilik politikası'));
+    await tester.pumpAndSettle();
+
+    expect(opened, [LegalLinks.terms, LegalLinks.privacy]);
+    expect(backend.calls, isEmpty);
+  });
+
+  testWidgets('Açıcı hata fırlatırsa kısa hata gösterilir', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    openError = StateError('tarayıcı yok');
+    await pump(tester);
+
+    await tester.tap(find.text('Gizlilik politikası'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bağlantı açılamadı.'), findsOneWidget);
   });
 
   testWidgets('Boş gönderim ve geçersiz ad anlık hata gösterir, istek gitmez', (

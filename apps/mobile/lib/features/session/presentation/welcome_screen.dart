@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:siginak/core/config/legal_links.dart';
 import 'package:siginak/core/error/error_messages.dart';
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/network/api_exception.dart';
@@ -10,6 +11,7 @@ import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/ui/app_buttons.dart';
 import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/app_text_field.dart';
+import 'package:siginak/core/ui/external_link.dart';
 import 'package:siginak/features/session/domain/nickname_rules.dart';
 import 'package:siginak/features/session/presentation/session_controller.dart';
 
@@ -131,6 +133,31 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.s4),
+                  Text(
+                    l.welcomeLegalNote,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    children: [
+                      TextButton(
+                        onPressed: () => unawaited(
+                          openExternalLink(context, ref, LegalLinks.terms),
+                        ),
+                        child: Text(l.legalTerms),
+                      ),
+                      TextButton(
+                        onPressed: () => unawaited(
+                          openExternalLink(context, ref, LegalLinks.privacy),
+                        ),
+                        child: Text(l.legalPrivacy),
                       ),
                     ],
                   ),

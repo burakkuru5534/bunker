@@ -1389,6 +1389,36 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Sürüm {version}'**
   String settingsVersion(String version);
+
+  /// No description provided for @legalPrivacy.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gizlilik politikası'**
+  String get legalPrivacy;
+
+  /// No description provided for @legalTerms.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kullanım koşulları'**
+  String get legalTerms;
+
+  /// No description provided for @legalOpenFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bağlantı açılamadı.'**
+  String get legalOpenFailed;
+
+  /// No description provided for @welcomeLegalNote.
+  ///
+  /// In tr, this message translates to:
+  /// **'Başlayarak Kullanım Koşulları\'nı kabul etmiş olursun. Uygulama 13 yaş ve üstü içindir.'**
+  String get welcomeLegalNote;
+
+  /// No description provided for @settingsLegal.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yasal'**
+  String get settingsLegal;
 }
 
 class _AppLocalizationsDelegate

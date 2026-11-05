@@ -265,5 +265,10 @@
   "settingsDeleteFinalTitle": "Emin misin?",
   "settingsDeleteFinalMessage": "Hesabın kalıcı olarak silinecek ve geri getirilemeyecek.",
   "settingsVersion": "Sürüm {version}",
-  "@settingsVersion": { "placeholders": { "version": { "type": "String" } } }
+  "@settingsVersion": { "placeholders": { "version": { "type": "String" } } },
+  "legalPrivacy": "Gizlilik politikası",
+  "legalTerms": "Kullanım koşulları",
+  "legalOpenFailed": "Bağlantı açılamadı.",
+  "welcomeLegalNote": "Başlayarak Kullanım Koşulları'nı kabul etmiş olursun. Uygulama 13 yaş ve üstü içindir.",
+  "settingsLegal": "Yasal"
 }
