@@ -50,7 +50,7 @@ Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgRE
 
 | Değer | Kullanan | Yerel | CI | Test / Prod (Cloud Run) |
 |---|---|---|---|---|
-| `DATABASE_URL` (uygulama rolü `bunker_<env>_app`) | sunucu | `backend/.env` (prod: `.env.prod`) | Yok — CI geçici PostgreSQL kullanır (gizli değil) | Secret Manager → ortam değişkeni |
+| `DATABASE_URL` (uygulama rolü `bunker_<env>_app`) | sunucu | `backend/.env` (prod: `.env.prod`) | Yok — CI geçici PostgreSQL kullanır (gizli değil) | Cloud Run ortam değişkeni (Secret Manager kullanılmaz) |
 | `MIGRATION_DATABASE_URL` (migration rolü `bunker_<env>_migrator`) | `cmd/migrate` | Aynı `.env` | Yok | **Cloud Run'a verilmez**; migration geliştirici makinesinden çalışır |
 | Supabase veritabanı yönetici (`postgres`) şifresi | yalnızca rol kurulumu (SQL editörü) | Hiçbir dosyada değil; Supabase panelinde | — | — |
 | Supabase API anahtarları (publishable / `sb_secret_…`) | **kullanılmıyor** (uygulama Supabase API'sine bağlanmaz) | — | — | — |
@@ -68,14 +68,19 @@ Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgRE
 
 ### Cloud Run'da (REL-003; kaynak oluşturma onayla)
 
-- Her ortamın kendi Secret Manager secret'ı (`DATABASE_URL`) ve kendi servis hesabı vardır; servis hesabı yalnızca kendi secret'ı için `roles/secretmanager.secretAccessor` iznine sahiptir. Secret, Cloud Run'a ortam değişkeni olarak sürüm numarasıyla (`:N`, `latest` değil) bağlanır; yeni sürüm yeni dağıtımla devreye girer.
-- Maliyet (Kasım 2026, Secret Manager fiyat sayfası): faturalandırma hesabı başına ayda 6 aktif secret sürümü ve 10.000 erişim ücretsiz; fazlası aktif sürüm başına ~0,06 $/ay, 10.000 erişim 0,03 $. Cloud Run secret'ı örnek başlarken okur; test + prod iki secret ile ücretsiz kotada kalınır. Eski sürümler devre dışı bırakılıp yok edilir (yok edilen sürüm ücretlendirilmez).
+**Karar (2026-11-05, kullanıcı): Secret Manager kullanılmaz.** `DATABASE_URL` Cloud Run servisine doğrudan ortam değişkeni olarak verilir. Sonuçları ve önlemleri:
+
+- Değer, Cloud Run revizyon yapılandırmasında düz metin durur: projede servis yapılandırmasını okuyabilen herkes (`run.services.get`; **Viewer rolü dahil**) görebilir. → GCP projesine başka kişi veya rol eklenmez; eklenirse önce şifre döndürülür ve bu karar yeniden değerlendirilir.
+- Değer komut satırına yazılmaz (terminal geçmişine düşmesin): dağıtımda git'e girmeyen bir dosyadan verilir — `gcloud run deploy … --env-vars-file backend/.env.cloudrun.yaml` (`.env.*` kalıbıyla `.gitignore`'da; `secretscan` de yakalar).
+- Değerin kendisi bir uygulama rolü bağlantısıdır: rol yalnızca kendi şemasında yetkili, `CREATE` yetkisi yok (§2); sızarsa etkisi o şemayla sınırlı ve rol şifresi dakikalar içinde döndürülebilir (aşağıda).
+- Ortam başına ayrı servis ve ayrı rol (test / prod); test servisine prod bağlantısı verilmez.
+- Döndürmede yeni değer yeni revizyonla devreye girer (`--env-vars-file` ile yeniden dağıtım); eski revizyonlar trafik almaz ama yapılandırmalarında eski (artık geçersiz) değer kalır — sorun değildir, eski şifre zaten iptal edilmiştir.
 
 ### Döndürme (rotation)
 
 | Ne | Ne zaman | Nasıl |
 |---|---|---|
-| Uygulama / migration rolü şifresi | Sızma şüphesi; ekipten ayrılan biri; yılda bir | `go run ./cmd/dbsetup init -env <test\|prod> -role <app\|migrator> …` yeni şifre üretir, `.env`'e yazar ve Supabase SQL editöründe çalıştırılacak `ALTER ROLE … PASSWORD 'SCRAM-SHA-256$…'` ifadesini verir (düz şifre Supabase'e gitmez). Bulutta: yeni secret sürümü → yeni dağıtım → eski sürümü devre dışı bırak. `dbsetup check` ile doğrula |
+| Uygulama / migration rolü şifresi | Sızma şüphesi; ekipten ayrılan biri; yılda bir | `go run ./cmd/dbsetup init -env <test\|prod> -role <app\|migrator> …` yeni şifre üretir, `.env`'e yazar ve Supabase SQL editöründe çalıştırılacak `ALTER ROLE … PASSWORD 'SCRAM-SHA-256$…'` ifadesini verir (düz şifre Supabase'e gitmez). Bulutta: `.env.cloudrun.yaml`'ı güncelle → yeniden dağıt. `dbsetup check` ile doğrula |
 | Supabase `postgres` yönetici şifresi | Sızma şüphesi | Supabase panelinde Project Settings → Database → "Reset database password" (menü adları değişebilir). Uygulama bu rolü kullanmadığı için başka değişiklik gerekmez |
 | Supabase API gizli anahtarı | Sızma şüphesi | Panelde Project Settings → API Keys: anahtarı iptal et / yenisini oluştur. Uygulama kullanmadığı için başka değişiklik gerekmez |
 | Kullanıcı oturum token'ları | Sunucu tarafı sızma şüphesi | `update sessions set revoked_at = now()` (tümü) — herkes yeniden misafir hesap açar; token'lar yalnızca SHA-256 özetiyle saklandığı için veritabanı sızıntısı tek başına token vermez |

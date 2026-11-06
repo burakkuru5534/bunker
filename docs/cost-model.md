@@ -1,6 +1,6 @@
 # Maliyet Modeli — Sığınak: Son Kalanlar
 
-> Kaynak: ARCH-003 (2026-11-02). Fiyatlar resmi sayfalardan 2026-11-02 tarihinde alınmıştır; **değişebilir**, her ücretli adımdan önce yeniden doğrulanır.
+> Kaynak: ARCH-003 (2026-11-02). Fiyatlar resmi sayfalardan alınmıştır (Cloud Run ve ağ: **2026-11-05**'te yeniden doğrulandı); **değişebilir**, her ücretli adımdan önce yeniden doğrulanır.
 > Ücret doğurabilecek her kaynak değişikliği için **kullanıcı onayı** gerekir.
 
 ## 1. Kaynaklar
@@ -8,6 +8,7 @@
 - Cloud Run fiyatlandırması: https://cloud.google.com/run/pricing
 - Cloud Run WebSocket davranışı: https://docs.cloud.google.com/run/docs/triggering/websockets
 - Supabase fiyatlandırması: https://supabase.com/pricing
+- Ağ (internet çıkışı) fiyatlandırması: https://cloud.google.com/vpc/network-pricing
 
 ## 2. Cloud Run — önemli kurallar
 
@@ -15,6 +16,8 @@
 - WebSocket bir HTTP isteğidir; istek zaman aşımı en fazla **60 dk** (varsayılan 5 dk). İstemci periyodik kopmaları otomatik yönetmelidir.
 - Instance başına en fazla **1.000 eşzamanlı bağlantı** → max-instances=1 ile MVP üst sınırı ≈ 1.000 eşzamanlı oyuncu.
 - Bağlantı yoksa ve min-instances=0 ise **ücret yok**.
+- Instance-based faturalamada instance'ın **tüm ömrü** ücretlidir (başlatmadan kapanmaya, en az 1 dk). Son bağlantı kapandıktan sonra Cloud Run boştaki instance'ı bir süre (yaklaşık 15 dk'ya kadar) tutabilir; bu kuyruk da ücretlidir.
+- **En büyük maliyet sürücüsü açık kalan WebSocket'tir:** tek bir oyuncunun uygulaması arka planda odada açık kalırsa instance aktif kalır. Mobil istemci şu an arka plana geçince bağlantıyı kapatmıyor → düzeltme önerildi (REL-003 öncesi).
 
 ### Fiyatlar (varsayılan / Tier 1, USD)
 
@@ -36,21 +39,30 @@
 | Pro | $25 / ay'dan başlar | İlk proje dahil, $10 compute kredisi (1 Micro instance'ı karşılar); ek proje $10 / ay'dan; harcama limiti (spend cap) varsayılan açık |
 | Micro compute | $10 / ay | 1 GB RAM, 60 doğrudan bağlantı, 200 pooler bağlantısı |
 
-## 4. Senaryolar (tahmini, Tier 1, 1 vCPU / 512 MiB, max-instances=1)
+## 4. Senaryolar (2026-11-05; Tier 1, 1 vCPU / 512 MiB, instance-based, min 0 / max 1)
 
-| Senaryo | Varsayım | Cloud Run | Supabase | Toplam / ay |
-|---|---|---|---|---|
-| Geliştirme | Aylık ~20 saat aktif bağlantı | $0 (ücretsiz kota içinde) | Free (tek proje, test + prod şemaları) | **$0** |
-| Kapalı beta | Aylık ~200 saat aktif, ~1 milyon istek | ≈ $9 (CPU; bellek ve istek ücretsiz kota içinde) | Free | **≈ $9** |
+Birim: instance'ın açık kaldığı her saat **CPU $0,0648 + bellek $0,0036**. Ücretsiz kota (faturalama hesabı başına, ayda): 240.000 vCPU-sn ≈ **66,7 saat** CPU, 450.000 GiB-sn ≈ **250 saat** bellek (512 MiB'de). Test ve prod servisleri ve aynı faturalama hesabındaki diğer Cloud Run kullanımları bu kotayı **paylaşır**.
 
-> Not: Free projede test ve prod aynı kaynakları paylaşır; proje 1 hafta hareketsiz kalırsa duraklar (kapalı beta sırasında risk).
-| Tavan | Instance 7/24 aktif (720 saat) | ≈ $44 (CPU ≈ $42 + bellek ≈ $2) | Pro: $25 | **≈ $69** |
+| Senaryo | Instance açık (saat/ay) | Hesap | Cloud Run / ay |
+|---|---|---|---|
+| Geliştirme ve test | ~30 | Kota içinde | **$0** |
+| Kapalı beta (haftada 3 akşam × ~3 saat + boşta kuyruklar) | ~50 | Kota içinde | **$0** |
+| Yoğun beta / küçük yayın (günde ~4 saat) | ~120 | (120 − 66,7) × 0,0648 | **≈ $3,5** |
+| Günde ~12 saat oyun | ~360 | 293,3 × 0,0648 + 110 × 0,0036 | **≈ $19,4** |
+| Tavan: 7/24 açık (max-instances=1) | 720 | 653,3 × 0,0648 + 470 × 0,0036 | **≈ $44,0** |
 
-Hesap (tavan, CPU): `720 × 3.600 = 2.592.000 vCPU-sn − 240.000 ücretsiz = 2.352.000 × $0.000018 ≈ $42`.
+Ek kalemler:
 
-- **max-instances=1**, Cloud Run maliyetine doğal bir tavan koyar (tek instance'ın 7/24 maliyeti).
-- Tier 2 bölge seçilirse Cloud Run kalemleri daha yüksek olur.
-- Egress (WS mesajları küçük), Secret Manager, Artifact Registry ve Cloud Logging bu ölçekte ücretsiz kotalar içinde kalması beklenir; ilgili görevlerde (ARCH-005, REL-003) güncel kotalar doğrulanacak.
+| Kalem | Tahmin | Not |
+|---|---|---|
+| İnternet çıkışı (WS → oyuncular, sunucu → Supabase) | Maç başına ~2–5 MB; 500 maç/ay ≈ 1–2,5 GiB → **$0–0,2**; 5.000 maç/ay ≈ 10–25 GiB → **$1,2–3** | Premium Tier, Avrupa: ilk 1 GiB ücretsiz, sonra $0,12/GiB. Maç başı hacim QA-007'de ölçülecek |
+| Cloud Logging | **$0** | Aylık 50 GiB ücretsiz (security.md §7) |
+| Artifact Registry (imaj), Cloud Build | **$0 beklenir** | Küçük distroless imaj; kotalar dağıtım adımında (REL-003) doğrulanır |
+| Secret Manager | **Kullanılmıyor** | Karar 2026-11-05 (security.md §3) |
+| Supabase | Free: **$0** | Free proje 1 hafta hareketsizlikte duraklar; herkese açık yayında Pro ($25/ay) ayrıca değerlendirilir |
+
+- **Tavan:** max-instances=1 olduğu için Cloud Run'ın aylık üst sınırı ≈ $44 + çıkış trafiği. Bunu aşmak için önce max-instances'ın değiştirilmesi gerekir (onay gerektirir).
+- Kur farkı nedeniyle tutarlar USD'dir; fatura TL kesilebilir.
 
 ## 5. Maliyet kontrolleri
 
@@ -70,3 +82,4 @@ Hesap (tavan, CPU): `720 × 3.600 = 2.592.000 vCPU-sn − 240.000 ücretsiz = 2.
 | Supabase bağlantı yolu | Supavisor session mode (IPv4) — ücretli IPv4 eklentisine gerek yok (ADR-0010) | Karar verildi (2026-11-02) |
 | Cloud Run faturalama | Instance-based, min 0 / max 1 (ADR-0011) | Karar verildi (2026-11-02) |
 | GCP bütçe uyarısı | Bulut kaynakları oluşturulmadan önce | Bekliyor — kullanıcı işlemi |
+| Secret Manager | `DATABASE_URL` Cloud Run ortam değişkeni olarak verilir | Karar verildi (2026-11-05): **kullanılmaz** |

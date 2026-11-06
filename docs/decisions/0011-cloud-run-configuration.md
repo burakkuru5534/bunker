@@ -10,7 +10,7 @@ Backend WebSocket bağlantıları ve bellek içi zamanlayıcılar kullanır (ADR
 - **Instance-based faturalama** (CPU her zaman tahsisli).
 - min-instances **0**, max-instances **1**, 1 vCPU / 512 MiB, eşzamanlılık 1000, istek zaman aşımı 3600 sn, session affinity açık.
 - Startup probe `/health`; SIGTERM'de WS'ler `1012` ile kapatılır.
-- Ortam başına ayrı servis hesabı; yalnızca kendi secret'ına `secretAccessor`.
+- Ortam başına ayrı servis ve servis hesabı. `DATABASE_URL` ortam değişkeni olarak verilir (güncelleme 2026-11-05: Secret Manager kullanılmaz; sonuçları security.md §3).
 
 ## Alternatifler
 - **Request-based faturalama:** İstek yokken CPU kısıtlanır; zamanlayıcı goroutine'leri güvenilir çalışmaz. WS açıkken zaten instance-based faturalanır, fiyat avantajı kalmaz.

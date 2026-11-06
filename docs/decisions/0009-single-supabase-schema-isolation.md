@@ -11,7 +11,7 @@ Supabase Free planında en fazla 2 aktif proje olabilir; kullanıcının hesabı
   - `bunker_prod` — production (Cloud Run `bunker-api`)
 - Her şema için ayrı veritabanı rolü: `bunker_test_app`, `bunker_prod_app`. Her rol **yalnızca kendi şemasında** yetkilidir; diğer şemaya erişimi yoktur (`REVOKE` + yalnızca kendi şemasına `GRANT`).
 - Her rolün `search_path`'i kendi şemasıdır; migration'lar şemadan bağımsız yazılır ve hedef şemaya uygulanır.
-- Her ortamın `DATABASE_URL`'i ayrı secret olarak Secret Manager'da tutulur.
+- Her ortamın `DATABASE_URL`'i ayrıdır; Cloud Run servisine ortam değişkeni olarak verilir (güncelleme 2026-11-05: Secret Manager kullanılmaz, security.md §3).
 - Migration'lar önce `bunker_test`'e, doğrulandıktan sonra `bunker_prod`'a uygulanır.
 - Yerel geliştirme ve otomatik testler Docker / bulut çalışma alanındaki yerel PostgreSQL'de çalışır; Supabase'e dokunmaz.
 - Her iki şemada RLS etkin, politika yok; şemalar Data API'ye açılmaz ([security.md](../security.md)).

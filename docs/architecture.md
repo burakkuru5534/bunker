@@ -11,7 +11,7 @@
 └──────────────┘                       │ max 1 instance             │             └──────────────────────┘
                                        └────────────┬───────────────┘
                                                     │
-                                      Secret Manager (DB bağlantısı, token anahtarı)
+                                      Ortam değişkeni (DB bağlantısı; Secret Manager yok, security.md §3)
                                       Cloud Logging (JSON loglar)
 ```
 
@@ -287,7 +287,7 @@ Ayrıntı: [ADR-0011](decisions/0011-cloud-run-configuration.md).
 | Startup / liveness probe | `GET /health` | Yalnızca süreç ayakta mı; DB'ye bakmaz — DB kesintisi konteyneri yeniden başlatmamalı (BE-005) |
 | Hazırlık | `GET /health/ready` | DB erişimi (DB-001'den itibaren); dağıtım sonrası duman testi ve izleme içindir, probe olarak kullanılmaz |
 | Erişim | Herkese açık (`allUsers` invoker) | Kimlik uygulama katmanında (Bearer token) |
-| Secret | `DATABASE_URL` → Secret Manager, ortam değişkeni olarak | |
+| Gizli değer | `DATABASE_URL` → Cloud Run ortam değişkeni (`--env-vars-file`, git dışı dosya) | Secret Manager kullanılmaz (karar 2026-11-05; security.md §3) |
 | İmaj | Çok aşamalı Docker build → distroless, Artifact Registry `europe-west1` | Küçük imaj, hızlı soğuk başlatma |
 
 ### Yaşam döngüsü
