@@ -65,7 +65,7 @@ void main() {
   testWidgets('Takma ad, engellenenler, sürüm', (tester) async {
     await pump(tester);
     expect(find.text('Ayşe'), findsOneWidget);
-    expect(find.text('Sürüm 0.1.0'), findsOneWidget);
+    expect(find.text('Sürüm 1.0.0'), findsOneWidget);
 
     await tapAndSettle(tester, find.text('Engellenen oyuncular'));
     expect(blocksOpened, 1);

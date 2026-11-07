@@ -2,4 +2,4 @@
 ///
 /// `pubspec.yaml` içindeki `version` alanının `+` öncesi kısmıyla aynı
 /// olmalıdır (test/core/config/app_version_test.dart denetler).
-const String kAppVersion = '0.1.0';
+const String kAppVersion = '1.0.0';

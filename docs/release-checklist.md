@@ -11,8 +11,8 @@ Google Play (Android) ilk yayın için. Durum: ✅ hazır · 🟡 kısmen · ⬜
 | A3 | Prod veritabanı | ✅ | `bunker_prod` şeması: `bunker_prod_app` / `bunker_prod_migrator` rolleri (`dbsetup`), migration 0001–0008 uygulandı (2026-11-07, kullanıcı) |
 | A4 | Mobil prod adresleri | ✅ | `apps/mobile/config/prod.json` → `https://bunker-api-918364240578.europe-west1.run.app` (wss aynı) |
 | A5 | Uygulama adı | ❓ | Logo "BUNKER — Son Kalanlar"; uygulama etiketi, `appTitle`, yasal sayfalar "Sığınak". Tek ad seçilip hepsi eşitlenir (Play adı ≤ 30 karakter) |
-| A6 | Release imzası | ⬜ | Release şu an **debug anahtarıyla** imzalanıyor (`android/app/build.gradle.kts`). Yükleme anahtarı (keystore) + `key.properties` (git dışı) + `signingConfigs.release`; Play App Signing açılır. Keystore ve şifreleri yedeklenir — kaybolursa güncelleme yüklenemez |
-| A7 | Sürüm ve paket | ⬜ | `pubspec.yaml` 0.1.0+1 → 1.0.0+1; `flutter build appbundle --dart-define-from-file=config/prod.json`; hedef API 36 ✅ (Flutter varsayılanı; Play şartı 31 Ağustos 2026'dan beri) |
+| A6 | Release imzası | ✅ | Yükleme anahtarı `android/keystore/upload-keystore.jks` (PKCS12, RSA 4096, takma ad `upload`, 2054'e kadar) + `android/key.properties` (git dışı); `signingConfigs.release`. `key.properties` yoksa release derlemesi hatayla durur. Play App Signing ilk yüklemede açılır. **Anahtar ve şifre repo dışına yedeklenmeli** |
+| A7 | Sürüm ve paket | 🟡 | Sürüm 1.0.0+1 ✅; imza yapılandırması geçici anahtarla derlenen AAB'de doğrulandı ✅. Kalan: gerçek anahtarla `flutter build appbundle --release --dart-define-from-file=config/prod.json` (kullanıcı bilgisayarında) ve Play'e yükleme. Hedef API 36 ✅ |
 | A8 | Yasal sayfalar | 🟡 | Metinler hazır (`legal/site`); GitHub Pages'te yayın ve adreslerin açıldığının kontrolü |
 | A9 | Simge ve açılış ekranı | ✅ | `branding/` (kaynak + üretim betiği), uyarlanabilir simge, Android 12+ açılış, uygulama içi logo; Play simgesi `branding/play_icon_512.png` |
 | A10 | Mağaza kaydı | ⬜ | Kısa açıklama (≤ 80), tam açıklama (≤ 4000), **tanıtım görseli 1024×500**, **en az 2 telefon ekran görüntüsü**, kategori (Oyun), iletişim e-postası, gizlilik adresi |

@@ -52,6 +52,7 @@ Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgRE
 |---|---|---|---|---|
 | `DATABASE_URL` (uygulama rolü `bunker_<env>_app`) | sunucu | `backend/.env` (prod: `.env.prod`) | Yok — CI geçici PostgreSQL kullanır (gizli değil) | Cloud Run ortam değişkeni (Secret Manager kullanılmaz) |
 | `MIGRATION_DATABASE_URL` (migration rolü `bunker_<env>_migrator`) | `cmd/migrate` | Aynı `.env` | Yok | **Cloud Run'a verilmez**; migration geliştirici makinesinden çalışır |
+| Android yükleme anahtarı ve şifresi | release derlemesi (`flutter build appbundle`) | `apps/mobile/android/keystore/upload-keystore.jks` + `android/key.properties` (git dışı; repo dışına yedeklenir) | Yok — CI yalnızca debug derler | — (Play App Signing: asıl imza anahtarı Google'da) |
 | Supabase veritabanı yönetici (`postgres`) şifresi | yalnızca rol kurulumu (SQL editörü) | Hiçbir dosyada değil; Supabase panelinde | — | — |
 | Supabase API anahtarları (publishable / `sb_secret_…`) | **kullanılmıyor** (uygulama Supabase API'sine bağlanmaz) | — | — | — |
 
