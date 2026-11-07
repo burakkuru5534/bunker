@@ -1,5 +1,5 @@
 {
   "APP_ENV": "prod",
-  "API_BASE_URL": "https://bunker-api.example.invalid",
-  "WS_BASE_URL": "wss://bunker-api.example.invalid"
+  "API_BASE_URL": "https://bunker-api-918364240578.europe-west1.run.app",
+  "WS_BASE_URL": "wss://bunker-api-918364240578.europe-west1.run.app"
 }
