@@ -10,7 +10,7 @@ class AppLocalizationsTr extends AppLocalizations {
   AppLocalizationsTr([String locale = 'tr']) : super(locale);
 
   @override
-  String get appTitle => 'Sığınak';
+  String get appTitle => 'BUNKER — Son Kalanlar';
 
   @override
   String get actionRetry => 'Tekrar dene';

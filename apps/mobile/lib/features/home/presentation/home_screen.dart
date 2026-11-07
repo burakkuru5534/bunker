@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:siginak/core/config/app_config.dart';
 import 'package:siginak/core/config/app_config_provider.dart';
 import 'package:siginak/core/error/error_messages.dart';
 import 'package:siginak/core/l10n/l10n.dart';
@@ -10,6 +12,7 @@ import 'package:siginak/core/network/api_exception.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/ui/app_buttons.dart';
 import 'package:siginak/core/ui/app_snack_bar.dart';
+import 'package:siginak/core/ui/brand_logo.dart';
 import 'package:siginak/features/room/room.dart';
 import 'package:siginak/features/session/session.dart';
 
@@ -18,6 +21,12 @@ String? existingRoomOf(ApiException e) => switch (e.details['room_id']) {
   final String id when e.code == 'ALREADY_IN_ROOM' => id,
   _ => null,
 };
+
+/// Ortam/adres etiketi yalnızca geliştirme (debug) derlemesinde ve üretim
+/// dışı ortamda görünür. Release derlemesinde (test sunucusuna bağlı olsa da;
+/// ör. mağaza ekran görüntüleri, kapalı test) gösterilmez.
+bool showEnvironmentLabel(AppConfig config, {bool debugBuild = kDebugMode}) =>
+    debugBuild && !config.isProduction;
 
 /// `/home` — ana ekran (docs/ui/screen-map.md §3.2).
 ///
@@ -102,17 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'SIĞINAK',
-                    style: textTheme.displayMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.s2),
-                  Text(
-                    'Son Kalanlar',
-                    style: textTheme.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
+                  const Center(child: BrandLogo(maxWidth: 280)),
                   if (nickname != null) ...[
                     const SizedBox(height: AppSpacing.s4),
                     Text(
@@ -136,7 +135,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: AppSpacing.s5),
                   const _HowToPlay(),
-                  if (!config.isProduction) ...[
+                  if (showEnvironmentLabel(config)) ...[
                     const SizedBox(height: AppSpacing.s5),
                     Text(
                       'Ortam: ${config.environment.name} · ${config.apiBaseUrl}',

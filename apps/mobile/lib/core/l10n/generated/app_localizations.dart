@@ -97,7 +97,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In tr, this message translates to:
-  /// **'Sığınak'**
+  /// **'BUNKER — Son Kalanlar'**
   String get appTitle;
 
   /// No description provided for @actionRetry.

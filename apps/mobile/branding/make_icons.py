@@ -64,3 +64,16 @@ feather(content.resize((w, h), Image.LANCZOS)).save(out('splash_logo.png'))
 # 5) Uygulama içi logo (açılış ekranı): WebP, şeffaf kenarlı
 app = feather(content.resize((900, int(900*ch/cw)), Image.LANCZOS))
 app.save(os.path.join(HERE, '..', 'assets', 'images', 'logo.webp'), 'WEBP', quality=88, method=6)
+
+# 6) Play tanıtım görseli (feature graphic): 1024×500, 24 bit (saydamlık yok).
+#    Arka plan: logonun kızıl ışığını sürdüren, kenara doğru kararan radyal
+#    degrade; ortada tam logo.
+FW, FH = 1024, 500
+glow = Image.new('L', (FW, FH), 0)
+ImageDraw.Draw(glow).ellipse((FW*0.18, -FH*0.25, FW*0.82, FH*0.95), fill=255)
+glow = glow.filter(ImageFilter.GaussianBlur(120))
+backdrop = Image.composite(Image.new('RGBA', (FW, FH), (92, 26, 12, 255)),
+                           Image.new('RGBA', (FW, FH), BG), glow)
+lh = FH - 16; lw = int(lh*cw/ch)
+backdrop.alpha_composite(feather(content.resize((lw, lh), Image.LANCZOS), edge=0.05), ((FW-lw)//2, 8))
+backdrop.convert('RGB').save(out('feature_graphic_1024x500.png'), optimize=True)

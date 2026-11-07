@@ -8,6 +8,7 @@ import 'package:siginak/core/config/app_config.dart';
 import 'package:siginak/core/network/api_client_provider.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/session_store.dart';
+import 'package:siginak/core/ui/brand_logo.dart';
 import 'package:siginak/features/home/presentation/home_screen.dart';
 import 'package:siginak/features/session/session.dart';
 
@@ -54,15 +55,35 @@ void main() {
     return ProviderScope.containerOf(tester.element(find.byType(HomeScreen)));
   }
 
-  testWidgets('Başlık, selamlama ve local ortam etiketi görünür', (
-    tester,
-  ) async {
+  testWidgets('Logo, selamlama ve local ortam etiketi görünür', (tester) async {
     await pump(tester);
 
-    expect(find.text('SIĞINAK'), findsOneWidget);
-    expect(find.text('Son Kalanlar'), findsOneWidget);
+    final logo = tester.widget<Image>(
+      find.descendant(of: find.byType(BrandLogo), matching: find.byType(Image)),
+    );
+    expect((logo.image as AssetImage).assetName, logoAsset);
+    expect(logo.semanticLabel, 'BUNKER — Son Kalanlar');
+    expect(find.text('SIĞINAK'), findsNothing);
     expect(find.text('Merhaba, Ayşe'), findsOneWidget);
     expect(find.textContaining('Ortam: local'), findsOneWidget);
+  });
+
+  test('ortam etiketi yalnızca debug derlemede ve üretim dışında', () {
+    AppConfig config(String env) => AppConfig.fromValues(
+      environment: env,
+      apiBaseUrl: env == 'local'
+          ? 'http://10.0.2.2:8080'
+          : 'https://api.example.com',
+      wsBaseUrl: env == 'local'
+          ? 'ws://10.0.2.2:8080'
+          : 'wss://api.example.com',
+    );
+    expect(showEnvironmentLabel(config('local'), debugBuild: true), isTrue);
+    expect(showEnvironmentLabel(config('test'), debugBuild: true), isTrue);
+    expect(showEnvironmentLabel(config('prod'), debugBuild: true), isFalse);
+    // Release derlemesi (mağaza ekran görüntüleri, kapalı test): hiç görünmez.
+    expect(showEnvironmentLabel(config('test'), debugBuild: false), isFalse);
+    expect(showEnvironmentLabel(config('local'), debugBuild: false), isFalse);
   });
 
   testWidgets('Production ortamında ortam etiketi gösterilmez', (tester) async {

@@ -1,4 +1,4 @@
-# Sığınak: Son Kalanlar
+# BUNKER — Son Kalanlar
 
 Türkiye pazarına yönelik, çok oyunculu, çevrim içi sosyal tartışma ve eleme oyunu.
 Dünyayı bir felaket vurmuştur; oyuncular kapasitesi sınırlı bir sığınağa girebilmek için

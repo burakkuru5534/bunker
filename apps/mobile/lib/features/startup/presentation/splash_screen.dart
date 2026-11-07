@@ -6,11 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:siginak/core/error/error_messages.dart';
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_colors.dart';
+import 'package:siginak/core/ui/brand_logo.dart';
 import 'package:siginak/core/ui/state_views.dart';
 import 'package:siginak/features/session/session.dart';
-
-/// Logo görseli (branding/make_icons.py ile üretilir).
-const logoAsset = 'assets/images/logo.webp';
 
 /// `/` — açılışta oturum kontrol edilirken görünür. Yerel açılış ekranıyla
 /// aynı zeminde logo gösterir; altında yükleniyor ya da hata.
@@ -30,19 +28,12 @@ class SplashScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
-            Expanded(
+            const Expanded(
               flex: 3,
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
-                    child: Image.asset(
-                      logoAsset,
-                      semanticLabel: l.appTitle,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: BrandLogo(),
                 ),
               ),
             ),

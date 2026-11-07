@@ -7,7 +7,7 @@ Durum: taslak — formlar henüz doldurulmadı. Play'in güncel soru metinleri d
 ## 1. Gizlilik politikası
 
 - Adres: `https://burakkuru5534.github.io/siginak-legal/gizlilik.html` (yayın adımları `legal/README.md`).
-- Sayfa uygulamanın Play'deki adını ("Sığınak: Son Kalanlar") ve veri sorumlusunu içerir.
+- Sayfa uygulamanın Play'deki adını ("BUNKER — Son Kalanlar") ve veri sorumlusunu içerir.
 
 ## 2. Hesap silme
 

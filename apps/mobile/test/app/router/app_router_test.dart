@@ -11,6 +11,7 @@ import 'package:siginak/core/network/update_required_provider.dart';
 import 'package:siginak/core/realtime/realtime_client_provider.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/session_store.dart';
+import 'package:siginak/core/ui/brand_logo.dart';
 import 'package:siginak/core/ui/not_found_screen.dart';
 import 'package:siginak/features/home/presentation/home_screen.dart';
 import 'package:siginak/features/home/presentation/join_screen.dart';
@@ -240,7 +241,7 @@ void main() {
     // Logo: yerel açılış ekranıyla aynı görsel ve zemin (REL-001).
     final logo = tester.widget<Image>(find.byType(Image));
     expect((logo.image as AssetImage).assetName, logoAsset);
-    expect(logo.semanticLabel, 'Sığınak');
+    expect(logo.semanticLabel, 'BUNKER — Son Kalanlar');
 
     backend.restore('GET', '/v1/me');
     await tester.tap(find.text('Tekrar dene'));

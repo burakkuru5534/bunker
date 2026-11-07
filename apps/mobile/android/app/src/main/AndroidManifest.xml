@@ -2,7 +2,7 @@
     <!-- Backend (REST + WebSocket) erişimi için release derlemede de gerekli. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Sığınak"
+        android:label="BUNKER"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
