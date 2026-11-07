@@ -34,7 +34,7 @@ gradle.taskGraph.whenReady {
 }
 
 android {
-    namespace = "com.bunker.app"
+    namespace = "com.bunkerapp.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -44,7 +44,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.bunker.app"
+        applicationId = "com.bunkerapp.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

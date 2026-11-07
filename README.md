@@ -13,7 +13,7 @@ Görevlerin güncel durumu: [docs/roadmap.md](docs/roadmap.md)
 
 | Katman | Teknoloji |
 |---|---|
-| Mobil | Flutter (Android öncelikli; `com.bunker.app`), Riverpod, go_router, Dio, WebSocket — [apps/mobile](apps/mobile/README.md) |
+| Mobil | Flutter (Android öncelikli; `com.bunkerapp.app`), Riverpod, go_router, Dio, WebSocket — [apps/mobile](apps/mobile/README.md) |
 | Backend | Go modüler monolith, REST + WebSocket |
 | Veritabanı | Supabase PostgreSQL (tek kalıcı veri kaynağı) |
 | Dağıtım | Google Cloud Run |

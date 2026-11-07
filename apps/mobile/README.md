@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Paket adı (Dart) | `siginak` |
-| Android applicationId | `com.bunker.app` |
+| Android applicationId | `com.bunkerapp.app` |
 | Platform | Android (iOS MVP sonrası) |
 | Flutter / Dart | 3.47.1 / 3.13.1 |
 
