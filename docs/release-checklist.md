@@ -18,7 +18,7 @@ Google Play (Android) ilk yayın için. Durum: ✅ hazır · 🟡 kısmen · ⬜
 | A10 | Mağaza kaydı | ⬜ | Kısa açıklama (≤ 80), tam açıklama (≤ 4000), **tanıtım görseli 1024×500**, **en az 2 telefon ekran görüntüsü**, kategori (Oyun), iletişim e-postası, gizlilik adresi |
 | A11 | Uygulama içeriği formları | 🟡 | Cevaplar `docs/store/play-console.md`'de (Cloud Run/Cloud Logging IP notu dahil). "Uygulama erişimi"ne inceleme notu: oyun 4 oyuncu ister |
 | A12 | Kapalı test | ❓ | Kişisel geliştirici hesabı 13 Kasım 2023'ten sonra açıldıysa: en az **12 test kullanıcısı, 14 gün kesintisiz**, ardından üretim erişimi başvurusu |
-| A13 | Arka planda bağlantı | ⬜ | Uygulama arka plana geçince WS kapatılır, öne gelince bağlanır (Cloud Run boşta instance saati harcamasın) |
+| A13 | Arka planda bağlantı | ✅ | Odadayken uygulama 30 sn arka planda kalırsa WS normal kodla (1000) kapatılır (`RealtimeStatus.suspended`), öne gelince aynı odaya bağlanıp snapshot ile eşitlenir; kısa geçişler (kodu paylaşmak) bağlantıyı düşürmez. Cloud Run boşta instance saati harcamaz |
 
 ## B. Yayından önce yapılması gerekenler
 

@@ -47,6 +47,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     super.initState();
     _lifecycle = AppLifecycleListener(
       onResume: () => _controller.onAppResumed(),
+      onHide: () => _controller.onAppPaused(),
     );
   }
 

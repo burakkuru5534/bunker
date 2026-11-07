@@ -167,6 +167,9 @@ class RoomController extends Notifier<RoomState> {
   /// Uygulama ön plana geldi: bağlıysa eşitle, değilse hemen bağlan.
   void onAppResumed() => _client.onAppResumed();
 
+  /// Uygulama arka plana geçti: kısa süre sonra bağlantı kapatılır (maliyet).
+  void onAppPaused() => _client.onAppPaused();
+
   /// Yeniden bağlanma beklemesini atlayıp hemen dener ("Tekrar dene").
   void retryConnection() => _client.onAppResumed();
 

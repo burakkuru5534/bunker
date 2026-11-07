@@ -968,4 +968,35 @@ void main() {
       });
     });
   });
+
+  testWidgets('arka planda 30 sn kalınca WS kapanır, öne gelince yeniden '
+      'bağlanır (A13)', (tester) async {
+    await pump(tester);
+    await snapshot(tester);
+    final binding = tester.binding;
+
+    for (final s in [AppLifecycleState.inactive, AppLifecycleState.hidden]) {
+      binding.handleAppLifecycleStateChanged(s);
+    }
+    await tester.pump(const Duration(seconds: 29));
+    expect(ws.last.closedByClient, isFalse);
+
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(seconds: 2));
+    expect(ws.last.closedByClient, isTrue);
+    expect(ws.last.closeCode, 1000);
+    expect(ws.sockets, hasLength(1));
+
+    for (final s in [
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      binding.handleAppLifecycleStateChanged(s);
+    }
+    await frames(tester);
+    expect(ws.sockets, hasLength(2));
+    await snapshot(tester);
+    expect(find.text('Mehmet'), findsOneWidget);
+  });
 }

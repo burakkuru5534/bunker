@@ -22,6 +22,10 @@ enum RealtimeStatus {
   /// Bağlantı koptu; bekleyip yeniden denenecek.
   reconnecting,
 
+  /// Uygulama arka planda; bağlantı maliyet için kapatıldı. Öne gelince
+  /// ([RealtimeClient.onAppResumed]) aynı odaya yeniden bağlanır.
+  suspended,
+
   /// Yeniden denenmeyecek şekilde durdu (bkz. [RealtimeStopReason]).
   stopped,
 }
@@ -88,6 +92,11 @@ class RealtimeState {
 /// - Beklenmedik kopmalarda üstel geri çekilmeyle yeniden bağlanır
 ///   (0,5 sn → en fazla 10 sn, ±%20 rastgele sapma).
 /// - 4001 / 4003 / 4008 / 4026 kodlarında yeniden denemez.
+/// - Uygulama arka planda [backgroundGrace] kadar kalırsa bağlantıyı kapatır
+///   ([RealtimeStatus.suspended]); öne gelince yeniden bağlanır ve
+///   `session.snapshot` ile eşitlenir. Kısa geçişler (ör. oda kodunu
+///   paylaşmak) bağlantıyı düşürmez. Neden: Cloud Run açık WebSocket varken
+///   instance'ı faturalar (ADR-0011, release-checklist A13).
 class RealtimeClient {
   RealtimeClient({
     required this._wsBaseUrl,
@@ -102,6 +111,9 @@ class RealtimeClient {
 
   static const _initialBackoff = Duration(milliseconds: 500);
   static const _maxBackoff = Duration(seconds: 10);
+
+  /// Arka planda bu süre geçince bağlantı kapatılır.
+  static const backgroundGrace = Duration(seconds: 30);
 
   final Uri _wsBaseUrl;
   final String _appVersion;
@@ -120,6 +132,7 @@ class RealtimeClient {
   WsSocket? _socket;
   StreamSubscription<Object?>? _subscription;
   Timer? _retryTimer;
+  Timer? _suspendTimer;
   int _attempt = 0;
   int _generation = 0;
   final Map<VersionStream, int?> _known = {};
@@ -143,7 +156,8 @@ class RealtimeClient {
     _assertNotDisposed();
     final active =
         _state.status != RealtimeStatus.idle &&
-        _state.status != RealtimeStatus.stopped;
+        _state.status != RealtimeStatus.stopped &&
+        _state.status != RealtimeStatus.suspended;
     if (_roomId == roomId && active) return;
 
     _teardown(closeCode: 1000);
@@ -157,6 +171,7 @@ class RealtimeClient {
 
   /// Bağlantıyı kapatır; yeniden denenmez.
   Future<void> disconnect() async {
+    _cancelSuspend();
     final socket = _socket;
     _teardown();
     _roomId = null;
@@ -173,9 +188,24 @@ class RealtimeClient {
     );
   }
 
+  /// Uygulama arka plana geçtiğinde çağrılır: [backgroundGrace] sonunda hâlâ
+  /// arka plandaysa bağlantıyı kapatır. Bağlantı yoksa veya durmuşsa bir şey
+  /// yapmaz.
+  void onAppPaused() {
+    if (_roomId == null ||
+        _state.status == RealtimeStatus.idle ||
+        _state.status == RealtimeStatus.stopped ||
+        _state.status == RealtimeStatus.suspended) {
+      return;
+    }
+    _suspendTimer?.cancel();
+    _suspendTimer = Timer(backgroundGrace, _suspend);
+  }
+
   /// Uygulama ön plana geldiğinde çağrılır: bağlıysa eşitler, değilse
-  /// beklemeden yeniden bağlanır.
+  /// beklemeden yeniden bağlanır (arka planda kapatılmışsa da).
   void onAppResumed() {
+    _cancelSuspend();
     if (_roomId == null || _state.status == RealtimeStatus.stopped) return;
     if (_state.status == RealtimeStatus.connected) {
       requestSync();
@@ -196,6 +226,26 @@ class RealtimeClient {
   }
 
   // --- iç işleyiş ---
+
+  void _suspend() {
+    _suspendTimer = null;
+    if (_roomId == null ||
+        _state.status == RealtimeStatus.idle ||
+        _state.status == RealtimeStatus.stopped) {
+      return;
+    }
+    _log('arka planda, bağlantı kapatıldı');
+    // Normal kapanış: sunucu oyuncuyu "bağlantısı koptu" olarak gösterir;
+    // öne gelince yeni bağlantı snapshot ile durumu yeniden kurar.
+    _teardown(closeCode: 1000);
+    _attempt = 0;
+    _setState(RealtimeStatus.suspended);
+  }
+
+  void _cancelSuspend() {
+    _suspendTimer?.cancel();
+    _suspendTimer = null;
+  }
 
   Future<void> _open() async {
     final roomId = _roomId;

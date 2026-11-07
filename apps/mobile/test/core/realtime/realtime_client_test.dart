@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
@@ -501,6 +502,170 @@ void main() {
         connected(async);
 
         expect(connector.headers.single.containsKey('Authorization'), isFalse);
+      });
+    });
+  });
+
+  group('arka plan (A13)', () {
+    const grace = RealtimeClient.backgroundGrace;
+    const justBefore = Duration(seconds: 29);
+
+    test('süre dolunca normal kodla kapatır ve yeniden denemez', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        client.onAppPaused();
+
+        async.elapse(justBefore);
+        expect(connector.last.closedByClient, isFalse);
+        expect(client.state.status, RealtimeStatus.connected);
+
+        async
+          ..elapse(grace - justBefore)
+          ..flushMicrotasks();
+        expect(connector.last.closedByClient, isTrue);
+        expect(connector.last.closeCode, 1000);
+        expect(client.state.status, RealtimeStatus.suspended);
+        expect(client.state.roomId, roomId);
+
+        async.elapse(const Duration(minutes: 5));
+        expect(connector.uris, hasLength(1)); // arka planda bağlanmaz
+      });
+    });
+
+    test('kısa geçişte bağlantı kalır ve öne gelince sync ister', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        client.onAppPaused();
+        async.elapse(justBefore);
+        client.onAppResumed();
+
+        async.elapse(const Duration(minutes: 2));
+        expect(connector.last.closedByClient, isFalse);
+        expect(connector.uris, hasLength(1));
+        expect(sentTypes(connector.last), ['sync']);
+        expect(client.state.status, RealtimeStatus.connected);
+      });
+    });
+
+    test('öne gelince aynı odaya yeniden bağlanır; snapshot beklenir', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        connector.last.serverSend(
+          'session.snapshot',
+          payload: {
+            'room': {'version': 3},
+          },
+        );
+        async.flushMicrotasks();
+        client.onAppPaused();
+        async
+          ..elapse(grace)
+          ..flushMicrotasks();
+        events.clear();
+
+        client.onAppResumed();
+        async.flushMicrotasks();
+        expect(connector.uris, hasLength(2));
+        expect(connector.uris.last.queryParameters['room_id'], roomId);
+        expect(client.state.status, RealtimeStatus.connected);
+
+        // Arka planda kaçan olaylar snapshot'tan önce uygulanmaz.
+        connector.last.serverSend('room.member_joined', stateVersion: 4);
+        async.flushMicrotasks();
+        expect(events, isEmpty);
+
+        connector.last.serverSend(
+          'session.snapshot',
+          payload: {
+            'room': {'version': 7},
+          },
+        );
+        async.flushMicrotasks();
+        expect(events.map((e) => e.type), ['session.snapshot']);
+        expect(client.versionOf(VersionStream.room), 7);
+      });
+    });
+
+    test('yeniden bağlanma beklerken arka plana geçerse denemeler durur', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        connector
+          ..failNext = 100
+          ..last.serverClose(1006);
+        async.flushMicrotasks();
+        client.onAppPaused();
+        async.elapse(grace);
+        final attempts = connector.uris.length;
+        expect(client.state.status, RealtimeStatus.suspended);
+
+        async.elapse(const Duration(minutes: 5));
+        expect(connector.uris, hasLength(attempts));
+      });
+    });
+
+    test('bağlantı yokken veya durmuşken bir şey yapmaz', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        client.onAppPaused(); // idle
+        async.elapse(grace);
+        expect(client.state.status, RealtimeStatus.idle);
+
+        connected(async);
+        connector.last.serverClose(4003);
+        async.flushMicrotasks();
+        client.onAppPaused();
+        async.elapse(grace);
+        expect(client.state.status, RealtimeStatus.stopped);
+        expect(client.state.stopReason, RealtimeStopReason.forbidden);
+      });
+    });
+
+    test('bekleme sırasında disconnect: idle kalır', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        client.onAppPaused();
+        unawaited(client.disconnect());
+        async
+          ..elapse(grace)
+          ..flushMicrotasks();
+        expect(client.state.status, RealtimeStatus.idle);
+        expect(client.state.roomId, isNull);
+      });
+    });
+
+    test('disconnect + yeni oda: eski bekleme yeni bağlantıyı kapatmaz', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        client.onAppPaused();
+        unawaited(client.disconnect());
+        async.elapse(const Duration(seconds: 10));
+        client.connect('11111111-2222-4333-8444-555555555555');
+        async
+          ..flushMicrotasks()
+          ..elapse(grace)
+          ..flushMicrotasks();
+        expect(connector.last.closedByClient, isFalse);
+        expect(client.state.status, RealtimeStatus.connected);
+      });
+    });
+
+    test('askıdayken connect aynı oda için yeniden bağlanır', () {
+      fakeAsync((async) {
+        setUpClient(async);
+        connected(async);
+        client.onAppPaused();
+        async
+          ..elapse(grace)
+          ..flushMicrotasks();
+        connected(async);
+        expect(connector.uris, hasLength(2));
+        expect(client.state.status, RealtimeStatus.connected);
       });
     });
   });
