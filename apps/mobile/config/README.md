@@ -8,7 +8,7 @@ Uygulama, derleme zamanında `--dart-define-from-file` ile yapılandırılır. B
 | `test.json` | Cloud Run `bunker-api-test` | İzlenir |
 | `prod.json` | Cloud Run `bunker-api` | İzlenir |
 
-> `test.json` ve `prod.json` içindeki `.example.invalid` adresleri yer tutucudur; Cloud Run servisleri oluşturulunca gerçek adreslerle değiştirilir.
+> `test.json` gerçek test servisini gösterir (`bunker-api-test`, europe-west1; 2026-11-07). `prod.json` içindeki `.example.invalid` adresi yer tutucudur; prod servisi `bunker-api` kurulunca değiştirilir.
 
 ## Yerel kurulum
 

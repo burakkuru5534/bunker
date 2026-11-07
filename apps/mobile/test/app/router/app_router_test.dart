@@ -26,6 +26,7 @@ import '../../helpers/fake_http_adapter.dart';
 import '../../helpers/fake_ws.dart';
 
 import '../../helpers/pump_app.dart';
+import '../../helpers/small_screen.dart';
 
 void main() {
   const roomId = '0f8fad5b-d9cb-469f-a165-70867728950e';
@@ -236,12 +237,27 @@ void main() {
       find.text('İnternet bağlantını kontrol edip tekrar dene.'),
       findsOneWidget,
     );
+    // Logo: yerel açılış ekranıyla aynı görsel ve zemin (REL-001).
+    final logo = tester.widget<Image>(find.byType(Image));
+    expect((logo.image as AssetImage).assetName, logoAsset);
+    expect(logo.semanticLabel, 'Sığınak');
 
     backend.restore('GET', '/v1/me');
     await tester.tap(find.text('Tekrar dene'));
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('320 dp ve %200 yazı: açılış ekranı hatayla taşmaz', (
+    tester,
+  ) async {
+    useSmallScreen(tester);
+    backend.on('GET', '/v1/me', networkFailure);
+    await startApp(tester, store: await storedSession());
+    expect(find.byType(SplashScreen), findsOneWidget);
+    expect(find.text('Tekrar dene'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Saklı oturum sunucuda geçersizse hoş geldin ekranı', (

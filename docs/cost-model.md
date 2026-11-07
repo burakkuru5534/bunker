@@ -3,6 +3,22 @@
 > Kaynak: ARCH-003 (2026-11-02). Fiyatlar resmi sayfalardan alınmıştır (Cloud Run ve ağ: **2026-11-05**'te yeniden doğrulandı); **değişebilir**, her ücretli adımdan önce yeniden doğrulanır.
 > Ücret doğurabilecek her kaynak değişikliği için **kullanıcı onayı** gerekir.
 
+## 0. Güncel kurulum: Cloud Run, en düşük maliyet (ADR-0011, 2026-11-07)
+
+| Kalem | Ayar | Ücretsiz kota (faturalama hesabı başına, aylık) | Aşılırsa |
+|---|---|---|---|
+| Cloud Run `bunker-api-test` | Instance-based, 1 vCPU / 512 MiB, min 0 / max 1, europe-west1 | ≈ 66,7 instance saati (240.000 vCPU-sn + 450.000 GiB-sn) | ≈ $0,068/saat; tek instance 7/24 tavanı ≈ $44/ay |
+| İnternet çıkışı | — | 1 GiB (fiyat sayfası bunu Kuzey Amerika içi trafik için verir; Avrupa'daki oyuncular için kota sayılmayabilir) | ≈ $0,12/GiB (maç başına 2–5 MB → 1.000 maç ≈ $0,25–0,60) |
+| Cloud Build | e2-standard-2 | 2.500 derleme dakikası | dakika başına ücret |
+| Artifact Registry | Son 3 imaj, 7 gün temizlik | 0,5 GB depolama | ≈ $0,10/GB |
+| Cloud Build kaynak kovası (US) | 3 günde silinir | Birkaç MB | ihmal edilebilir |
+| Bütçe uyarısı | 200 TL/ay, yalnızca bu proje; %10/25/50/100 + tahmini %100 | Ücretsiz | Uyarı verir, **harcamayı durdurmaz** |
+| Veritabanı | Supabase Free | 500 MB, 5 GB egress | Kısıtlama/duraklatma |
+
+- Ücretsiz kota faturalama hesabı başınadır; aynı hesaba bağlı diğer projelerde Cloud Run servisi açılırsa kota paylaşılır (2026-11-07'de hiçbirinde servis yok).
+- Instance yalnızca istek veya açık WebSocket varken çalışır; uygulama arka plana geçince WS'nin kapatılması (release-checklist A13) boşta faturayı önler.
+- Kota içinde kalan tahmini kullanım (günde ~2 saat oyun) ≈ 60 saat/ay → **0 $**; aşımda saat başına yukarıdaki ücret.
+
 ## 1. Kaynaklar
 
 - Cloud Run fiyatlandırması: https://cloud.google.com/run/pricing
@@ -80,6 +96,7 @@ Ek kalemler:
 | Supabase planı | Şimdilik **Free**, tek proje (test + prod şemaları, ADR-0009). Pro'ya geçiş yayından önce yeniden değerlendirilecek. | Karar verildi (2026-11-02) |
 | Cloud Run bölgesi | **europe-west1** (Tier 1); Supabase **eu-central-1** | Karar verildi (2026-11-02) |
 | Supabase bağlantı yolu | Supavisor session mode (IPv4) — ücretli IPv4 eklentisine gerek yok (ADR-0010) | Karar verildi (2026-11-02) |
-| Cloud Run faturalama | Instance-based, min 0 / max 1 (ADR-0011) | Karar verildi (2026-11-02) |
-| GCP bütçe uyarısı | Bulut kaynakları oluşturulmadan önce | Bekliyor — kullanıcı işlemi |
+| Cloud Run faturalama | Instance-based, min 0 / max 1 (ADR-0011) | Karar verildi (2026-11-02); uygulandı (2026-11-07) |
+| GCP bütçe uyarısı | 200 TL/ay, yalnızca `siginak-aa1ccd` projesi | Kuruldu (2026-11-07) |
 | Secret Manager | `DATABASE_URL` Cloud Run ortam değişkeni olarak verilir | Karar verildi (2026-11-05): **kullanılmaz** |
+| Barındırma | Cloud Run, en düşük maliyet (ADR-0011); Render Free değerlendirildi, uygulanmadı (ADR-0013) | Karar verildi (2026-11-07) |

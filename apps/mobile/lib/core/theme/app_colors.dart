@@ -7,6 +7,11 @@ import 'package:flutter/painting.dart';
 abstract final class AppColors {
   // Yüzeyler
   static const background = Color(0xFF0F1115);
+
+  /// Logonun zemini; yerel açılış ekranı, uygulama simgesi zemini
+  /// (flutter_native_splash.yaml, flutter_launcher_icons.yaml) ve uygulama
+  /// içi açılış ekranı aynı rengi kullanır — geçişte renk sıçraması olmaz.
+  static const brandBlack = Color(0xFF030202);
   static const surface = Color(0xFF1A1D23);
   static const surfaceHigh = Color(0xFF242832);
   static const outline = Color(0xFF2E333D);

@@ -1,0 +1,10 @@
+# İmaja yalnızca derleme için gerekenler girer; gizli değerler asla.
+.env
+.env.*
+*.pem
+*.key
+**/*_test.go
+**/testdata
+Dockerfile
+.dockerignore
+README.md

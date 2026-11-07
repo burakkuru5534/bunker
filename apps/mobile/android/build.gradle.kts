@@ -15,6 +15,16 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+// Windows: proje (ör. D:) ile pub önbelleği (C:\Users\…\Pub\Cache) farklı
+// sürücülerdeyse Kotlin'in artımlı derlemesi eklenti kaynaklarına göreli yol
+// kuramaz ve "Could not close incremental caches" ile düşer. Proje klasörü
+// dışındaki (pub önbelleğindeki eklenti) modüllerde artımlı derleme kapatılır;
+// :app etkilenmez. Eklenti kodu küçük olduğundan derleme süresine etkisi azdır.
+subprojects {
+    if (!projectDir.canonicalPath.startsWith(rootDir.canonicalPath)) {
+        extra["kotlin.incremental"] = "false"
+    }
+}
 subprojects {
     project.evaluationDependsOn(":app")
 }

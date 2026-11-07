@@ -1,0 +1,18 @@
+# Yerel açılış ekranı (Flutter motoru yüklenirken). Yeniden üretmek için:
+#   python branding/make_icons.py && dart run flutter_native_splash:create
+# Flutter çizmeye başlayınca uygulama içi açılış ekranı (SplashScreen) aynı
+# zemin rengiyle logoyu göstermeye devam eder.
+flutter_native_splash:
+  color: "#030202"
+  image: branding/splash_logo.png
+  android_12:
+    # Android 12+ yalnızca daire içinde simge gösterir (2/3'ü görünür).
+    image: branding/adaptive_fg_1024.png
+    color: "#030202"
+    icon_background_color: "#030202"
+  android: true
+  ios: false
+  web: false
+  fullscreen: false
+  # Uygulama dikey kilitli (design-system §5); araç bu satırı korusun.
+  android_screen_orientation: portrait

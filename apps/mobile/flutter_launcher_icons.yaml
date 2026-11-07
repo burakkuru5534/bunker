@@ -1,0 +1,15 @@
+# Uygulama simgesi (REL-001). Kaynak görseller branding/make_icons.py ile
+# branding/logo_source.png'den üretilir. Yeniden üretmek için:
+#   python branding/make_icons.py && dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  # Android 7 ve öncesi (yuvarlak/kare tek görsel)
+  image_path: "branding/icon_1024.png"
+  # Android 8+ uyarlanabilir simge: koyu zemin + ortadaki logo (güvenli daire içinde)
+  adaptive_icon_background: "#030202"
+  adaptive_icon_foreground: "branding/adaptive_fg_1024.png"
+  # Ön plan görseli güvenli daireye göre zaten ölçekli; ek iç boşluk yok.
+  adaptive_icon_foreground_inset: 0
+  min_sdk_android: 24
+  remove_alpha_ios: true

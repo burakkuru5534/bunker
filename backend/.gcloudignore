@@ -1,0 +1,13 @@
+# `gcloud builds submit` / `gcloud run deploy --source` bu klasörü yüklerken
+# bunları göndermez. Docker .dockerignore'u yalnızca derlemede uygular;
+# yükleme ise bu dosyaya bakar. Gizli değerler buluta hiç çıkmamalı.
+.gcloudignore
+.git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+**/*_test.go
+**/testdata
+README.md
