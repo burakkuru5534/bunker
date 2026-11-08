@@ -28,6 +28,7 @@ class SessionState {
     this.nickname,
     this.activeRoomId,
     this.restoreError,
+    this.needsNickname = false,
   });
 
   const SessionState.unknown() : this(status: SessionStatus.unknown);
@@ -50,6 +51,9 @@ class SessionState {
   /// Yalnızca `unknown` durumunda: doğrulama hatası (yoksa `null`).
   final Object? restoreError;
 
+  /// Kullanıcı adı onaylanmalı (`GET /v1/me` `needs_nickname`).
+  final bool needsNickname;
+
   @override
   bool operator ==(Object other) =>
       other is SessionState &&
@@ -57,11 +61,18 @@ class SessionState {
       other.userId == userId &&
       other.nickname == nickname &&
       other.activeRoomId == activeRoomId &&
-      other.restoreError == restoreError;
+      other.restoreError == restoreError &&
+      other.needsNickname == needsNickname;
 
   @override
-  int get hashCode =>
-      Object.hash(status, userId, nickname, activeRoomId, restoreError);
+  int get hashCode => Object.hash(
+    status,
+    userId,
+    nickname,
+    activeRoomId,
+    restoreError,
+    needsNickname,
+  );
 }
 
 /// Oturum durumu.
@@ -122,7 +133,11 @@ class SessionController extends Notifier<SessionState> {
       await _store.save(session);
       if (!ref.mounted) return;
     }
-    state = _authenticated(session, activeRoomId: me.activeRoomId);
+    state = _authenticated(
+      session,
+      activeRoomId: me.activeRoomId,
+      needsNickname: me.needsNickname,
+    );
     await _refreshIfNeeded(session);
   }
 
@@ -168,6 +183,9 @@ class SessionController extends Notifier<SessionState> {
     );
   }
 
+  /// Kullanıcı adını onaylar (adı değişmese de sunucuya kaydedilir).
+  Future<void> confirmNickname(String nickname) => changeNickname(nickname);
+
   /// Kullanıcının aktif odası değişti (oda kuruldu, katılındı, ayrılındı).
   void setActiveRoom(String? roomId) {
     if (state.status != SessionStatus.authenticated) return;
@@ -177,6 +195,7 @@ class SessionController extends Notifier<SessionState> {
       userId: state.userId,
       nickname: state.nickname,
       activeRoomId: roomId,
+      needsNickname: state.needsNickname,
     );
   }
 
@@ -200,13 +219,17 @@ class SessionController extends Notifier<SessionState> {
     state = const SessionState.unauthenticated();
   }
 
-  SessionState _authenticated(StoredSession s, {String? activeRoomId}) =>
-      SessionState(
-        status: SessionStatus.authenticated,
-        userId: s.userId,
-        nickname: s.nickname,
-        activeRoomId: activeRoomId,
-      );
+  SessionState _authenticated(
+    StoredSession s, {
+    String? activeRoomId,
+    bool needsNickname = false,
+  }) => SessionState(
+    status: SessionStatus.authenticated,
+    userId: s.userId,
+    nickname: s.nickname,
+    activeRoomId: activeRoomId,
+    needsNickname: needsNickname,
+  );
 }
 
 final sessionControllerProvider =

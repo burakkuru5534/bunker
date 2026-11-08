@@ -13,6 +13,7 @@ class MeInfo {
     required this.id,
     required this.nickname,
     required this.activeRoomId,
+    this.needsNickname = false,
   });
 
   final String id;
@@ -20,6 +21,10 @@ class MeInfo {
 
   /// Kullanıcının içinde bulunduğu oda; yoksa `null`.
   final String? activeRoomId;
+
+  /// Benzersiz kullanıcı adı henüz onaylanmadı (eski hesap); ana ekrandan
+  /// önce adını onaylar/seçer.
+  final bool needsNickname;
 }
 
 /// Yenilenen token (`POST /v1/sessions/refresh`).
@@ -54,6 +59,7 @@ class SessionRepository {
       id: _string(json, 'id'),
       nickname: _string(json, 'nickname'),
       activeRoomId: room as String?,
+      needsNickname: json['needs_nickname'] == true,
     );
   }
 

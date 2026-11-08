@@ -100,8 +100,11 @@ func TestIntegrationJoinErrors(t *testing.T) {
 		}
 	}
 
-	// Takma ad çakışması (Türkçe duyarsız).
-	dup, _ := a.guest("BURAK")
+	// Takma ad çakışması (Türkçe duyarsız). Kullanıcı adları artık küresel
+	// benzersiz (0010); çakışma yalnızca adı henüz onaylanmamış eski hesapta
+	// ya da ad değiştirilince olabilir: eski hesap taklit edilir.
+	dup, dupID := a.guest("Burak2")
+	a.exec("update users set nickname = 'BURAK', nickname_key = null where id = $1", dupID)
 	if r := a.do("POST", "/v1/rooms/join", dup, `{"invite_code":"`+code+`"}`); r.code != 409 || errCode(r) != "NICKNAME_TAKEN_IN_ROOM" {
 		t.Fatalf("takma ad: %d %s", r.code, r.raw)
 	}

@@ -195,6 +195,78 @@ void main() {
     expect(find.text('Davet kodu kopyalandı'), findsOneWidget);
   });
 
+  testWidgets('Arkadaş daveti: odadakiler Odada, davet edilen Davet edildi', (
+    tester,
+  ) async {
+    backend
+      ..on(
+        'GET',
+        '/v1/friends',
+        (r) async => jsonOk({
+          'friends': [
+            {'user_id': 'u2', 'nickname': 'Mehmet'},
+            {'user_id': 'u-ali', 'nickname': 'Ali'},
+            {'user_id': 'u-can', 'nickname': 'Can'},
+          ],
+          'incoming': <Object?>[],
+          'outgoing': <Object?>[],
+        }),
+      )
+      ..on('POST', '/v1/rooms/$roomId/invites', (r) async {
+        final to = (r.data as Map<String, Object?>)['user_id'];
+        if (to == 'u-can') {
+          return jsonResponse(apiError('FORBIDDEN'), 403);
+        }
+        return ResponseBodyNoContent.value;
+      });
+    await pump(tester);
+    await snapshot(tester);
+
+    await tester.tap(find.byKey(const ValueKey('lobby-invite-friends')));
+    await frames(tester, 20);
+
+    expect(
+      find.text('Davet 10 dakika geçerlidir; arkadaşın ana ekranında görür.'),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('invite-row-u2')),
+        matching: find.text('Odada'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('invite-send-u-ali')));
+    await frames(tester);
+    final invite = backend.adapter.requests.singleWhere(
+      (r) => r.path == '/v1/rooms/$roomId/invites',
+    );
+    expect(invite.data, {'user_id': 'u-ali'});
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('invite-row-u-ali')),
+        matching: find.text('Davet edildi'),
+      ),
+      findsOneWidget,
+    );
+
+    // Hata: snackbar; satır yeniden denenebilir kalır.
+    await tester.tap(find.byKey(const ValueKey('invite-send-u-can')));
+    await frames(tester);
+    expect(find.byKey(const ValueKey('invite-send-u-can')), findsOneWidget);
+  });
+
+  testWidgets('Arkadaşı yoksa davet sayfası yönlendirir', (tester) async {
+    await pump(tester);
+    await snapshot(tester);
+
+    await tester.tap(find.byKey(const ValueKey('lobby-invite-friends')));
+    await frames(tester, 20);
+
+    expect(find.byKey(const ValueKey('invite-empty')), findsOneWidget);
+  });
+
   testWidgets('Sahip: başlatma nedeni yazılı; az oyuncuyla kapalı', (
     tester,
   ) async {

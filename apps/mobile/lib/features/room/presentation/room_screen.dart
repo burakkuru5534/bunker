@@ -12,6 +12,7 @@ import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/confirm_dialog.dart';
 import 'package:siginak/core/ui/state_views.dart';
 import 'package:siginak/features/chat/chat.dart';
+import 'package:siginak/features/friends/friends.dart';
 import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/moderation/moderation.dart';
 import 'package:siginak/features/room/data/room_models.dart';
@@ -183,6 +184,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
             onKick: (userId) => _run(() => _controller.kick(userId)),
             onStart: () => _run(_controller.start),
             onMemberMenu: (m) => _playerMenu(m.userId, m.nickname),
+            onInviteFriends: () => unawaited(
+              showInviteFriendsSheet(
+                context,
+                roomId: widget.roomId,
+                memberIds: {for (final m in state.room!.members) m.userId},
+              ),
+            ),
             online: online,
           ),
         ),

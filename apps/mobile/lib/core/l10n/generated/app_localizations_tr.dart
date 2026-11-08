@@ -248,6 +248,139 @@ class AppLocalizationsTr extends AppLocalizations {
       'Bu takma ad uygun değil, başka bir tane seç.';
 
   @override
+  String get nicknameErrorTaken =>
+      'Bu ad başka bir oyuncuda. Başka bir ad dene.';
+
+  @override
+  String get errorAlreadyFriends => 'Zaten arkadaşsınız.';
+
+  @override
+  String get errorFriendLimit =>
+      'Sınıra ulaştın. Bazı istekleri veya arkadaşları kaldırıp tekrar dene.';
+
+  @override
+  String get nicknameRequiredTitle => 'Adını onayla';
+
+  @override
+  String get nicknameRequiredBody =>
+      'Artık her oyuncunun adı benzersiz: arkadaşların seni bu adla bulup ekleyecek. Adın boştaysa olduğu gibi onayla, alınmışsa yeni bir ad seç.';
+
+  @override
+  String get nicknameRequiredConfirm => 'Devam';
+
+  @override
+  String get friendsTitle => 'Arkadaşlar';
+
+  @override
+  String get friendsOpen => 'Arkadaşlar';
+
+  @override
+  String friendsOpenWithRequests(int count) {
+    return 'Arkadaşlar, $count yeni istek';
+  }
+
+  @override
+  String get friendsAddLabel => 'Kullanıcı adı';
+
+  @override
+  String get friendsAddHint => 'Arkadaşının oyundaki adını yaz';
+
+  @override
+  String get friendsAddButton => 'İstek gönder';
+
+  @override
+  String friendsRequestSent(String name) {
+    return '$name kullanıcısına istek gönderildi.';
+  }
+
+  @override
+  String friendsNowFriends(String name) {
+    return '$name ile artık arkadaşsınız.';
+  }
+
+  @override
+  String get friendsNotFound => 'Bu adda bir oyuncu bulunamadı.';
+
+  @override
+  String get friendsSelf => 'Kendini arkadaş olarak ekleyemezsin.';
+
+  @override
+  String get friendsIncoming => 'Gelen istekler';
+
+  @override
+  String get friendsOutgoing => 'Gönderilen istekler';
+
+  @override
+  String get friendsList => 'Arkadaşların';
+
+  @override
+  String get friendsEmpty =>
+      'Henüz arkadaşın yok. Arkadaşının kullanıcı adını yazıp istek gönder.';
+
+  @override
+  String get friendsAccept => 'Kabul et';
+
+  @override
+  String get friendsDecline => 'Reddet';
+
+  @override
+  String get friendsCancel => 'Geri çek';
+
+  @override
+  String get friendsRemove => 'Arkadaşlıktan çıkar';
+
+  @override
+  String friendsRemoveTitle(String name) {
+    return '$name arkadaşlıktan çıkarılsın mı?';
+  }
+
+  @override
+  String get friendsRemoveMessage =>
+      'Birbirinizi tekrar eklemek için yeni istek gerekir.';
+
+  @override
+  String get friendsLoadFailed => 'Arkadaş listesi yüklenemedi.';
+
+  @override
+  String inviteFrom(String name) {
+    return '$name seni lobisine çağırıyor';
+  }
+
+  @override
+  String invitePlayers(int count) {
+    return '$count oyuncu bekliyor';
+  }
+
+  @override
+  String get inviteJoin => 'Katıl';
+
+  @override
+  String get inviteDecline => 'Reddet';
+
+  @override
+  String get roomInviteFriends => 'Arkadaşlarını davet et';
+
+  @override
+  String get roomInviteTitle => 'Arkadaşlarını davet et';
+
+  @override
+  String get roomInviteSend => 'Davet et';
+
+  @override
+  String get roomInviteSent => 'Davet edildi';
+
+  @override
+  String get roomInviteInRoom => 'Odada';
+
+  @override
+  String get roomInviteEmpty =>
+      'Henüz arkadaşın yok. Ana ekrandaki Arkadaşlar bölümünden kullanıcı adıyla ekleyebilirsin.';
+
+  @override
+  String get roomInviteHint =>
+      'Davet 10 dakika geçerlidir; arkadaşın ana ekranında görür.';
+
+  @override
   String get splashChecking => 'Oturumun kontrol ediliyor…';
 
   @override

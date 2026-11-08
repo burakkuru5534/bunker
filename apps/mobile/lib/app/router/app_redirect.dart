@@ -8,7 +8,9 @@ import 'package:siginak/features/session/session.dart';
 /// 1. Güncelleme gerekiyorsa her şey `/update`'e kilitlenir.
 /// 2. Oturum bilinmiyorsa açılış ekranında beklenir.
 /// 3. Oturum yoksa yalnızca `/welcome` açıktır.
-/// 4. Oturum varken `/` ve `/welcome` → aktif oda varsa odaya, yoksa ana ekrana.
+/// 4. Kullanıcı adı onaylanmamışsa yalnızca `/nickname` açıktır.
+/// 5. Oturum varken `/`, `/welcome` ve `/nickname` → aktif oda varsa odaya,
+///    yoksa ana ekrana.
 String? appRedirect({
   required Uri uri,
   required SessionState session,
@@ -29,7 +31,13 @@ String? appRedirect({
     case SessionStatus.unauthenticated:
       return path == AppRoutes.welcome ? null : AppRoutes.welcome;
     case SessionStatus.authenticated:
-      if (path == AppRoutes.splash || path == AppRoutes.welcome) {
+      // Eski hesap: benzersiz kullanıcı adını onaylamadan devam edilemez.
+      if (session.needsNickname) {
+        return path == AppRoutes.nickname ? null : AppRoutes.nickname;
+      }
+      if (path == AppRoutes.splash ||
+          path == AppRoutes.welcome ||
+          path == AppRoutes.nickname) {
         final roomId = session.activeRoomId;
         return roomId != null ? AppRoutes.room(roomId) : AppRoutes.home;
       }

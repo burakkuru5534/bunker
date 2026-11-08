@@ -6,6 +6,7 @@ import 'package:siginak/app/router/app_redirect.dart';
 import 'package:siginak/app/router/app_routes.dart';
 import 'package:siginak/core/network/update_required_provider.dart';
 import 'package:siginak/core/ui/not_found_screen.dart';
+import 'package:siginak/features/friends/friends.dart';
 import 'package:siginak/features/home/presentation/home_screen.dart';
 import 'package:siginak/features/home/presentation/join_screen.dart';
 import 'package:siginak/features/moderation/presentation/blocked_users_screen.dart';
@@ -50,14 +51,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => HomeScreen(
           onJoin: () => context.push(AppRoutes.join),
           onOpenSettings: () => context.push(AppRoutes.settings),
+          onOpenFriends: () => context.push(AppRoutes.friends),
+          onJoinInvite: (code) => context.push(AppRoutes.joinWithCode(code)),
           // go: oda açılınca ana ekran / katılma ekranı yığından çıkar.
           onOpenRoom: (id) => context.go(AppRoutes.room(id)),
         ),
       ),
       GoRoute(
         path: AppRoutes.join,
-        builder: (context, state) =>
-            JoinScreen(onOpenRoom: (id) => context.go(AppRoutes.room(id))),
+        builder: (context, state) => JoinScreen(
+          initialCode: state.uri.queryParameters['code'],
+          onOpenRoom: (id) => context.go(AppRoutes.room(id)),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.nickname,
+        builder: (context, state) => const NicknameRequiredScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.friends,
+        builder: (context, state) => const FriendsScreen(),
       ),
       GoRoute(
         path: AppRoutes.roomPattern,

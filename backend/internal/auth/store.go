@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/burakkuru5534/bunker/backend/internal/apperr"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 )
 
@@ -41,8 +42,9 @@ func (s store) createGuest(ctx context.Context, nickname string, hash []byte, ex
 	u := User{Nickname: nickname}
 	var sessionID string
 	err := s.db.Tx(ctx, func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `insert into users (nickname) values ($1) returning id`, nickname).Scan(&u.ID); err != nil {
-			return err
+		if err := tx.QueryRow(ctx, `insert into users (nickname, nickname_key) values ($1, $2) returning id`,
+			nickname, NicknameKey(nickname)).Scan(&u.ID); err != nil {
+			return nicknameTaken(err)
 		}
 		return tx.QueryRow(ctx, `insert into sessions (user_id, token_hash, expires_at) values ($1, $2, $3) returning id`,
 			u.ID, hash, expiresAt).Scan(&sessionID)
@@ -93,6 +95,42 @@ func (s store) touch(ctx context.Context, sessionID, userID string) error {
 		}
 		_, err := tx.Exec(ctx, `update users set last_seen_at = now() where id = $1`, userID)
 		return err
+	})
+}
+
+// constraintNicknameKey, kullanıcı adı benzersizlik indeksidir (0010).
+const constraintNicknameKey = "users_nickname_key_uniq"
+
+// nicknameTaken, kullanıcı adı çakışmasını NICKNAME_TAKEN'e çevirir.
+func nicknameTaken(err error) error {
+	if persistence.UniqueViolation(err, constraintNicknameKey) {
+		return &apperr.Error{Code: apperr.NicknameTaken, Message: "bu kullanıcı adı alınmış",
+			Fields: map[string]string{"nickname": "taken"}}
+	}
+	return err
+}
+
+// needsNickname, kullanıcının benzersiz adı henüz yoksa (0010 öncesi hesap).
+func (s store) needsNickname(ctx context.Context, userID string) (bool, error) {
+	var needs bool
+	err := s.db.Read(ctx, func(q persistence.Querier) error {
+		return q.QueryRow(ctx, `select nickname_key is null from users where id = $1`, userID).Scan(&needs)
+	})
+	return needs, err
+}
+
+// setNickname, kullanıcı adını değiştirir (silinmiş hesapta değişiklik yok).
+func (s store) setNickname(ctx context.Context, userID, nickname string) error {
+	return s.db.Tx(ctx, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `update users set nickname = $2, nickname_key = $3 where id = $1 and deleted_at is null`,
+			userID, nickname, NicknameKey(nickname))
+		if err != nil {
+			return nicknameTaken(err)
+		}
+		if tag.RowsAffected() == 0 {
+			return errUnauthorized()
+		}
+		return nil
 	})
 }
 

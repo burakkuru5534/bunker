@@ -49,6 +49,7 @@ type api struct {
 	timers  *Timers
 	logger  *slog.Logger
 	ip      atomic.Int64
+	nicks   map[string]int // kullanıcı adları küresel benzersiz (0010)
 }
 
 func newAPI(t *testing.T, seed bool) *api {
@@ -131,6 +132,15 @@ func errCode(r resp) string {
 
 func (a *api) guest(nick string) (token, userID string) {
 	a.t.Helper()
+	if a.nicks == nil {
+		a.nicks = map[string]int{}
+	}
+	if n := a.nicks[nick]; n > 0 {
+		a.nicks[nick] = n + 1
+		nick = fmt.Sprintf("%s_%d", nick, n)
+	} else {
+		a.nicks[nick] = 1
+	}
 	r := a.do("POST", "/v1/sessions/guest", "", `{"nickname":"`+nick+`"}`)
 	if r.code != 201 {
 		a.t.Fatalf("guest: %d %s", r.code, r.raw)

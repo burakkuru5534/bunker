@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"testing"
@@ -120,8 +121,10 @@ func TestIntegrationAuthenticate(t *testing.T) {
 			exec(t, env.DB, "update users set nickname = $2, deleted_at = now() where id = $1", uid, DeletedNickname)
 		},
 	}
+	n := 0
 	for name, mutate := range cases {
-		is, _ := svc.CreateGuest(ctx, "Oyuncu")
+		n++
+		is, _ := svc.CreateGuest(ctx, fmt.Sprintf("Oyuncu%d", n))
 		h, _ := HashToken(is.Token)
 		sid := scalar[string](t, env.DB, "select id::text from sessions where token_hash = $1", h)
 		mutate(is.User.ID, sid)

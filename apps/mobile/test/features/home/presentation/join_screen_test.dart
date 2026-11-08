@@ -21,7 +21,10 @@ void main() {
     opened = [];
   });
 
-  Future<ProviderContainer> pump(WidgetTester tester) async {
+  Future<ProviderContainer> pump(
+    WidgetTester tester, {
+    String? initialCode,
+  }) async {
     final store = InMemorySecureStore();
     await SessionStore(store).save(
       StoredSession(
@@ -33,7 +36,7 @@ void main() {
     );
     await pumpWithProviders(
       tester,
-      JoinScreen(onOpenRoom: opened.add),
+      JoinScreen(onOpenRoom: opened.add, initialCode: initialCode),
       secureStore: store,
       overrides: [apiHttpAdapterProvider.overrideWithValue(backend.adapter)],
     );
@@ -57,6 +60,25 @@ void main() {
       (r) async => jsonResponse(apiError(code, details: details), status),
     );
   }
+
+  testWidgets('Davetten gelen kodla ekran açılır açılmaz katılır', (
+    tester,
+  ) async {
+    await pump(tester, initialCode: 'k7m2qx');
+
+    final joins = backend.adapter.requests
+        .where((r) => r.path == '/v1/rooms/join')
+        .toList();
+    expect(joins, hasLength(1));
+    expect(joins.single.data, {'invite_code': 'K7M2QX'});
+    expect(opened, [FakeBackend.joinedRoomId]);
+  });
+
+  testWidgets('Davet kodu eksik/bozuksa otomatik katılınmaz', (tester) async {
+    await pump(tester, initialCode: 'K7M');
+    expect(backend.calls.where((c) => c.contains('join')), isEmpty);
+    expect(opened, isEmpty);
+  });
 
   testWidgets('Kod tamamlanmadan Katıl kapalı; tamamlanınca katılır', (
     tester,

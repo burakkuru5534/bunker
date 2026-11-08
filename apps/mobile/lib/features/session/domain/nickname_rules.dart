@@ -9,7 +9,10 @@ enum NicknameIssue {
   invalidChars('invalid_chars'),
   invalid('invalid'),
   notAllowed('not_allowed'),
-  profanity('profanity');
+  profanity('profanity'),
+
+  /// Kullanıcı adı başka bir hesapta (`NICKNAME_TAKEN`).
+  taken('taken');
 
   const NicknameIssue(this.code);
 
@@ -31,6 +34,7 @@ enum NicknameIssue {
     invalid => l.nicknameErrorInvalid,
     notAllowed => l.nicknameErrorNotAllowed,
     profanity => l.nicknameErrorProfanity,
+    taken => l.nicknameErrorTaken,
   };
 }
 

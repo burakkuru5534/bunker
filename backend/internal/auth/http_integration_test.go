@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -191,8 +192,10 @@ func TestIntegrationHTTPGuestValidation(t *testing.T) {
 
 func TestIntegrationHTTPGuestRateLimit(t *testing.T) {
 	a := newAPI(t, 1)
+	n := 0
 	send := func(xff string) resp {
-		return a.do("POST", "/v1/sessions/guest", "", `{"nickname":"Oyuncu"}`, "X-Forwarded-For", xff)
+		n++ // kullanıcı adları benzersiz (0010)
+		return a.do("POST", "/v1/sessions/guest", "", fmt.Sprintf(`{"nickname":"Oyuncu%d"}`, n), "X-Forwarded-For", xff)
 	}
 	for i := range GuestLimit {
 		if r := send("203.0.113.7"); r.code != 201 {

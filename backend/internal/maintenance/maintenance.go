@@ -39,11 +39,11 @@ var DefaultRetention = Retention{
 
 // Stats, bir çalıştırmanın sonucudur.
 type Stats struct {
-	ChatMessages, Sessions, AbandonedRooms, ClosedRooms, Reports, InactiveUsers int
+	ChatMessages, Sessions, AbandonedRooms, ClosedRooms, Reports, InactiveUsers, Invites int
 }
 
 func (s Stats) total() int {
-	return s.ChatMessages + s.Sessions + s.AbandonedRooms + s.ClosedRooms + s.Reports + s.InactiveUsers
+	return s.ChatMessages + s.Sessions + s.AbandonedRooms + s.ClosedRooms + s.Reports + s.InactiveUsers + s.Invites
 }
 
 // Job, temizlik işidir.
@@ -101,6 +101,10 @@ func (j *Job) RunOnce(ctx context.Context) (Stats, error) {
 	// raporlar kalır, odaya bağları boşalır (set null).
 	st.ClosedRooms, err = j.batches(ctx, `delete from rooms where id = any(array(
 		select id from rooms where status = 'closed' and closed_at < $1 order by closed_at limit $2))`, now.Add(-j.ret.ClosedRoom))
+	keep(err)
+	// Süresi dolmuş lobi davetleri (social.InviteTTL); bir gün beklenir.
+	st.Invites, err = j.batches(ctx, `delete from room_invites where (room_id, to_user_id) in (
+		select room_id, to_user_id from room_invites where expires_at < $1 order by expires_at limit $2)`, now.Add(-24*time.Hour))
 	keep(err)
 	st.Reports, err = j.batches(ctx, `delete from reports where id = any(array(
 		select id from reports where status in ('actioned', 'dismissed') and resolved_at < $1
@@ -340,7 +344,7 @@ func (j *Job) Start(firstDelay, interval time.Duration) {
 				j.logger.Warn("temizlik işi hatayla bitti", "error", err, "stats", st)
 			case st.total() > 0:
 				j.logger.Info("temizlik işi", "chat_messages", st.ChatMessages, "sessions", st.Sessions,
-					"abandoned_rooms", st.AbandonedRooms, "closed_rooms", st.ClosedRooms, "reports", st.Reports, "inactive_users", st.InactiveUsers,
+					"abandoned_rooms", st.AbandonedRooms, "closed_rooms", st.ClosedRooms, "reports", st.Reports, "inactive_users", st.InactiveUsers, "invites", st.Invites,
 					"duration", time.Since(start).String())
 			}
 		}

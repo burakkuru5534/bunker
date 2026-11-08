@@ -13,6 +13,7 @@ import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/session_store.dart';
 import 'package:siginak/core/ui/brand_logo.dart';
 import 'package:siginak/core/ui/not_found_screen.dart';
+import 'package:siginak/features/friends/friends.dart';
 import 'package:siginak/features/home/presentation/home_screen.dart';
 import 'package:siginak/features/home/presentation/join_screen.dart';
 import 'package:siginak/features/moderation/presentation/blocked_users_screen.dart';
@@ -212,7 +213,91 @@ void main() {
 
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(WelcomeScreen), findsNothing);
-    expect(backend.calls, ['GET /v1/me']);
+    // Ana ekran açılınca davet kutusu yoklanır; başka istek yok.
+    expect(backend.calls, ['GET /v1/me', 'GET /v1/inbox']);
+  });
+
+  testWidgets('Adı onaylanmamış hesap önce /nickname ekranına kilitlenir', (
+    tester,
+  ) async {
+    backend.needsNickname = true;
+    final c = await startApp(tester, store: await storedSession());
+
+    expect(find.byType(NicknameRequiredScreen), findsOneWidget);
+    router(c).go(AppRoutes.home);
+    await settle(tester);
+    expect(find.byType(NicknameRequiredScreen), findsOneWidget);
+
+    // Alınmış ad: hata gösterilir, ekranda kalınır.
+    backend.on(
+      'PATCH',
+      '/v1/me',
+      (r) async => jsonResponse(
+        apiError(
+          'NICKNAME_TAKEN',
+          details: {
+            'fields': {'nickname': 'taken'},
+          },
+        ),
+        409,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('nickname-required-confirm')));
+    await settle(tester);
+    expect(find.text('Bu ad başka bir oyuncuda. Başka bir ad dene.'), findsOne);
+    expect(find.byType(NicknameRequiredScreen), findsOneWidget);
+
+    backend.restore('PATCH', '/v1/me');
+    await tester.enterText(
+      find.byKey(const ValueKey('nickname-required-field')),
+      'Ayşe2',
+    );
+    await tester.tap(find.byKey(const ValueKey('nickname-required-confirm')));
+    await settle(tester);
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(backend.nickname, 'Ayşe2');
+    router(c).go(AppRoutes.nickname);
+    await settle(tester);
+    expect(find.byType(HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('Ana ekrandan arkadaşlar açılır', (tester) async {
+    await startApp(tester, store: await storedSession());
+
+    await tester.tap(find.byKey(const ValueKey('home-friends')));
+    await settle(tester);
+
+    expect(find.byType(FriendsScreen), findsOneWidget);
+    expect(find.text('Arkadaşların'), findsOneWidget);
+  });
+
+  testWidgets('Davet kartındaki Katıl kodla odaya sokar', (tester) async {
+    backend.on(
+      'GET',
+      '/v1/inbox',
+      (r) async => jsonResponse({
+        'invites': [
+          {
+            'room_id': FakeBackend.joinedRoomId,
+            'invite_code': 'K7M2QX',
+            'from': {'user_id': 'u-ali', 'nickname': 'Ali'},
+            'players': 3,
+          },
+        ],
+        'incoming_requests': 0,
+      }, 200),
+    );
+    final c = await startApp(tester, store: await storedSession());
+
+    expect(find.text('Ali seni lobisine çağırıyor'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('invite-join')));
+    await settle(tester);
+
+    expect(find.byType(RoomScreen), findsOneWidget);
+    expect(wsRoom(), FakeBackend.joinedRoomId);
+    expect(backend.calls, contains('POST /v1/rooms/join'));
+    expect(router(c).canPop(), isFalse);
   });
 
   testWidgets('Aktif odası olan kullanıcı açılışta odaya döner', (

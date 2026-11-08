@@ -18,6 +18,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 	"github.com/burakkuru5534/bunker/backend/internal/ratelimit"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
+	"github.com/burakkuru5534/bunker/backend/internal/social"
 )
 
 // Rapor nedenleri (reports.reason).
@@ -58,8 +59,12 @@ func (s *Service) Block(ctx context.Context, p auth.Principal, target string) er
 			return err
 		}
 		tag, err := tx.Exec(ctx, `insert into blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, p.UserID, target)
+		if err != nil {
+			return err
+		}
 		added = tag.RowsAffected() == 1
-		return err
+		// Engel arkadaşlığı, istekleri ve davetleri bitirir (iki yönde).
+		return social.Unlink(ctx, tx, p.UserID, target)
 	})
 	if err == nil && added {
 		observability.Security(ctx, s.logger, slog.LevelInfo, observability.EventUserBlocked, "oyuncu engellendi",

@@ -13,7 +13,9 @@ Oyun aşamalarını **sunucu** yönetir. Bu yüzden oda ve oyunun tüm aşamalar
 | `/` | Açılış (Splash) | Yönlendirme kararı verir; kullanıcıya ~1 sn'den fazla görünmez |
 | `/welcome` | Hoş geldin + takma ad | İlk açılış; misafir hesap uyarısı |
 | `/home` | Ana ekran | Oda oluştur / Koda katıl |
-| `/join` | Koda katıl | 6 karakter kod girişi |
+| `/join` | Koda katıl | 6 karakter kod girişi; `/join?code=XXXXXX` (davet kartı) açılır açılmaz katılır |
+| `/nickname` | Kullanıcı adını onayla | Eski hesaplar (`needs_nickname`); onaylanana kadar tek açık rota |
+| `/friends` | Arkadaşlar | Kullanıcı adıyla ekle, gelen/giden istekler, liste |
 | `/room/:roomId` | Oda kabuğu (RoomShell) | Lobi, oyun, sonuç görünümleri buradan |
 | `/settings` | Ayarlar | Takma ad, engellenenler, gizlilik, hesabı sil |
 | `/settings/blocks` | Engellenenler | Listele / engeli kaldır |
@@ -27,6 +29,7 @@ Uygulama açıldı → /
   token var → GET /v1/me
      401                             → token sil → /welcome
      426                             → /update
+     needs_nickname                  → /nickname   (ad onaylanana kadar kilitli)
      active_room_id var              → /room/:id   (oyuna geri dönüş)
      yok                             → /home
 ```
@@ -44,7 +47,8 @@ Uygulama açıldı → /
 - Düğme: **Başla** → `POST /v1/sessions/guest` → `/home`.
 
 ### 3.2 Ana ekran (`/home`)
-- Üstte takma ad + ayarlar ikonu.
+- Üstte takma ad + arkadaşlar ikonu (gelen istek sayısı rozeti) + ayarlar ikonu.
+- Davet kartları: "X seni lobisine çağırıyor · N oyuncu bekliyor" — **Katıl** → `/join?code=…`, **Reddet** → `DELETE /v1/invites/{roomId}`. Ekran öndeyken `GET /v1/inbox` 20 sn'de bir yoklanır; arka planda durur, öne gelince hemen tazelenir (push yok).
 - Büyük düğme: **Oda oluştur** → `POST /v1/rooms` → `/room/:id`.
 - İkincil düğme: **Koda katıl** → `/join`.
 - "Nasıl oynanır?" kısa açılır bölüm.
@@ -53,6 +57,13 @@ Uygulama açıldı → /
 - 6 kutulu kod girişi (otomatik büyük harf, yapıştırma desteği, belirsiz karakterler kabul edilmez).
 - **Katıl** → `POST /v1/rooms/join` → `/room/:id`.
 - Hata kodlarına göre satır içi mesaj (`INVITE_CODE_NOT_FOUND`, `ROOM_FULL`, `GAME_IN_PROGRESS`, `KICKED`, `NICKNAME_TAKEN_IN_ROOM` → "Takma adını değiştir" kısayolu).
+
+### 3.3a Kullanıcı adını onayla (`/nickname`)
+- Benzersiz adlardan önce açılmış hesaplar bir kez görür; alan mevcut adla dolu. **Devam** → `PATCH /v1/me`; ad alınmışsa satır içi "Bu ad başka bir oyuncuda".
+
+### 3.3b Arkadaşlar (`/friends`)
+- Kullanıcı adı alanı + **İstek gönder** (`POST /v1/friends/requests`); bulunamadı / kendin / zaten arkadaş / sınır hataları satır içinde.
+- Gelen istekler (Kabul et / Reddet), Arkadaşların (çıkar, onaylı), Gönderilen istekler (Geri çek). Aşağı çekince tazelenir.
 
 ### 3.4 Oda kabuğu (`/room/:roomId`)
 
@@ -72,6 +83,7 @@ Tüm görünümlerde ortak:
 
 #### a) Lobi görünümü
 - Davet kodu (büyük) + **Kopyala** düğmesi.
+- **Arkadaşlarını davet et** → alt sayfa: arkadaş listesi, satır başına **Davet et** (`POST /v1/rooms/{roomId}/invites`) → "Davet edildi"; odadakiler "Odada". Davet 10 dk geçerli.
 - Kapasite seçici (1 / 2) — yalnızca oda sahibi değiştirebilir, diğerleri görür.
 - Felaket senaryosu kartı — oda sahibi alt pencereden "Rastgele" veya bir senaryo seçer; diğerleri seçimi görür. Liste yüklenemezse oda sahibine "Tekrar dene".
 - Lobi müziği (döngü, kısık) — çubuktaki ses düğmesiyle kapatılır; uygulama arka plandayken durur, oyun başlayınca biter.

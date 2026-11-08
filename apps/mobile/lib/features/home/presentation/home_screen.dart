@@ -13,6 +13,7 @@ import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/ui/app_buttons.dart';
 import 'package:siginak/core/ui/app_snack_bar.dart';
 import 'package:siginak/core/ui/brand_logo.dart';
+import 'package:siginak/features/friends/friends.dart';
 import 'package:siginak/features/room/room.dart';
 import 'package:siginak/features/session/session.dart';
 
@@ -36,11 +37,17 @@ class HomeScreen extends ConsumerStatefulWidget {
     required this.onJoin,
     required this.onOpenSettings,
     required this.onOpenRoom,
+    required this.onOpenFriends,
+    required this.onJoinInvite,
     super.key,
   });
 
   final VoidCallback onJoin;
   final VoidCallback onOpenSettings;
+  final VoidCallback onOpenFriends;
+
+  /// Davet kartındaki "Katıl" → davet koduyla katılma ekranı.
+  final ValueChanged<String> onJoinInvite;
 
   /// Oda kuruldu (veya kullanıcı zaten bir odadaydı) → oda ekranına geç.
   final ValueChanged<String> onOpenRoom;
@@ -49,8 +56,59 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// Ana ekran açıkken davet/istek kutusunun yoklanma aralığı.
+const inboxPollInterval = Duration(seconds: 20);
+
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _creating = false;
+  Timer? _poll;
+  late final AppLifecycleListener _lifecycle;
+
+  /// Reddedilen davetler, sunucu yanıtı gelene kadar hemen gizlenir.
+  final _declined = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _startPolling();
+    _lifecycle = AppLifecycleListener(
+      onShow: () {
+        ref.invalidate(inboxProvider);
+        _startPolling();
+      },
+      onHide: _stopPolling,
+    );
+  }
+
+  @override
+  void dispose() {
+    _stopPolling();
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _poll?.cancel();
+    _poll = Timer.periodic(
+      inboxPollInterval,
+      (_) => ref.invalidate(inboxProvider),
+    );
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  Future<void> _decline(RoomInvite invite) async {
+    setState(() => _declined.add(invite.roomId));
+    try {
+      await ref.read(friendsRepositoryProvider).decline(invite.roomId);
+    } on ApiException {
+      // Davet zaten düşmüş olabilir; bir sonraki yoklama durumu düzeltir.
+    }
+    ref.invalidate(inboxProvider);
+  }
 
   void _openRoom(String roomId) {
     ref.read(sessionControllerProvider.notifier).setActiveRoom(roomId);
@@ -91,10 +149,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
+    // Yoklama hatası ekranı bozmaz; son başarılı yanıt gösterilmeye devam eder.
+    final inbox = ref.watch(inboxProvider).value ?? Inbox.empty;
+    final requests = inbox.incomingRequests;
+    final invites = [
+      for (final i in inbox.invites)
+        if (!_declined.contains(i.roomId)) i,
+    ];
 
     return Scaffold(
       appBar: AppBar(
         actions: [
+          IconButton(
+            key: const ValueKey('home-friends'),
+            tooltip: requests > 0
+                ? l.friendsOpenWithRequests(requests)
+                : l.friendsOpen,
+            onPressed: widget.onOpenFriends,
+            icon: Badge(
+              isLabelVisible: requests > 0,
+              label: Text('$requests'),
+              child: const Icon(Icons.people_alt_outlined),
+            ),
+          ),
           IconButton(
             tooltip: l.actionSettings,
             onPressed: widget.onOpenSettings,
@@ -118,6 +195,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       l.homeGreeting(nickname),
                       style: textTheme.bodyLarge,
                       textAlign: TextAlign.center,
+                    ),
+                  ],
+                  for (final invite in invites) ...[
+                    const SizedBox(height: AppSpacing.s4),
+                    _InviteCard(
+                      key: ValueKey('invite-${invite.roomId}'),
+                      invite: invite,
+                      onJoin: () => widget.onJoinInvite(invite.inviteCode),
+                      onDecline: () => unawaited(_decline(invite)),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.s6),
@@ -147,6 +233,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InviteCard extends StatelessWidget {
+  const _InviteCard({
+    required this.invite,
+    required this.onJoin,
+    required this.onDecline,
+    super.key,
+  });
+
+  final RoomInvite invite;
+  final VoidCallback onJoin;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.s4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.mail_outline_rounded,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: AppSpacing.s2),
+                Expanded(
+                  child: Text(
+                    l.inviteFrom(invite.from.nickname),
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.s1),
+            Text(
+              l.invitePlayers(invite.players),
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.s2),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: AppSpacing.s2,
+              children: [
+                TextButton(
+                  key: const ValueKey('invite-decline'),
+                  onPressed: onDecline,
+                  child: Text(l.inviteDecline),
+                ),
+                FilledButton(
+                  key: const ValueKey('invite-join'),
+                  onPressed: onJoin,
+                  child: Text(l.inviteJoin),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

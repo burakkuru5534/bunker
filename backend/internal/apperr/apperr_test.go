@@ -20,8 +20,8 @@ func TestCodesAreUniqueAndUpperSnake(t *testing.T) {
 			t.Fatalf("kod BÜYÜK_YILAN biçiminde olmalı: %s", c)
 		}
 	}
-	if len(All) != 27 {
-		t.Fatalf("docs/api.md 27 kod tanımlar, %d var", len(All))
+	if len(All) != 30 {
+		t.Fatalf("docs/api.md 30 kod tanımlar, %d var", len(All))
 	}
 }
 

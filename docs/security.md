@@ -102,6 +102,8 @@ Supabase, `public` şemasındaki tabloları varsayılan olarak Data API (PostgRE
 | Tekrarlanan istekler | `action_id` tekilliği, `state_version` | ENG-014 |
 | Davet kodu tahmini | 6 karakter, belirsiz harfler hariç 31 karakterlik alfabe (~887 milyon); katılma denemesi sınırı | ROOM-002, SAFE-002 |
 | Sohbet spam / taciz | Sıklık sınırı, 200 karakter, küfür filtresi, engelleme, raporlama | SAFE-005/006 |
+| Kullanıcı adıyla taciz / spam isteği | İstek + onay; en çok 20 bekleyen giden istek ve 100 arkadaş; engellenen veya engelleyen kullanıcı aramada "bulunamadı" görünür; engelleme arkadaşlığı, istekleri ve davetleri siler; davet yalnızca arkadaşa ve lobideki odaya, oda başına 20 | 2026-11-08 |
+| Kullanıcı adı varlığını yoklama | Adlar zaten odalarda herkese görünür (gizli veri değil); istekler genel REST sınırına tabi | 2026-11-08 |
 | Toplu hesap açma | `POST /sessions/guest` IP başına sınır | SAFE-002 |
 | Kaynak tüketme (DoS) | Gövde ≤ 4 KB; kullanıcı başına en fazla 2 WS bağlantısı; WS kuyruğu dolunca kesme; max-instances=1 maliyet tavanı | RT-008, RT-009 |
 | Loglarda kişisel veri | Token, `Authorization` başlığı, sohbet içeriği loglanmaz; IP yalnızca güvenlik olaylarında | BE-003, SAFE-011 |
@@ -123,6 +125,8 @@ Bellek içi token bucket (tek instance olduğu için yeterli).
 | Veri | Saklama |
 |---|---|
 | Sohbet mesajları | 30 gün |
+| Arkadaşlıklar ve istekler | Kaldırılana, engellenene veya hesap silinene kadar |
+| Lobi davetleri | 10 dk geçerli; süresi dolduktan 24 saat sonra silinir |
 | Oyun sonuçları, kartlar, tur sonuçları | Kalıcı (kullanıcı silme talebinde anonimleştirilir) |
 | Oylar (`votes`) | Kalıcı, yalnızca sunucu |
 | Oturumlar | Süresi dolunca silinir |

@@ -4,12 +4,18 @@ abstract final class AppRoutes {
   static const welcome = '/welcome';
   static const home = '/home';
   static const join = '/join';
+  static const nickname = '/nickname';
+  static const friends = '/friends';
   static const roomPattern = '/room/:roomId';
   static const settings = '/settings';
   static const blockedUsers = '/settings/blocks';
   static const update = '/update';
 
   static String room(String roomId) => '/room/$roomId';
+
+  /// Davetle katılma: kod hazır gelir, ekran hemen katılmayı dener.
+  static String joinWithCode(String code) =>
+      Uri(path: join, queryParameters: {'code': code}).toString();
 
   static final _uuid = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',

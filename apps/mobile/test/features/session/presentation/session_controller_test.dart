@@ -262,6 +262,45 @@ void main() {
     expect((await SessionStore(store).read())!.nickname, 'Yeni');
   });
 
+  test(
+    'needs_nickname açılışta gelir; confirmNickname onaylar ve korur',
+    () async {
+      backend.needsNickname = true;
+      final store = await storeWith(stored());
+      final c = container(store);
+      final restored = await settle(c);
+      expect(restored.needsNickname, isTrue);
+
+      final controller = c.read(sessionControllerProvider.notifier)
+        ..setActiveRoom('r1');
+      expect(c.read(sessionControllerProvider).needsNickname, isTrue);
+
+      await controller.confirmNickname('Ayşe');
+      final s = c.read(sessionControllerProvider);
+      expect(s.needsNickname, isFalse);
+      expect(s.activeRoomId, 'r1');
+      expect(backend.calls.last, 'PATCH /v1/me');
+    },
+  );
+
+  test('confirmNickname hatasında onay ekranı kalır', () async {
+    backend
+      ..needsNickname = true
+      ..on(
+        'PATCH',
+        '/v1/me',
+        (r) async => jsonResponse(apiError('NICKNAME_TAKEN'), 409),
+      );
+    final c = container(await storeWith(stored()));
+    await settle(c);
+
+    await expectLater(
+      c.read(sessionControllerProvider.notifier).confirmNickname('Ayşe'),
+      throwsA(isA<ApiException>()),
+    );
+    expect(c.read(sessionControllerProvider).needsNickname, isTrue);
+  });
+
   test('changeNickname hatası fırlatılır, ad değişmez', () async {
     backend.on(
       'PATCH',

@@ -47,6 +47,7 @@ func (h *HTTP) Register(mux *http.ServeMux) {
 	mux.Handle("POST /v1/sessions/guest", httpapi.Handle(h.createGuest))
 	mux.Handle("POST /v1/sessions/refresh", h.Require(httpapi.Handle(h.refresh)))
 	mux.Handle("GET /v1/me", h.Require(httpapi.Handle(h.me)))
+	mux.Handle("PATCH /v1/me", h.Require(httpapi.Handle(h.changeNickname)))
 }
 
 type principalKey struct{}
@@ -146,7 +147,14 @@ func (h *HTTP) refresh(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// GET /v1/me → 200 {"id", "nickname", "active_room_id": uuid|null}
+type meJSON struct {
+	ID            string  `json:"id"`
+	Nickname      string  `json:"nickname"`
+	ActiveRoomID  *string `json:"active_room_id"`
+	NeedsNickname bool    `json:"needs_nickname"`
+}
+
+// GET /v1/me → 200 {"id", "nickname", "active_room_id": uuid|null, "needs_nickname"}
 func (h *HTTP) me(w http.ResponseWriter, r *http.Request) error {
 	p, _ := PrincipalFrom(r.Context())
 	me, err := h.svc.Me(r.Context(), p)
@@ -154,10 +162,28 @@ func (h *HTTP) me(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	httpapi.WriteJSON(w, http.StatusOK, meJSON{me.User.ID, me.User.Nickname, me.ActiveRoomID, me.NeedsNickname})
+	return nil
+}
+
+// PATCH /v1/me {"nickname"} → 200 {"id", "nickname", "needs_nickname": false}
+func (h *HTTP) changeNickname(w http.ResponseWriter, r *http.Request) error {
+	var req struct {
+		Nickname string `json:"nickname"`
+	}
+	if err := httpapi.DecodeJSON(r, &req); err != nil {
+		return err
+	}
+	p, _ := PrincipalFrom(r.Context())
+	u, err := h.svc.ChangeNickname(r.Context(), p, req.Nickname)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Cache-Control", "no-store")
 	httpapi.WriteJSON(w, http.StatusOK, struct {
-		ID           string  `json:"id"`
-		Nickname     string  `json:"nickname"`
-		ActiveRoomID *string `json:"active_room_id"`
-	}{me.User.ID, me.User.Nickname, me.ActiveRoomID})
+		ID            string `json:"id"`
+		Nickname      string `json:"nickname"`
+		NeedsNickname bool   `json:"needs_nickname"`
+	}{u.ID, u.Nickname, false})
 	return nil
 }

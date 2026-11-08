@@ -38,6 +38,9 @@ type Issued struct {
 type Me struct {
 	User         User
 	ActiveRoomID *string
+	// NeedsNickname: benzersiz kullanıcı adı henüz yok (0010 öncesi hesap);
+	// istemci ana ekrandan önce adı onaylatır/seçtirir.
+	NeedsNickname bool
 }
 
 // Service, misafir oturumlarını yönetir (AUTH-002).
@@ -146,7 +149,25 @@ func (s *Service) Me(ctx context.Context, p Principal) (Me, error) {
 	if err != nil {
 		return Me{}, err
 	}
-	return Me{User: User{ID: p.UserID, Nickname: p.Nickname}, ActiveRoomID: room}, nil
+	needs, err := s.store.needsNickname(ctx, p.UserID)
+	if err != nil {
+		return Me{}, err
+	}
+	return Me{User: User{ID: p.UserID, Nickname: p.Nickname}, ActiveRoomID: room, NeedsNickname: needs}, nil
+}
+
+// ChangeNickname, kullanıcı adını değiştirir (benzersiz; NICKNAME_TAKEN).
+// Aktif odadaki üyelik eski adı korur; oturum önbelleği temizlenir.
+func (s *Service) ChangeNickname(ctx context.Context, p Principal, raw string) (User, error) {
+	nick, err := ValidateNickname(raw, s.profanity)
+	if err != nil {
+		return User{}, err
+	}
+	if err := s.store.setNickname(ctx, p.UserID, nick); err != nil {
+		return User{}, err
+	}
+	s.cache.deleteUser(p.UserID)
+	return User{ID: p.UserID, Nickname: nick}, nil
 }
 
 // ForgetUser, kullanıcının önbellekteki oturumlarını düşürür (hesap silme,

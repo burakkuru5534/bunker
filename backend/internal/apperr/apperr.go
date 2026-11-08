@@ -29,6 +29,9 @@ const (
 	RoomFull              Code = "ROOM_FULL"
 	GameInProgress        Code = "GAME_IN_PROGRESS"
 	NicknameTakenInRoom   Code = "NICKNAME_TAKEN_IN_ROOM"
+	NicknameTaken         Code = "NICKNAME_TAKEN"
+	AlreadyFriends        Code = "ALREADY_FRIENDS"
+	FriendLimit           Code = "FRIEND_LIMIT"
 	AlreadyInRoom         Code = "ALREADY_IN_ROOM"
 	InvalidPhase          Code = "INVALID_PHASE"
 	NotYourTurn           Code = "NOT_YOUR_TURN"
@@ -53,7 +56,8 @@ var All = []Code{
 	NicknameTakenInRoom, AlreadyInRoom, InvalidPhase, NotYourTurn,
 	CardAlreadyRevealed, CategoryNotAllowed, AlreadyVoted, SelfVote,
 	InvalidTarget, NotAlive, NotSpectator, StartConditionsNotMet, StaleState,
-	UpgradeRequired, RateLimited, Internal,
+	UpgradeRequired, RateLimited, Internal, NicknameTaken, AlreadyFriends,
+	FriendLimit,
 }
 
 // Alan hatası kodları (details.fields değerleri). İstemci bunları alan

@@ -102,6 +102,12 @@ func ValidateNickname(raw string, profane ProfanityChecker) (string, error) {
 	return nick, nil
 }
 
+// NicknameKey, takma adın küresel benzersizlik anahtarıdır (users.nickname_key):
+// NFC, kırpılmış, Türkçe küçük harf. "IŞIK" ve "ışık" aynı anahtardır.
+func NicknameKey(nick string) string {
+	return lowerTR.String(NormalizeNickname(nick))
+}
+
 // SameNickname, iki takma adın oda içinde aynı sayılıp sayılmadığını
 // söyler (Türkçe büyük/küçük harf duyarsız: "IŞIK" = "ışık").
 // Veritabanındaki lower() karşılaştırması bunun emniyet ağıdır.

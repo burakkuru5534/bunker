@@ -38,6 +38,7 @@ import (
 	"github.com/burakkuru5534/bunker/backend/internal/profanity"
 	"github.com/burakkuru5534/bunker/backend/internal/realtime"
 	"github.com/burakkuru5534/bunker/backend/internal/room"
+	"github.com/burakkuru5534/bunker/backend/internal/social"
 )
 
 func main() {
@@ -262,6 +263,7 @@ func newHandler(cfg config.Config, logger *slog.Logger, d deps) http.Handler {
 			d.Life.stop = append(d.Life.stop, cleanup.Stop)
 		}
 		modules = append(modules, modHTTP.Register)
+		modules = append(modules, social.NewHTTP(social.NewService(d.DB, logger), authHTTP.Require).Register)
 		// Bağlantısı kopan oyuncular: 60 sn bekleme, sonra ayrılmış sayılır (RT-007).
 		disconnects := game.NewDisconnects(gameSvc, roomSvc, d.Hub, logger)
 		d.Hub.SetListener(disconnects)

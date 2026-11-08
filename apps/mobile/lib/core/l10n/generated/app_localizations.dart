@@ -508,6 +508,234 @@ abstract class AppLocalizations {
   /// **'Bu takma ad uygun değil, başka bir tane seç.'**
   String get nicknameErrorProfanity;
 
+  /// No description provided for @nicknameErrorTaken.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu ad başka bir oyuncuda. Başka bir ad dene.'**
+  String get nicknameErrorTaken;
+
+  /// No description provided for @errorAlreadyFriends.
+  ///
+  /// In tr, this message translates to:
+  /// **'Zaten arkadaşsınız.'**
+  String get errorAlreadyFriends;
+
+  /// No description provided for @errorFriendLimit.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sınıra ulaştın. Bazı istekleri veya arkadaşları kaldırıp tekrar dene.'**
+  String get errorFriendLimit;
+
+  /// No description provided for @nicknameRequiredTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Adını onayla'**
+  String get nicknameRequiredTitle;
+
+  /// No description provided for @nicknameRequiredBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Artık her oyuncunun adı benzersiz: arkadaşların seni bu adla bulup ekleyecek. Adın boştaysa olduğu gibi onayla, alınmışsa yeni bir ad seç.'**
+  String get nicknameRequiredBody;
+
+  /// No description provided for @nicknameRequiredConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Devam'**
+  String get nicknameRequiredConfirm;
+
+  /// No description provided for @friendsTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşlar'**
+  String get friendsTitle;
+
+  /// No description provided for @friendsOpen.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşlar'**
+  String get friendsOpen;
+
+  /// No description provided for @friendsOpenWithRequests.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşlar, {count} yeni istek'**
+  String friendsOpenWithRequests(int count);
+
+  /// No description provided for @friendsAddLabel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kullanıcı adı'**
+  String get friendsAddLabel;
+
+  /// No description provided for @friendsAddHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşının oyundaki adını yaz'**
+  String get friendsAddHint;
+
+  /// No description provided for @friendsAddButton.
+  ///
+  /// In tr, this message translates to:
+  /// **'İstek gönder'**
+  String get friendsAddButton;
+
+  /// No description provided for @friendsRequestSent.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} kullanıcısına istek gönderildi.'**
+  String friendsRequestSent(String name);
+
+  /// No description provided for @friendsNowFriends.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} ile artık arkadaşsınız.'**
+  String friendsNowFriends(String name);
+
+  /// No description provided for @friendsNotFound.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu adda bir oyuncu bulunamadı.'**
+  String get friendsNotFound;
+
+  /// No description provided for @friendsSelf.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kendini arkadaş olarak ekleyemezsin.'**
+  String get friendsSelf;
+
+  /// No description provided for @friendsIncoming.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gelen istekler'**
+  String get friendsIncoming;
+
+  /// No description provided for @friendsOutgoing.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gönderilen istekler'**
+  String get friendsOutgoing;
+
+  /// No description provided for @friendsList.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşların'**
+  String get friendsList;
+
+  /// No description provided for @friendsEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'Henüz arkadaşın yok. Arkadaşının kullanıcı adını yazıp istek gönder.'**
+  String get friendsEmpty;
+
+  /// No description provided for @friendsAccept.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kabul et'**
+  String get friendsAccept;
+
+  /// No description provided for @friendsDecline.
+  ///
+  /// In tr, this message translates to:
+  /// **'Reddet'**
+  String get friendsDecline;
+
+  /// No description provided for @friendsCancel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Geri çek'**
+  String get friendsCancel;
+
+  /// No description provided for @friendsRemove.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşlıktan çıkar'**
+  String get friendsRemove;
+
+  /// No description provided for @friendsRemoveTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} arkadaşlıktan çıkarılsın mı?'**
+  String friendsRemoveTitle(String name);
+
+  /// No description provided for @friendsRemoveMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Birbirinizi tekrar eklemek için yeni istek gerekir.'**
+  String get friendsRemoveMessage;
+
+  /// No description provided for @friendsLoadFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaş listesi yüklenemedi.'**
+  String get friendsLoadFailed;
+
+  /// No description provided for @inviteFrom.
+  ///
+  /// In tr, this message translates to:
+  /// **'{name} seni lobisine çağırıyor'**
+  String inviteFrom(String name);
+
+  /// No description provided for @invitePlayers.
+  ///
+  /// In tr, this message translates to:
+  /// **'{count} oyuncu bekliyor'**
+  String invitePlayers(int count);
+
+  /// No description provided for @inviteJoin.
+  ///
+  /// In tr, this message translates to:
+  /// **'Katıl'**
+  String get inviteJoin;
+
+  /// No description provided for @inviteDecline.
+  ///
+  /// In tr, this message translates to:
+  /// **'Reddet'**
+  String get inviteDecline;
+
+  /// No description provided for @roomInviteFriends.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşlarını davet et'**
+  String get roomInviteFriends;
+
+  /// No description provided for @roomInviteTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arkadaşlarını davet et'**
+  String get roomInviteTitle;
+
+  /// No description provided for @roomInviteSend.
+  ///
+  /// In tr, this message translates to:
+  /// **'Davet et'**
+  String get roomInviteSend;
+
+  /// No description provided for @roomInviteSent.
+  ///
+  /// In tr, this message translates to:
+  /// **'Davet edildi'**
+  String get roomInviteSent;
+
+  /// No description provided for @roomInviteInRoom.
+  ///
+  /// In tr, this message translates to:
+  /// **'Odada'**
+  String get roomInviteInRoom;
+
+  /// No description provided for @roomInviteEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'Henüz arkadaşın yok. Ana ekrandaki Arkadaşlar bölümünden kullanıcı adıyla ekleyebilirsin.'**
+  String get roomInviteEmpty;
+
+  /// No description provided for @roomInviteHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Davet 10 dakika geçerlidir; arkadaşın ana ekranında görür.'**
+  String get roomInviteHint;
+
   /// No description provided for @splashChecking.
   ///
   /// In tr, this message translates to:

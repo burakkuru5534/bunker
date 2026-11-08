@@ -30,11 +30,17 @@ class FakeBackend {
         'id': 'u-guest',
         'nickname': nickname,
         'active_room_id': activeRoomId,
+        'needs_nickname': needsNickname,
       }, 200),
     );
     on('PATCH', '/v1/me', (r) async {
       nickname = (r.data as Map<String, Object?>)['nickname']! as String;
-      return jsonResponse({'id': 'u-guest', 'nickname': nickname}, 200);
+      needsNickname = false;
+      return jsonResponse({
+        'id': 'u-guest',
+        'nickname': nickname,
+        'needs_nickname': false,
+      }, 200);
     });
     on('POST', '/v1/rooms', (r) async {
       activeRoomId = createdRoomId;
@@ -45,10 +51,28 @@ class FakeBackend {
       final code = (r.data as Map<String, Object?>)['invite_code']! as String;
       return jsonResponse(roomJson(id: joinedRoomId, inviteCode: code), 200);
     });
+    on(
+      'GET',
+      '/v1/inbox',
+      (r) async =>
+          jsonResponse({'invites': <Object?>[], 'incoming_requests': 0}, 200),
+    );
+    on(
+      'GET',
+      '/v1/friends',
+      (r) async => jsonResponse({
+        'friends': <Object?>[],
+        'incoming': <Object?>[],
+        'outgoing': <Object?>[],
+      }, 200),
+    );
     _defaults.addAll(_routes);
   }
 
   String nickname = 'Ayşe';
+
+  /// Benzersiz ad gelmeden önce açılmış hesap (`GET /v1/me` → onay ekranı).
+  bool needsNickname = false;
 
   /// `POST /v1/rooms` ve `POST /v1/rooms/join` yanıtlarındaki oda kimlikleri.
   static const createdRoomId = '11111111-1111-4111-8111-111111111111';

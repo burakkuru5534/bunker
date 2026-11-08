@@ -18,9 +18,9 @@ Uygulama misafir hesap açar (benzersiz, kalıcı kimlik) → Play'in hesap silm
 | Uygulama hesap oluşturuyor mu? | Evet — misafir hesap (kullanıcı adı/şifre yok, e-posta yok) | `POST /v1/sessions/guest` |
 | Uygulama içi silme yolu | Ayarlar → **Hesabımı sil** (iki adımlı onay) | `DELETE /v1/me`, `settings_screen.dart` |
 | Web'den silme bağlantısı | `…/gizlilik.html#hesap-silme` (bölümde e-posta ile talep yolu var) | Play: yeniden yükleme gerektirmeyen web yolu zorunlu |
-| Silinen / tutulan veri | Oturumlar, sohbet mesajları, engellemeler silinir; takma ad her yerde "Silinmiş oyuncu" olur; oyun sonuçları adsız kalır; raporlar güvenlik amacıyla belirtilen süre boyunca tutulur | `internal/account`, security.md §6 |
+| Silinen / tutulan veri | Oturumlar, sohbet mesajları, engellemeler, arkadaşlıklar, istekler ve davetler silinir; takma ad her yerde "Silinmiş oyuncu" olur; oyun sonuçları adsız kalır; raporlar güvenlik amacıyla belirtilen süre boyunca tutulur | `internal/account`, security.md §6 |
 
-Erişimi kaybeden kullanıcı: Uygulamayı silen veya cihazını değiştiren misafir kullanıcı, e-postayla silme isteğinde hesabını kanıtlayamaz (hesapta e-posta yok, takma ad benzersiz değil). Bu yüzden 90 gün kullanılmayan, oturumu kalmamış hesaplar bakım işinde otomatik anonimleştirilir (SAFE-014). Play de "toplanan veriyi 90 gün içinde otomatik silme/anonimleştirme"yi silme yolu olarak kabul eder. Gizlilik metninin silme bölümü e-posta talebini ve bu kuralı açıklar.
+Erişimi kaybeden kullanıcı: Uygulamayı silen veya cihazını değiştiren misafir kullanıcı, e-postayla silme isteğinde hesabını kanıtlayamaz (hesapta e-posta yok; takma ad 2026-11-08'den beri benzersiz ama sahiplik kanıtı değil). Bu yüzden 90 gün kullanılmayan, oturumu kalmamış hesaplar bakım işinde otomatik anonimleştirilir (SAFE-014). Play de "toplanan veriyi 90 gün içinde otomatik silme/anonimleştirme"yi silme yolu olarak kabul eder. Gizlilik metninin silme bölümü e-posta talebini ve bu kuralı açıklar.
 
 ## 3. Veri güvenliği (Data safety) formu
 
@@ -46,7 +46,7 @@ Erişimi kaybeden kullanıcı: Uygulamayı silen veya cihazını değiştiren mi
 | Mesajlar → **Diğer uygulama içi mesajlar** | Sohbet mesajları (30 gün); rapordaki son 50 mesajın kopyası | İsteğe bağlı (yazmadan oynanabilir) | Uygulama işlevi; dolandırıcılık önleme, güvenlik |
 | Uygulama etkinliği → **Uygulama etkileşimleri** | Katılınan odalar, açılan kartlar, oylar, hazırım, oyun sonuçları | Zorunlu | Uygulama işlevi |
 | Uygulama etkinliği → **Diğer kullanıcı içerikleri** | Rapor notu (isteğe bağlı, 200 karakter) | İsteğe bağlı | Dolandırıcılık önleme, güvenlik |
-| Uygulama etkinliği → **Diğer işlemler** | Engellemeler, raporlar (kim, neden) | İsteğe bağlı | Dolandırıcılık önleme, güvenlik |
+| Uygulama etkinliği → **Diğer işlemler** | Engellemeler, raporlar (kim, neden); arkadaş listesi, arkadaşlık istekleri, lobi davetleri | İsteğe bağlı | Uygulama işlevi; dolandırıcılık önleme, güvenlik |
 | Cihaz veya diğer kimlikler → **Cihaz veya diğer kimlikler** | IP adresi (önerilen, temkinli beyan) | Zorunlu | Dolandırıcılık önleme, güvenlik |
 
 IP için not: Sunucu IP'yi yalnızca bellekte, hesap açma sıklık sınırı için kullanır ve veritabanına yazmaz. Ancak Cloud Run istek günlükleri istemci IP'sini Google Cloud Logging'de tutar. Play'de IP'nin kesin kategorisi yok; IP'den konum çıkarılmadığı için "Konum" beyan edilmez. Temkinli yol olarak "Cihaz veya diğer kimlikler" altında beyan önerilir.

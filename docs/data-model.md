@@ -12,7 +12,7 @@
 
 | Tablo | Amaç | Önemli alanlar / kısıtlar | Erişim | Saklama |
 |---|---|---|---|---|
-| `users` | Misafir kullanıcı | `id`, `nickname`, `created_at`, `last_seen_at`, `deleted_at` (silinince takma ad "Silinmiş oyuncu" olarak anonimleştirilir) | Sahibi; takma ad oda üyelerine görünür | Hesap silinene kadar (SAFE-009) |
+| `users` | Misafir kullanıcı | `id`, `nickname`, `nickname_key` (Türkçe küçük harf + normalize; dolu olanlar arasında tekil → kullanıcı adı benzersiz; null = eski hesap, ad onayı bekliyor; silinince null; 0010), `created_at`, `last_seen_at`, `deleted_at` (silinince takma ad "Silinmiş oyuncu" olarak anonimleştirilir) | Sahibi; takma ad oda üyelerine görünür | Hesap silinene kadar (SAFE-009) |
 | `sessions` | Oturumlar | `user_id`, `token_hash`, `expires_at`, `revoked_at` | Yalnızca sunucu | Süresi dolunca temizlenir (AUTH-001) |
 | `rooms` | Oda | `invite_code` (aktif odalarda tekil), `host_user_id`, `capacity` ∈ {1,2}, `scenario_id` (lobide seçilen senaryo, null = rastgele; FK `scenarios`, silinince null; 0009), `status` (lobby/in_game/finished/closed), `current_game_id`; kullanıcı aynı anda tek aktif odada | Oda üyeleri | Kapanınca temizlik (ROOM-010) |
 | `room_members` | Üyelik | PK `(room_id, user_id)`; `role` (player/spectator), `is_ready`, `joined_at`, `left_at`, `kicked_at` (atılan tekrar katılamaz) | Oda üyeleri | Oda ile |
@@ -27,6 +27,9 @@
 | `chat_messages` | Sohbet | indeks `(room_id, created_at)`; `game_id` (ops.), `user_id`, `body` | Oda üyeleri (engelleme filtresi) | **30 gün** |
 | `reports` | Raporlar | `reporter_id`, `reported_id`, `room_id`, `reason`, `messages_snapshot`, `status` | Yalnızca sunucu/moderasyon | SAFE-009'da belirlenir |
 | `blocks` | Engellemeler | PK `(blocker_id, blocked_id)` | Sahibi | Kaldırılana kadar |
+| `friend_requests` | Bekleyen arkadaşlık istekleri | PK `(from_user_id, to_user_id)`, kendine istek yok; indeks `to_user_id` (0010) | İki taraf | Kabul/ret/geri çekme, engelleme veya hesap silinene kadar |
+| `friendships` | Arkadaşlıklar | Arkadaşlık başına iki satır `(user_id, friend_id)`; indeks `friend_id` (0010) | İki taraf | Arkadaşlıktan çıkarma, engelleme veya hesap silinene kadar |
+| `room_invites` | Lobi davetleri | PK `(room_id, to_user_id)`, `from_user_id`, `expires_at` (10 dk); indeksler `(to_user_id, expires_at)`, `from_user_id`, `expires_at` (0010) | Alıcı | Süresi dolduktan 24 saat sonra bakım işi siler; oda silinince cascade |
 
 ## Kesinleşen tablolar
 
@@ -82,6 +85,10 @@ Oyun silinirse (yalnızca bakım) bağlı tüm kayıtlar silinir.
 ### 0007 — katalog içeriği (CARD-002…007)
 
 Yalnızca veri: 5 senaryo (`nuclear_winter`, `red_cough`, `meteor`, `silent_machines`, `solar_storm`) ve kategori başına 30 kart (kimlikler 1001–1030, 2001–2030, 3001–3030, 4001–4030, 5001–5030). Her kategoride 10 olumlu, 12 nötr, 8 olumsuz. Uygulandıktan sonra dosya değiştirilmez: metin düzeltmesi, yeni kart veya emekliye ayırma (`active = false`) yeni migration'la yapılır. Testler: `testdb.New` katalog içeriğini siler (testler kendi kataloglarını yükler); içerik doğrulaması `testdb.NewWithContent` ile yapılır (CARD-011).
+
+### 0010 — kullanıcı adları ve arkadaşlar
+
+`users.nickname_key` + kısmi tekil indeks `users_nickname_key_uniq`; `friend_requests`, `friendships`, `room_invites`. Mevcut hesaplar için geri doldurma yok (SQL'de Türkçe küçük harf dönüşümü güvenilir değil): `nickname_key` null kalır, `GET /v1/me` `needs_nickname: true` döner ve istemci adı bir kez onaylatır; anahtar Go'da hesaplanır. Engelleme ve hesap silme bu üç tablodaki ilgili satırları siler.
 
 ## Tutarlılık kuralları
 

@@ -1,8 +1,12 @@
 /// `session` feature'ının diğer katmanlara açık giriş noktası.
 library;
 
+export 'package:siginak/features/session/domain/nickname_rules.dart'
+    show nicknameMaxLength;
 export 'package:siginak/features/session/presentation/nickname_dialog.dart'
     show showChangeNicknameDialog;
+export 'package:siginak/features/session/presentation/nickname_required_screen.dart'
+    show NicknameRequiredScreen;
 export 'package:siginak/features/session/presentation/session_controller.dart'
     show
         SessionController,

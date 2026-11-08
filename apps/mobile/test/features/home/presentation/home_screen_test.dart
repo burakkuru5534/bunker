@@ -29,6 +29,8 @@ void main() {
     WidgetTester tester, {
     VoidCallback? onJoin,
     VoidCallback? onOpenSettings,
+    VoidCallback? onOpenFriends,
+    ValueChanged<String>? onJoinInvite,
     AppConfig? config,
   }) async {
     final store = InMemorySecureStore();
@@ -46,6 +48,8 @@ void main() {
         onJoin: onJoin ?? () {},
         onOpenSettings: onOpenSettings ?? () {},
         onOpenRoom: opened.add,
+        onOpenFriends: onOpenFriends ?? () {},
+        onJoinInvite: onJoinInvite ?? (_) {},
       ),
       config: config,
       secureStore: store,
@@ -203,6 +207,165 @@ void main() {
       findsOneWidget,
     );
     expect(opened, isEmpty);
+  });
+
+  group('Davetler ve arkadaşlar', () {
+    Map<String, Object?> invite(String room, String code, String from) => {
+      'room_id': room,
+      'invite_code': code,
+      'from': {'user_id': 'u-$from', 'nickname': from},
+      'players': 3,
+    };
+    late Map<String, Object?> inbox;
+    setUp(() {
+      inbox = {
+        'invites': [
+          invite('r1', 'AAAAAA', 'Ali'),
+          invite('r2', 'BBBBBB', 'Can'),
+        ],
+        'incoming_requests': 2,
+      };
+      backend.on('GET', '/v1/inbox', (r) async => jsonOk(inbox));
+    });
+
+    int inboxCalls() => backend.calls.where((c) => c == 'GET /v1/inbox').length;
+
+    testWidgets('davet kartları ve istek rozeti görünür; Katıl kodu verir', (
+      tester,
+    ) async {
+      final joined = <String>[];
+      var friends = 0;
+      await pump(
+        tester,
+        onJoinInvite: joined.add,
+        onOpenFriends: () => friends++,
+      );
+
+      expect(find.text('Ali seni lobisine çağırıyor'), findsOneWidget);
+      expect(find.text('Can seni lobisine çağırıyor'), findsOneWidget);
+      expect(find.text('3 oyuncu bekliyor'), findsNWidgets(2));
+      expect(find.byTooltip('Arkadaşlar, 2 yeni istek'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('invite-r2')),
+          matching: find.byKey(const ValueKey('invite-join')),
+        ),
+      );
+      expect(joined, ['BBBBBB']);
+
+      await tester.tap(find.byKey(const ValueKey('home-friends')));
+      expect(friends, 1);
+    });
+
+    testWidgets('istek yoksa rozet gizli', (tester) async {
+      inbox = {'invites': <Object?>[], 'incoming_requests': 0};
+      await pump(tester);
+      expect(find.byTooltip('Arkadaşlar'), findsOneWidget);
+      final badge = tester.widget<Badge>(find.byType(Badge));
+      expect(badge.isLabelVisible, isFalse);
+      expect(find.textContaining('lobisine çağırıyor'), findsNothing);
+    });
+
+    testWidgets('Reddet kartı hemen gizler ve sunucuya bildirir', (
+      tester,
+    ) async {
+      backend.on('DELETE', '/v1/invites/r1', (r) async {
+        inbox = {
+          'invites': [invite('r2', 'BBBBBB', 'Can')],
+          'incoming_requests': 0,
+        };
+        return ResponseBodyNoContent.value;
+      });
+      await pump(tester);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('invite-r1')),
+          matching: find.byKey(const ValueKey('invite-decline')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(backend.calls, contains('DELETE /v1/invites/r1'));
+      expect(find.text('Ali seni lobisine çağırıyor'), findsNothing);
+      expect(find.text('Can seni lobisine çağırıyor'), findsOneWidget);
+    });
+
+    testWidgets('Reddetme hatası ekranı bozmaz', (tester) async {
+      backend.on(
+        'DELETE',
+        '/v1/invites/r1',
+        (r) async => jsonResponse(apiError('NOT_FOUND'), 404),
+      );
+      await pump(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('invite-r1')),
+          matching: find.byKey(const ValueKey('invite-decline')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Ali seni lobisine çağırıyor'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('20 sn\'de bir yoklanır; arka planda durur, önde tazelenir', (
+      tester,
+    ) async {
+      await pump(tester);
+      expect(inboxCalls(), 1);
+
+      await tester.pump(const Duration(seconds: 19));
+      await tester.pump();
+      expect(inboxCalls(), 1);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(inboxCalls(), 2);
+
+      // Yeni davet bir sonraki yoklamada görünür.
+      inbox = {
+        'invites': [invite('r3', 'CCCCCC', 'Ece')],
+        'incoming_requests': 0,
+      };
+      await tester.pump(const Duration(seconds: 20));
+      await tester.pumpAndSettle();
+      expect(find.text('Ece seni lobisine çağırıyor'), findsOneWidget);
+      final before = inboxCalls();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump(const Duration(seconds: 60));
+      await tester.pump();
+      expect(inboxCalls(), before);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(inboxCalls(), before + 1);
+      await tester.pump(const Duration(seconds: 20));
+      await tester.pump();
+      expect(inboxCalls(), before + 2);
+    });
+
+    testWidgets('yoklama hatasında son davetler kalır', (tester) async {
+      await pump(tester);
+      backend.on(
+        'GET',
+        '/v1/inbox',
+        (r) async => jsonResponse(apiError('INTERNAL'), 500),
+      );
+      await tester.pump(const Duration(seconds: 20));
+      await tester.pumpAndSettle();
+      expect(find.text('Ali seni lobisine çağırıyor'), findsOneWidget);
+    });
+
+    testWidgets('320 dp ve %200 yazı: davet kartı taşmaz', (tester) async {
+      useSmallScreen(tester);
+      await pump(tester);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets('"Nasıl oynanır?" açılır', (tester) async {

@@ -74,7 +74,7 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal) error {
 // kullanılmayan hesap temizliği (internal/maintenance, SAFE-014) kullanır.
 func Anonymize(ctx context.Context, tx pgx.Tx, userID string) error {
 	for _, q := range []string{
-		`update users set nickname = $2, deleted_at = coalesce(deleted_at, now()) where id = $1`,
+		`update users set nickname = $2, nickname_key = null, deleted_at = coalesce(deleted_at, now()) where id = $1`,
 		`update room_members set nickname = $2 where user_id = $1`,
 	} {
 		if _, err := tx.Exec(ctx, q, userID, auth.DeletedNickname); err != nil {
@@ -85,6 +85,9 @@ func Anonymize(ctx context.Context, tx pgx.Tx, userID string) error {
 		`delete from sessions where user_id = $1`,
 		`delete from chat_messages where user_id = $1`,
 		`delete from blocks where blocker_id = $1 or blocked_id = $1`,
+		`delete from friendships where user_id = $1 or friend_id = $1`,
+		`delete from friend_requests where from_user_id = $1 or to_user_id = $1`,
+		`delete from room_invites where from_user_id = $1 or to_user_id = $1`,
 	} {
 		if _, err := tx.Exec(ctx, q, userID); err != nil {
 			return err

@@ -73,6 +73,35 @@ void main() {
     });
   });
 
+  group('kullanıcı adı onaylanmamış', () {
+    const legacy = SessionState(
+      status: SessionStatus.authenticated,
+      activeRoomId: roomId,
+      needsNickname: true,
+    );
+
+    test('yalnızca /nickname açık', () {
+      expect(redirect('/nickname', legacy), isNull);
+      for (final path in [
+        '/',
+        '/welcome',
+        '/home',
+        '/join',
+        '/friends',
+        '/settings',
+        '/room/$roomId',
+      ]) {
+        expect(redirect(path, legacy), AppRoutes.nickname, reason: path);
+      }
+    });
+
+    test('onaylanınca /nickname ana ekrana veya odaya gider', () {
+      expect(redirect('/nickname', signedIn), AppRoutes.home);
+      expect(redirect('/nickname', inRoom), AppRoutes.room(roomId));
+      expect(redirect('/friends', signedIn), isNull);
+    });
+  });
+
   test('oda kimliği UUID olmalı', () {
     expect(AppRoutes.isValidRoomId(roomId), isTrue);
     expect(AppRoutes.isValidRoomId('abc'), isFalse);

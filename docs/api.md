@@ -49,6 +49,9 @@
 | 409 | `ROOM_FULL` | 10 oyuncu dolu |
 | 409 | `GAME_IN_PROGRESS` | Oyun sürüyor; daha önce katılımcı olmayan kullanıcı katılamaz |
 | 409 | `NICKNAME_TAKEN_IN_ROOM` | Odada aynı takma ad var |
+| 409 | `NICKNAME_TAKEN` | Kullanıcı adı başka bir hesapta (küresel benzersiz; Türkçe büyük/küçük harf duyarsız) |
+| 409 | `ALREADY_FRIENDS` | Zaten arkadaşsınız |
+| 409 | `FRIEND_LIMIT` | Arkadaş (100), bekleyen istek (20) veya oda daveti (20) sınırı |
 | 409 | `ALREADY_IN_ROOM` | Kullanıcı başka bir aktif odada |
 | 409 | `INVALID_PHASE` | Eylem bu aşamada yapılamaz |
 | 409 | `NOT_YOUR_TURN` | Kart açma sırası başkasında |
@@ -140,10 +143,12 @@ Hatalar: `VALIDATION_FAILED`, `NICKNAME_INVALID`, `RATE_LIMITED`.
 { "token": "…", "expires_at": "…" }
 ```
 
-**GET `/v1/me`** → `200 { "id", "nickname", "active_room_id": "uuid|null" }`
-Uygulama açılışında aktif odaya geri dönmek için kullanılır.
+**GET `/v1/me`** → `200 { "id", "nickname", "active_room_id": "uuid|null", "needs_nickname": bool }`
+Uygulama açılışında aktif odaya geri dönmek için kullanılır. `needs_nickname: true` → hesap benzersiz kullanıcı adları gelmeden (migration 0010) açılmış; istemci yalnızca ad onay ekranını gösterir ve `PATCH /v1/me` ile adı onaylatır (aynı ad da gönderilebilir).
 
-**PATCH `/v1/me`** — `{ "nickname": "…" }` → `200 { "id", "nickname" }`. Oyun sürerken (`in_game` odada) değiştirilemez → `INVALID_PHASE`.
+**PATCH `/v1/me`** — `{ "nickname": "…" }` → `200 { "id", "nickname", "needs_nickname": false }`. Oyun sürerken (`in_game` odada) değiştirilemez → `INVALID_PHASE`. Ad başka hesapta → `409 NICKNAME_TAKEN` (`details.fields.nickname = "taken"`).
+
+**Kullanıcı adları benzersizdir.** Karşılaştırma Türkçe küçük harfe çevrilmiş ve normalize edilmiş biçimle yapılır (`Ayşe` = `AYŞE`). `POST /v1/sessions/guest` da alınmış adda `409 NICKNAME_TAKEN` döner. Silinen hesabın adı serbest kalır.
 
 **DELETE `/v1/me`** — Gövde yok → `204`. (Google Play hesap silme gerekliliği; SAFE-009.) Sırasıyla: aktif oda varsa "Ayrıl" ile aynı yoldan ayrılınır (lobide oda sahipliği devredilir; oyun sürerken oyuncu `left` olur, `game.player_eliminated {method: left}`); ardından tek transaction’da takma ad `Silinmiş oyuncu` + `deleted_at`, tüm oda üyelik kayıtlarındaki takma ad anonimleştirilir, tüm oturumlar, kullanıcının kendi sohbet mesajları ve iki yönlü engellemeler silinir. Oyun sonuçları ve raporlar (mesaj kopyalarıyla birlikte, moderasyon kanıtı) kalır; sonuçlarda "Silinmiş oyuncu" görünür. Eski token sonraki isteklerde `401`. Aynı takma adla yeni misafir hesap açılabilir. İşlem geri alınamaz.
 
@@ -254,6 +259,25 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
   ]
 }
 ```
+
+### Arkadaşlar ve davetler
+
+| Yöntem | Yol | Gövde | Başarı | Not |
+|---|---|---|---|---|
+| GET | `/v1/friends` | — | `200 { "friends", "incoming", "outgoing" }` | Her öğe `{ "user_id", "nickname", "since" }` |
+| POST | `/v1/friends/requests` | `{ "nickname": "…" }` | `201 { "status": "requested\|friends", "user" }` | Karşı taraftan bekleyen istek varsa doğrudan arkadaş olunur (`friends`) |
+| POST | `/v1/friends/requests/{userId}/accept` | — | `204` | Gelen istek yoksa `404` |
+| DELETE | `/v1/friends/requests/{userId}` | — | `204` | Gelen isteği reddeder veya gönderileni geri çeker; yoksa da `204` |
+| DELETE | `/v1/friends/{userId}` | — | `204` | Arkadaşlıktan çıkarır, aradaki davetler silinir; yoksa da `204` |
+| POST | `/v1/rooms/{roomId}/invites` | `{ "user_id": "uuid" }` | `204` | Lobi daveti (10 dk geçerli); tekrar davet süreyi yeniler |
+| GET | `/v1/inbox` | — | `200 { "invites": [ { "room_id", "invite_code", "from", "players", "expires_at" } ], "incoming_requests": n }` | `Cache-Control: no-store`; istemci ana ekranda 20 sn'de bir yoklar |
+| DELETE | `/v1/invites/{roomId}` | — | `204` | Daveti reddeder; yoksa da `204` |
+
+- **İstek:** ad bulunamazsa, silinmişse veya iki taraftan biri diğerini engellemişse aynı `404 NOT_FOUND` (engel sızdırılmaz). Kendine istek `400` (`nickname: not_allowed`). Zaten arkadaşsa `409 ALREADY_FRIENDS`. Sınırlar: en çok 100 arkadaş ve 20 bekleyen giden istek → `409 FRIEND_LIMIT` (kabul ederken iki tarafın arkadaş sınırı da denetlenir).
+- **Davet:** gönderen odanın aktif üyesi olmalı (değilse veya oda yoksa `404`), oda `lobby` aşamasında olmalı (`409 INVALID_PHASE`), alıcı arkadaş olmalı (`403 FORBIDDEN`). Alıcı zaten odadaysa `204` (değişiklik yok). Oda başına en çok 20 geçerli davet (`409 FRIEND_LIMIT`). Davet kodla katılmanın yerine geçmez: alıcı `invite_code` ile `POST /v1/rooms/join` çağırır; oda dolu/başladıysa normal katılma hataları döner.
+- **Gelen kutusu:** yalnızca süresi geçmemiş, hâlâ lobide olan, hâlâ arkadaş olunan kişiden gelen ve kullanıcının zaten üyesi olmadığı odaların davetleri listelenir (en yeni önce).
+- **Engelleme** arkadaşlığı, istekleri ve davetleri iki yönde siler. **Hesap silme** arkadaşlıkları, istekleri ve davetleri siler; kullanıcı adı serbest kalır.
+- Süresi 24 saatten fazla önce dolmuş davetler bakım işiyle silinir.
 
 ### Moderasyon
 

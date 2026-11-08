@@ -16,7 +16,10 @@ import 'package:siginak/features/session/session.dart';
 
 /// `/join` — davet koduyla odaya katılma (docs/ui/screen-map.md §3.3).
 class JoinScreen extends ConsumerStatefulWidget {
-  const JoinScreen({required this.onOpenRoom, super.key});
+  const JoinScreen({required this.onOpenRoom, this.initialCode, super.key});
+
+  /// Davetten gelindiyse hazır kod; geçerliyse ekran açılır açılmaz katılır.
+  final String? initialCode;
 
   /// Katılındı (veya kullanıcı zaten bir odadaydı) → oda ekranına geç.
   final ValueChanged<String> onOpenRoom;
@@ -33,6 +36,13 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialCode?.trim().toUpperCase() ?? '';
+    if (initial.length == inviteCodeLength) {
+      _code.text = initial;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_join());
+      });
+    }
     _code.addListener(_onCodeChanged);
   }
 
@@ -109,7 +119,7 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
                   const SizedBox(height: AppSpacing.s5),
                   InviteCodeInput(
                     controller: _code,
-                    autofocus: true,
+                    autofocus: widget.initialCode == null,
                     hasError: message != null,
                     onCompleted: (_) => unawaited(_join()),
                   ),

@@ -31,6 +31,7 @@ class LobbyView extends StatefulWidget {
     this.onScenario,
     this.onRetryScenarios,
     this.onMemberMenu,
+    this.onInviteFriends,
     this.online = true,
     super.key,
   });
@@ -50,6 +51,9 @@ class LobbyView extends StatefulWidget {
 
   /// Başka bir üyeye dokunulunca: oyuncu menüsü (Raporla / Engelle).
   final ValueChanged<RoomMember>? onMemberMenu;
+
+  /// "Arkadaşlarını davet et" (arkadaş listesi sayfası).
+  final VoidCallback? onInviteFriends;
 
   /// Bağlantı yokken eylemler görünür ama devre dışıdır.
   final bool online;
@@ -125,6 +129,15 @@ class _LobbyViewState extends State<LobbyView> {
                 code: room.inviteCode,
                 onCopy: () => unawaited(_copyCode(room.inviteCode)),
               ),
+              if (widget.onInviteFriends != null) ...[
+                const SizedBox(height: AppSpacing.s3),
+                AppButton.secondary(
+                  key: const ValueKey('lobby-invite-friends'),
+                  label: l.roomInviteFriends,
+                  icon: Icons.group_add_outlined,
+                  onPressed: widget.online ? widget.onInviteFriends : null,
+                ),
+              ],
               const SizedBox(height: AppSpacing.s4),
               _CapacityCard(
                 capacity: room.capacity,

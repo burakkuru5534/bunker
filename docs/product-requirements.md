@@ -32,7 +32,7 @@ kartlarını açar, yazılı sohbette tartışır ve gizli oyla her turda bir oy
 - Herkese açık oda listesi ve eşleştirme (MVP'de **yalnızca davet kodu**)
 - Oyun içinde oyuncu atma (atma **yalnızca lobide**)
 - Sesli sohbet
-- Arkadaşlık sistemi
+- Arkadaşlık sistemi (2026-11-08'de kapsama alındı: benzersiz kullanıcı adıyla istek + onay, lobiye davet; davetler ana ekranda yoklanır, push yok)
 - Oyuncu profili, istatistikler, maç geçmişi ekranı
 - Özel avatarlar
 - Yapay zekâ

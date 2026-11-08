@@ -350,7 +350,7 @@ Ayrıntılı kapsam, kabul kriterleri ve testler, görev **Ready** durumuna geç
 |---|---|---|---|
 | POST-001 | iOS derlemesi ve TestFlight (bulut CI ile) | P2 | Backlog |
 | POST-002 | Herkese açık oda listesi | P2 | Backlog |
-| POST-003 | Arkadaş listesi | P2 | Backlog |
+| POST-003 | Arkadaş listesi, kullanıcı adıyla ekleme ve lobi daveti | P1 | Done (2026-11-08) |
 | POST-004 | Oyuncu profili ve istatistikleri | P2 | Backlog |
 | POST-005 | Yeni senaryo paketleri ve kart kategorileri | P2 | Backlog |
 | POST-006 | Sesli sohbet | P2 | Backlog |
