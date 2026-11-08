@@ -1012,6 +1012,24 @@ abstract class AppLocalizations {
   /// **'İkna etme zamanı.'**
   String get gameDiscussionInfo;
 
+  /// No description provided for @gameDiscussionChatHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Neden sığınağa seni almalılar? Sohbette anlat, kartlarını savun, diğerlerini ikna et.'**
+  String get gameDiscussionChatHint;
+
+  /// No description provided for @gameDiscussionOpenChat.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sohbete yaz'**
+  String get gameDiscussionOpenChat;
+
+  /// No description provided for @gameReadyLocked.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hazırım ({seconds})'**
+  String gameReadyLocked(int seconds);
+
   /// No description provided for @gameReadyProgress.
   ///
   /// In tr, this message translates to:

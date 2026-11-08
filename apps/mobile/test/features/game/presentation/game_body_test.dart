@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:siginak/core/ui/app_buttons.dart';
 import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/game/presentation/intro/intro_timeline.dart';
 
@@ -78,6 +79,8 @@ void main() {
     GameView g, {
     String me = 'u1',
     Future<void> Function(GameAction)? onAction,
+    VoidCallback? onOpenChat,
+    int chatUnread = 0,
   }) async {
     await pumpWithProviders(
       tester,
@@ -88,6 +91,8 @@ void main() {
           myUserId: me,
           clock: () => now,
           onAction: onAction ?? (a) async => actions.add(a),
+          onOpenChat: onOpenChat,
+          chatUnread: chatUnread,
         ),
       ),
     );
@@ -318,6 +323,90 @@ void main() {
     expect(find.text('Astım'), findsOneWidget);
     expect(find.text('Açık'), findsOneWidget);
     expect(find.text('Kapalı'), findsNWidgets(4));
+    expect(find.text('Meslek'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp(r'^Meslek: .+, Açık$')),
+      findsOneWidget,
+    );
+  });
+
+  group('Sohbet ve tartışma', () {
+    final chatButton = find.byKey(const ValueKey('game-chat-button'));
+    final ready = find.byKey(const ValueKey('discussion-ready'));
+    VoidCallback? readyOnPressed(WidgetTester t) =>
+        t.widget<AppButton>(ready).onPressed;
+
+    testWidgets('sohbet düğmesi Kartlarım yanında; rozet okunmamışı gösterir', (
+      tester,
+    ) async {
+      var opened = 0;
+      await pump(tester, game(), onOpenChat: () => opened++, chatUnread: 3);
+      expect(find.byKey(const ValueKey('my-cards-button')), findsOneWidget);
+      expect(chatButton, findsOneWidget);
+      expect(
+        find.descendant(of: chatButton, matching: find.text('3')),
+        findsOneWidget,
+      );
+      // Kart açma aşamasında öne çıkmaz (tonal).
+      expect(
+        find.descendant(of: chatButton, matching: find.byType(Badge)),
+        findsOneWidget,
+      );
+      await tester.tap(chatButton);
+      expect(opened, 1);
+
+      await pump(tester, game()); // geri çağrı yoksa düğme yok
+      expect(chatButton, findsNothing);
+    });
+
+    testWidgets('tartışmada sohbete yönlendirir; Hazırım 20 sn kilitli', (
+      tester,
+    ) async {
+      var opened = 0;
+      await pump(tester, game(phase: 'DISCUSSION'), onOpenChat: () => opened++);
+      expect(
+        find.text(
+          'Neden sığınağa seni almalılar? Sohbette anlat, kartlarını savun, '
+          'diğerlerini ikna et.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('discussion-chat')));
+      expect(opened, 1);
+
+      expect(find.text('Hazırım (20)'), findsOneWidget);
+      expect(readyOnPressed(tester), isNull);
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('Hazırım (15)'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 15));
+      expect(find.text('Hazırım'), findsOneWidget);
+      expect(readyOnPressed(tester), isNotNull);
+
+      // Aynı tur: kilit geri gelmez. Yeni tur: yeniden başlar.
+      await pump(tester, game(phase: 'DISCUSSION'), onOpenChat: () => opened++);
+      expect(readyOnPressed(tester), isNotNull);
+      await pump(tester, game(phase: 'VOTING'), onOpenChat: () {});
+      await pump(
+        tester,
+        game(phase: 'DISCUSSION', round: 2),
+        onOpenChat: () {},
+      );
+      expect(find.text('Hazırım (20)'), findsOneWidget);
+    });
+
+    testWidgets('elenmiş oyuncuya tartışma yönlendirmesi gösterilmez', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        game(phase: 'DISCUSSION'),
+        me: 'u3',
+        onOpenChat: () {},
+      );
+      expect(find.byKey(const ValueKey('discussion-chat')), findsNothing);
+      expect(ready, findsNothing);
+      expect(chatButton, findsOneWidget); // okuyabilir
+    });
   });
 
   testWidgets('Küçük ekranda taşma yok (360×640)', (tester) async {
@@ -494,6 +583,7 @@ void main() {
 
     testWidgets('Tartışma: Hazırım; sonra bekleme metni', (tester) async {
       await pump(tester, game(phase: 'DISCUSSION'));
+      await tester.pump(const Duration(seconds: 21)); // Hazırım kilidi
       await tapAndSettle(tester, find.text('Hazırım'));
       expect(actions.single, isA<DiscussionReady>());
 
@@ -581,6 +671,7 @@ void main() {
           return gate.future;
         },
       );
+      await tester.pump(const Duration(seconds: 21)); // Hazırım kilidi
 
       await tester.tap(find.text('Hazırım'));
       await tester.pump();

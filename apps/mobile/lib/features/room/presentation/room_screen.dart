@@ -191,6 +191,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           myUserId: state.myUserId,
           onAction: (a) => _run(() => _controller.act(a)),
           onPlayerMenu: (p) => _playerMenu(p.userId, p.nickname),
+          onOpenChat: _openChat,
+          chatUnread: state.chat.unreadFor(state.myUserId),
           online: online,
         ),
         // Tutarsız görüntü: denetleyici yeniden ister (loadFailed'a kadar).
@@ -216,7 +218,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           ),
           actions: [
             if (room?.status == RoomStatus.lobby) const SoundToggleButton(),
-            if (room != null)
+            // Oyunda sohbet düğmesi Kartlarım'ın yanındadır.
+            if (room != null && room.status != RoomStatus.inGame)
               _ChatButton(
                 unread: state.chat.unreadFor(state.myUserId),
                 onPressed: _openChat,

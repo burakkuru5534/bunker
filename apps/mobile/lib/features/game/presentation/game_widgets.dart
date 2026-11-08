@@ -409,35 +409,217 @@ class _MyCardsSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l.gameMyCards, style: theme.textTheme.titleLarge),
-            const SizedBox(height: AppSpacing.s3),
+            Text(
+              l.gameMyCards,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.s4),
             if (cards.isEmpty) Text(l.gameNoCards),
             for (final c in cards)
-              Builder(
-                builder: (context) {
-                  final style = categoryStyle(context, c.category);
-                  return ListTile(
-                    key: ValueKey('my-card-${c.category.name}'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(style.icon, color: style.color),
-                    title: Text(c.text),
-                    subtitle: Text(style.label),
-                    trailing: Chip(
-                      label: Text(
-                        c.revealed ? l.gameCardOpen : l.gameCardClosed,
-                      ),
-                      avatar: Icon(
-                        c.revealed
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
-                        size: 16,
-                      ),
-                    ),
-                  );
-                },
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.s3),
+                child: MyCardTile(card: c),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Kartlarım satırı: kategori renginde parlayan simge kutusu, kart metni,
+/// kategori ve açık/kapalı rozeti.
+class MyCardTile extends StatelessWidget {
+  const MyCardTile({required this.card, super.key});
+
+  final MyCard card;
+
+  static IconData _outline(CardCategory c) => switch (c) {
+    CardCategory.profession => Icons.work_outline_rounded,
+    CardCategory.health => Icons.favorite_border_rounded,
+    CardCategory.hobby => Icons.star_border_rounded,
+    CardCategory.item => Icons.inventory_2_outlined,
+    CardCategory.secret => Icons.lock_outline_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final style = categoryStyle(context, card.category);
+    final color = style.color;
+    final scheme = theme.colorScheme;
+
+    return Semantics(
+      container: true,
+      label:
+          '${style.label}: ${card.text}, '
+          '${card.revealed ? l.gameCardOpen : l.gameCardClosed}',
+      excludeSemantics: true,
+      child: Container(
+        key: ValueKey('my-card-${card.category.name}'),
+        padding: const EdgeInsets.all(AppSpacing.s3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              color.withValues(alpha: 0.16),
+              scheme.surfaceContainerHigh.withValues(alpha: 0.9),
+            ],
+          ),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: card.revealed ? 0.28 : 0.14),
+              blurRadius: 18,
+              spreadRadius: -6,
+            ),
+          ],
+        ),
+        // Dar ekran / büyük yazı: rozet metnin altına iner (PLAY-012).
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final compact =
+                box.maxWidth < 330 ||
+                MediaQuery.textScalerOf(context).scale(1) > 1.3;
+            return Row(
+              children: [
+                _GlowIcon(
+                  icon: style.icon,
+                  color: color,
+                  size: compact ? 44 : 56,
+                ),
+                const SizedBox(width: AppSpacing.s3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        card.text,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.s1),
+                      Row(
+                        children: [
+                          Icon(
+                            _outline(card.category),
+                            size: 16,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: AppSpacing.s1),
+                          Flexible(
+                            child: Text(
+                              style.label,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (compact) ...[
+                        const SizedBox(height: AppSpacing.s2),
+                        _StatePill(open: card.revealed),
+                      ],
+                    ],
+                  ),
+                ),
+                if (!compact) ...[
+                  const SizedBox(width: AppSpacing.s2),
+                  _StatePill(open: card.revealed),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _GlowIcon extends StatelessWidget {
+  const _GlowIcon({required this.icon, required this.color, this.size = 56});
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Color.lerp(color, Colors.black, 0.55)!;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withValues(alpha: 0.45), dark],
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.8), width: 1.5),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 14),
+        ],
+      ),
+      child: Icon(
+        icon,
+        size: size / 2,
+        color: Color.lerp(color, Colors.white, 0.35),
+      ),
+    );
+  }
+}
+
+class _StatePill extends StatelessWidget {
+  const _StatePill({required this.open});
+
+  final bool open;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s3,
+        vertical: AppSpacing.s2,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: open
+            ? accent.withValues(alpha: 0.16)
+            : theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(
+          color: open ? accent.withValues(alpha: 0.5) : Colors.transparent,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            open ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+            size: 18,
+            color: accent,
+          ),
+          const SizedBox(width: AppSpacing.s1),
+          Flexible(
+            child: Text(
+              open ? l.gameCardOpen : l.gameCardClosed,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

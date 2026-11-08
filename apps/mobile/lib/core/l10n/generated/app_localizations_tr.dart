@@ -540,6 +540,18 @@ class AppLocalizationsTr extends AppLocalizations {
   String get gameDiscussionInfo => 'İkna etme zamanı.';
 
   @override
+  String get gameDiscussionChatHint =>
+      'Neden sığınağa seni almalılar? Sohbette anlat, kartlarını savun, diğerlerini ikna et.';
+
+  @override
+  String get gameDiscussionOpenChat => 'Sohbete yaz';
+
+  @override
+  String gameReadyLocked(int seconds) {
+    return 'Hazırım ($seconds)';
+  }
+
+  @override
   String gameReadyProgress(int done, int total) {
     return '$done/$total hazır';
   }

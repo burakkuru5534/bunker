@@ -25,6 +25,8 @@ class GameBody extends StatefulWidget {
     required this.myUserId,
     this.onAction,
     this.onPlayerMenu,
+    this.onOpenChat,
+    this.chatUnread = 0,
     this.online = true,
     this.clock = DateTime.now,
     super.key,
@@ -38,6 +40,12 @@ class GameBody extends StatefulWidget {
 
   /// Başka bir oyuncunun kutusuna dokunulunca (oylama hedefi değilse).
   final ValueChanged<Participant>? onPlayerMenu;
+
+  /// Oda sohbetini açar (`null` → sohbet düğmesi yok).
+  final VoidCallback? onOpenChat;
+
+  /// Okunmamış sohbet mesajı sayısı (düğmede rozet).
+  final int chatUnread;
 
   /// Bağlantı yokken eylem düğmeleri görünür ama devre dışıdır.
   final bool online;
@@ -53,6 +61,10 @@ class _GameBodyState extends State<GameBody> {
   /// "Kapı kapandı" gösterim süresi.
   static const doorClosedFor = Duration(seconds: 2);
 
+  /// Tartışma başladıktan sonra "Hazırım" bu süre kilitli kalır: oyuncular
+  /// önce sohbette kendini anlatsın (sunucu tartışması 90–120 sn).
+  static const readyLock = Duration(seconds: 20);
+
   bool _busy = false;
   bool _doorClosed = false;
   Timer? _doorTimer;
@@ -63,6 +75,11 @@ class _GameBodyState extends State<GameBody> {
   IntroTimeline? _introTimeline;
   double _introStartAt = 0;
   bool _introSkipped = false;
+
+  // Tartışma aşamasını bu cihazda ilk gördüğümüz an (tur başına).
+  int? _discussionRound;
+  int _lockSecondsLeft = 0;
+  Timer? _readyTicker;
 
   GameView get game => widget.game;
 
@@ -85,7 +102,30 @@ class _GameBodyState extends State<GameBody> {
   @override
   void dispose() {
     _doorTimer?.cancel();
+    _readyTicker?.cancel();
     super.dispose();
+  }
+
+  /// "Hazırım" kilidinin kalan süresi (kilit yoksa `null`). Saniyelik
+  /// zamanlayıcıyla geri sayar (tur başına bir kez başlar).
+  Duration? _readyLockLeft() {
+    if (game.phase != GamePhase.discussion) {
+      _discussionRound = null;
+      _readyTicker?.cancel();
+      _readyTicker = null;
+      return null;
+    }
+    if (_discussionRound != game.round) {
+      _discussionRound = game.round;
+      _lockSecondsLeft = readyLock.inSeconds;
+      _readyTicker?.cancel();
+      _readyTicker = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return;
+        setState(() => _lockSecondsLeft--);
+        if (_lockSecondsLeft <= 0) t.cancel();
+      });
+    }
+    return _lockSecondsLeft > 0 ? Duration(seconds: _lockSecondsLeft) : null;
   }
 
   void _showScenario() {
@@ -177,6 +217,7 @@ class _GameBodyState extends State<GameBody> {
         game.phase == GamePhase.dealing ||
         game.phase == GamePhase.scenarioIntro;
     final interactive = widget.onAction != null && !_busy && widget.online;
+    final readyLockLeft = _readyLockLeft();
     final voteTargets = interactive
         ? {for (final p in game.voteTargets(widget.myUserId)) p.userId}
         : const <String>{};
@@ -233,9 +274,16 @@ class _GameBodyState extends State<GameBody> {
               onReveal: (c) => unawaited(_reveal(c)),
               onReady: () => unawaited(_send(const DiscussionReady())),
               onTiebreak: (p) => unawaited(_vote(p, tiebreak: true)),
+              onOpenChat: spectator ? null : widget.onOpenChat,
+              readyLockLeft: readyLockLeft,
             ),
           ),
-        _BottomBar(cards: game.myCards),
+        _BottomBar(
+          cards: game.myCards,
+          onOpenChat: widget.onOpenChat,
+          chatUnread: widget.chatUnread,
+          highlightChat: game.phase == GamePhase.discussion && !spectator,
+        ),
       ],
     );
     return Stack(
@@ -286,11 +334,17 @@ class _ActionArea extends StatelessWidget {
     required this.onReveal,
     required this.onReady,
     required this.onTiebreak,
+    this.onOpenChat,
+    this.readyLockLeft,
   });
 
   final GameView game;
   final String? myUserId;
   final bool busy;
+  final VoidCallback? onOpenChat;
+
+  /// "Hazırım" kilidi kalan süre (`null` → açık).
+  final Duration? readyLockLeft;
 
   /// `false` → düğmeler görünür ama basılamaz (bağlantı yok).
   final bool enabled;
@@ -358,6 +412,8 @@ class _ActionArea extends StatelessWidget {
         }
       case GamePhase.discussion:
         title = l.gameDiscussionInfo;
+        final canReady = interactive && game.canDiscussionReady(myUserId);
+        if (canReady) details.add(text(l.gameDiscussionChatHint));
         details.add(
           text(
             l.gameReadyProgress(
@@ -366,15 +422,38 @@ class _ActionArea extends StatelessWidget {
             ),
           ),
         );
-        if (interactive && game.canDiscussionReady(myUserId)) {
+        if (canReady) {
+          final lock = readyLockLeft;
           details.add(
             Padding(
               padding: const EdgeInsets.only(top: AppSpacing.s3),
-              child: AppButton.primary(
-                label: l.gameReadyButton,
-                icon: Icons.check_rounded,
-                isLoading: busy,
-                onPressed: enabled ? onReady : null,
+              child: Row(
+                children: [
+                  if (onOpenChat != null) ...[
+                    Expanded(
+                      child: AppButton.primary(
+                        key: const ValueKey('discussion-chat'),
+                        label: l.gameDiscussionOpenChat,
+                        icon: Icons.forum_rounded,
+                        onPressed: onOpenChat,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s2),
+                  ],
+                  Expanded(
+                    child: AppButton.secondary(
+                      key: const ValueKey('discussion-ready'),
+                      label: lock == null
+                          ? l.gameReadyButton
+                          : l.gameReadyLocked(lock.inSeconds),
+                      icon: lock == null
+                          ? Icons.check_rounded
+                          : Icons.hourglass_top_rounded,
+                      isLoading: busy,
+                      onPressed: enabled && lock == null ? onReady : null,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -528,24 +607,70 @@ class _Bounded extends StatelessWidget {
 }
 
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.cards});
+  const _BottomBar({
+    required this.cards,
+    required this.onOpenChat,
+    required this.chatUnread,
+    required this.highlightChat,
+  });
 
   final List<MyCard> cards;
+  final VoidCallback? onOpenChat;
+  final int chatUnread;
+
+  /// Tartışmada sohbet öne çıkar (dolu düğme).
+  final bool highlightChat;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    // Öne çıkmayan düğmeler nötr; tartışmada yalnızca sohbet vurgulu.
+    final quiet = FilledButton.styleFrom(
+      backgroundColor: scheme.surfaceContainerHighest,
+      foregroundColor: scheme.onSurface,
+    );
+    final chatLabel = Text(l.chatOpen, overflow: TextOverflow.ellipsis);
+    final chatIcon = Badge(
+      isLabelVisible: chatUnread > 0,
+      label: Text('$chatUnread'),
+      child: const Icon(Icons.forum_rounded),
+    );
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.s3),
       child: Row(
         children: [
-          Flexible(
+          Expanded(
             child: FilledButton.tonalIcon(
+              key: const ValueKey('my-cards-button'),
+              style: quiet,
               onPressed: () => unawaited(showMyCardsSheet(context, cards)),
               icon: const Icon(Icons.style_rounded),
               label: Text(l.gameMyCards, overflow: TextOverflow.ellipsis),
             ),
           ),
+          if (onOpenChat != null) ...[
+            const SizedBox(width: AppSpacing.s2),
+            Expanded(
+              child: Semantics(
+                label: chatUnread > 0 ? l.chatUnread(chatUnread) : null,
+                child: highlightChat
+                    ? FilledButton.icon(
+                        key: const ValueKey('game-chat-button'),
+                        onPressed: onOpenChat,
+                        icon: chatIcon,
+                        label: chatLabel,
+                      )
+                    : FilledButton.tonalIcon(
+                        key: const ValueKey('game-chat-button'),
+                        style: quiet,
+                        onPressed: onOpenChat,
+                        icon: chatIcon,
+                        label: chatLabel,
+                      ),
+              ),
+            ),
+          ],
         ],
       ),
     );

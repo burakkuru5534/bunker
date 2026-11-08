@@ -708,11 +708,23 @@ void main() {
       await frames(tester);
     }
 
+    testWidgets('Oyunda sohbet Kartlarım yanında; çubukta değil', (
+      tester,
+    ) async {
+      await pump(tester);
+      await gameSnapshot(tester, 'DISCUSSION');
+      expect(find.byTooltip('Sohbet'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('discussion-chat')));
+      await frames(tester);
+      expect(find.byType(TextField), findsOneWidget); // sohbet paneli açık
+    });
+
     testWidgets('Bağlantı yokken eylemler kapalı; oyunda uyarı daha açık', (
       tester,
     ) async {
       await pump(tester);
       await gameSnapshot(tester, 'DISCUSSION');
+      await tester.pump(const Duration(seconds: 21)); // Hazırım kilidi
       VoidCallback? ready() => tester
           .widget<AppButton>(find.widgetWithText(AppButton, 'Hazırım'))
           .onPressed;
