@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:siginak/core/audio/sound.dart';
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
 import 'package:siginak/core/theme/app_typography.dart';
@@ -66,7 +67,7 @@ class _ScenarioCinematicState extends ConsumerState<ScenarioCinematic>
     );
     unawaited(_clock.forward());
     _audio = ref.read(introAudioFactoryProvider)()
-      ..setMuted(muted: ref.read(introMutedProvider));
+      ..setMuted(muted: ref.read(soundMutedProvider));
     unawaited(_audio.start(_tl, widget.startAt));
   }
 
@@ -97,10 +98,9 @@ class _ScenarioCinematicState extends ConsumerState<ScenarioCinematic>
   @override
   Widget build(BuildContext context) {
     ref.listen<bool>(
-      introMutedProvider,
+      soundMutedProvider,
       (_, muted) => _audio.setMuted(muted: muted),
     );
-    final muted = ref.watch(introMutedProvider);
     final l = context.l10n;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
@@ -127,18 +127,7 @@ class _ScenarioCinematicState extends ConsumerState<ScenarioCinematic>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      key: const ValueKey('intro-mute'),
-                      tooltip: muted ? l.gameIntroUnmute : l.gameIntroMute,
-                      color: Colors.white,
-                      onPressed: () =>
-                          ref.read(introMutedProvider.notifier).toggle(),
-                      icon: Icon(
-                        muted
-                            ? Icons.volume_off_rounded
-                            : Icons.volume_up_rounded,
-                      ),
-                    ),
+                    const SoundToggleButton(color: Colors.white),
                     TextButton(
                       key: const ValueKey('intro-skip'),
                       style: TextButton.styleFrom(

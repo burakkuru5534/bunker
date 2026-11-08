@@ -42,7 +42,7 @@ kartlarını açar, yazılı sohbette tartışır ve gizli oyla her turda bir oy
 - iOS mağaza yayını
 - Çoklu dil
 - Aksiyon kartları, puanlama
-- Oda sahibinin süreleri veya senaryoyu seçmesi
+- Oda sahibinin süreleri seçmesi (senaryo seçimi 2026-11-08'de kapsama alındı: lobide oda sahibi seçer, varsayılan rastgele)
 
 ## 4. Yazılı sohbet kuralları
 

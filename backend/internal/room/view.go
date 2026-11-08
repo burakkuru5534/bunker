@@ -20,6 +20,7 @@ type View struct {
 	Status        Status       `json:"status"`
 	HostUserID    string       `json:"host_user_id"`
 	Capacity      int          `json:"capacity"`
+	ScenarioID    *string      `json:"scenario_id"` // nil = rastgele
 	CurrentGameID *string      `json:"current_game_id"`
 	Version       int64        `json:"version"`
 	Members       []MemberView `json:"members"`
@@ -40,7 +41,7 @@ func NewView(r Room, presence Presence) View {
 		presence = NoPresence{}
 	}
 	v := View{ID: r.ID, InviteCode: r.InviteCode, Status: r.Status, HostUserID: r.HostUserID,
-		Capacity: r.Capacity, CurrentGameID: r.CurrentGameID, Version: r.Version, Members: []MemberView{}}
+		Capacity: r.Capacity, ScenarioID: r.ScenarioID, CurrentGameID: r.CurrentGameID, Version: r.Version, Members: []MemberView{}}
 	for _, m := range r.Active() {
 		v.Members = append(v.Members, MemberView{UserID: m.UserID, Nickname: m.Nickname, Role: m.Role,
 			IsReady: m.Ready, Connected: presence.Connected(m.UserID)})

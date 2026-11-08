@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -56,6 +57,11 @@ func (s *Starter) StartGame(ctx context.Context, tx pgx.Tx, in room.GameStart) (
 	nick := map[string]string{}
 	for i, m := range in.Players {
 		ids[i], nick[m.UserID] = m.UserID, m.Nickname
+	}
+	// Oda sahibinin seçtiği senaryo hâlâ aktifse o kullanılır; değilse
+	// (seçim yok ya da sonradan pasifleşti) rastgele.
+	if in.ScenarioID != nil && slices.Contains(cat.Scenarios, *in.ScenarioID) {
+		cat.Scenarios = []string{*in.ScenarioID}
 	}
 	deal, err := engine.DealGame(ids, cat, s.rng)
 	if errors.Is(err, engine.ErrCatalog) {

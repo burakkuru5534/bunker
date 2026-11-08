@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:siginak/core/audio/sound.dart';
 import 'package:siginak/core/error/error_messages.dart';
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/network/api_exception.dart';
@@ -14,6 +15,7 @@ import 'package:siginak/features/chat/chat.dart';
 import 'package:siginak/features/game/game.dart';
 import 'package:siginak/features/moderation/moderation.dart';
 import 'package:siginak/features/room/data/room_models.dart';
+import 'package:siginak/features/room/data/room_repository.dart';
 import 'package:siginak/features/room/presentation/connection_strip.dart';
 import 'package:siginak/features/room/presentation/lobby_view.dart';
 import 'package:siginak/features/room/presentation/room_controller.dart';
@@ -169,14 +171,20 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       body = LoadingView(message: l.roomConnecting);
     } else {
       body = switch (room.status) {
-        RoomStatus.lobby => LobbyView(
-          state: state,
-          onReady: (ready) => _run(() => _controller.setReady(ready: ready)),
-          onCapacity: (c) => _run(() => _controller.setCapacity(c)),
-          onKick: (userId) => _run(() => _controller.kick(userId)),
-          onStart: () => _run(_controller.start),
-          onMemberMenu: (m) => _playerMenu(m.userId, m.nickname),
-          online: online,
+        RoomStatus.lobby => LoopingMusicScope(
+          factory: lobbyMusicFactoryProvider,
+          child: LobbyView(
+            state: state,
+            onReady: (ready) => _run(() => _controller.setReady(ready: ready)),
+            onCapacity: (c) => _run(() => _controller.setCapacity(c)),
+            scenarios: ref.watch(scenarioOptionsProvider),
+            onScenario: (id) => _run(() => _controller.setScenario(id)),
+            onRetryScenarios: () => ref.invalidate(scenarioOptionsProvider),
+            onKick: (userId) => _run(() => _controller.kick(userId)),
+            onStart: () => _run(_controller.start),
+            onMemberMenu: (m) => _playerMenu(m.userId, m.nickname),
+            online: online,
+          ),
         ),
         RoomStatus.inGame when state.game != null => GameBody(
           game: state.game!,
@@ -207,6 +215,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
             room?.status == RoomStatus.inGame ? l.gameTitle : l.roomLobbyTitle,
           ),
           actions: [
+            if (room?.status == RoomStatus.lobby) const SoundToggleButton(),
             if (room != null)
               _ChatButton(
                 unread: state.chat.unreadFor(state.myUserId),

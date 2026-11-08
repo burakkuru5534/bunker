@@ -338,6 +338,25 @@ class AppLocalizationsTr extends AppLocalizations {
   String get roomCapacityHelp => 'Oyun sonunda sığınağa girecek kişi sayısı';
 
   @override
+  String get roomScenario => 'Felaket senaryosu';
+
+  @override
+  String get roomScenarioHelp =>
+      'Oda sahibi seçer. Seçilmezse her oyunda rastgele gelir.';
+
+  @override
+  String get roomScenarioRandom => 'Rastgele';
+
+  @override
+  String get roomScenarioChoose => 'Senaryo seç';
+
+  @override
+  String get roomScenarioLoading => 'Senaryolar yükleniyor…';
+
+  @override
+  String get roomScenarioLoadFailed => 'Senaryolar yüklenemedi.';
+
+  @override
   String roomCapacityValue(int count) {
     return '$count kişi';
   }

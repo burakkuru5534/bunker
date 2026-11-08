@@ -1,6 +1,7 @@
 package room
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -232,5 +233,42 @@ func TestRematch(t *testing.T) {
 	}
 	if code(Rematch(f, "u2")) != apperr.Forbidden || code(Rematch(lobby(4), "u1")) != apperr.InvalidPhase {
 		t.Fatal("tekrar oyna kuralları")
+	}
+}
+
+func TestChangeSettings(t *testing.T) {
+	meteor, cough := "meteor", "red_cough"
+	ms := []Member{member("h", "H", RolePlayer, false, 0), member("x", "X", RolePlayer, false, 1)}
+	lobby := Room{HostUserID: "h", Capacity: 2, Status: StatusLobby, ScenarioID: &meteor, Members: ms}
+	one, three := 1, 3
+	for name, c := range map[string]struct {
+		r       Room
+		actor   string
+		ch      SettingsChange
+		changed bool
+		code    apperr.Code
+	}{
+		"boş":              {lobby, "h", SettingsChange{}, false, apperr.ValidationFailed},
+		"kapasite 3":       {lobby, "h", SettingsChange{Capacity: &three}, false, apperr.ValidationFailed},
+		"oda sahibi değil": {lobby, "x", SettingsChange{Capacity: &one}, false, apperr.Forbidden},
+		"lobi değil":       {Room{HostUserID: "h", Capacity: 2, Status: StatusInGame, Members: ms}, "h", SettingsChange{Capacity: &one}, false, apperr.InvalidPhase},
+		"kapasite değişti": {lobby, "h", SettingsChange{Capacity: &one}, true, ""},
+		"aynı senaryo":     {lobby, "h", SettingsChange{Scenario: &ScenarioChoice{ID: &meteor}}, false, ""},
+		"başka senaryo":    {lobby, "h", SettingsChange{Scenario: &ScenarioChoice{ID: &cough}}, true, ""},
+		"rastgeleye":       {lobby, "h", SettingsChange{Scenario: &ScenarioChoice{}}, true, ""},
+		"rastgele zaten":   {Room{HostUserID: "h", Capacity: 2, Status: StatusLobby, Members: ms}, "h", SettingsChange{Scenario: &ScenarioChoice{}}, false, ""},
+		"rastgeleden seç":  {Room{HostUserID: "h", Capacity: 2, Status: StatusLobby, Members: ms}, "h", SettingsChange{Scenario: &ScenarioChoice{ID: &cough}}, true, ""},
+	} {
+		changed, err := ChangeSettings(c.r, c.actor, c.ch)
+		if c.code != "" {
+			var ae *apperr.Error
+			if !errors.As(err, &ae) || ae.Code != c.code {
+				t.Errorf("%s: hata %v, beklenen %s", name, err, c.code)
+			}
+			continue
+		}
+		if err != nil || changed != c.changed {
+			t.Errorf("%s: changed=%v err=%v", name, changed, err)
+		}
 	}
 }

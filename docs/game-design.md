@@ -118,7 +118,7 @@ MVP dışı: aksiyon kartları, biyografi kartları (yaş/cinsiyet), sayısal pu
 
 ## 7. Senaryolar (GAME-005)
 
-- Her oyunda **rastgele** seçilir; oda sahibi seçemez.
+- Oda sahibi lobide seçebilir (2026-11-08); seçmezse her oyunda **rastgele**. Seçim odada kalır ("Tekrar oyna" sonrasında da); seçilen senaryo sonradan pasifleşirse başlatma rastgeleye düşer.
 - Senaryonun **mekanik etkisi yoktur**; tartışmanın zeminini oluşturur.
 - Gerçek ve yakın tarihli felaketler (deprem, sel, yangın) kullanılmaz.
 - Yapı: başlık, felaket (2–3 cümle), kalış süresi, sığınak özellikleri (3 madde), dış dünya.

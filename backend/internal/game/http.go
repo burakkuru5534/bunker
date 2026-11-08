@@ -22,6 +22,19 @@ func NewHTTP(svc *Service, require func(http.Handler) http.Handler) *HTTP {
 func (h *HTTP) Register(mux *http.ServeMux) {
 	mux.Handle("POST /v1/games/{gameId}/actions", h.require(httpapi.Handle(h.act)))
 	mux.Handle("GET /v1/games/{gameId}/result", h.require(httpapi.Handle(h.result)))
+	mux.Handle("GET /v1/scenarios", h.require(httpapi.Handle(h.scenarios)))
+}
+
+// GET /v1/scenarios → 200 {"scenarios": [{"id","title"}]} (lobideki seçim listesi)
+func (h *HTTP) scenarios(w http.ResponseWriter, r *http.Request) error {
+	list, err := h.svc.Scenarios(r.Context())
+	if err != nil {
+		return err
+	}
+	// Katalog yalnızca migration ile değişir; istemci kısa süre önbelleğe alabilir.
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"scenarios": list})
+	return nil
 }
 
 // POST /v1/games/{gameId}/actions {"action_id","type","payload"} → 200 {"state_version","duplicate"}

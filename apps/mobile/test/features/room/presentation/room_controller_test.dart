@@ -100,7 +100,7 @@ void main() {
       ..serverSend(
         'room.settings_changed',
         stateVersion: 8,
-        payload: {'capacity': 1},
+        payload: {'capacity': 1, 'scenario_id': 'meteor'},
       );
     await flush();
 
@@ -108,7 +108,26 @@ void main() {
     expect(room.members.map((m) => m.userId), ['u1', 'u2', 'u3']);
     expect(room.memberOf('u1')!.isReady, isTrue);
     expect(room.capacity, 1);
+    expect(room.scenarioId, 'meteor');
     expect(room.version, 8);
+
+    // Alan yoksa (eski sunucu) seçim korunur; null → rastgele.
+    ws.last.serverSend(
+      'room.settings_changed',
+      stateVersion: 9,
+      payload: {'capacity': 2},
+    );
+    await flush();
+    expect(read().room!.scenarioId, 'meteor');
+    expect(read().room!.capacity, 2);
+    ws.last.serverSend(
+      'room.settings_changed',
+      stateVersion: 10,
+      payload: {'capacity': 2, 'scenario_id': null},
+    );
+    await flush();
+    expect(read().room!.scenarioId, isNull);
+    expect(read().room!.version, 10);
   });
 
   test('sahip ayrılınca member_left + host_changed (aynı sürüm)', () async {
@@ -349,12 +368,16 @@ void main() {
 
     await ctrl.setReady(ready: true);
     await ctrl.setCapacity(1);
+    await ctrl.setScenario('meteor');
+    await ctrl.setScenario(null);
     await ctrl.kick('u2');
     await ctrl.start();
 
     expect(routes, [
       'POST /v1/rooms/$roomId/ready {"ready":true}',
       'PATCH settings {"capacity":1}',
+      'PATCH settings {"scenario_id":"meteor"}',
+      'PATCH settings {"scenario_id":null}',
       'POST /v1/rooms/$roomId/kick {"user_id":"u2"}',
       'POST /v1/rooms/$roomId/start null',
     ]);

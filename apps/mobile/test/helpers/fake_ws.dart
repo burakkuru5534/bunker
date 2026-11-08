@@ -97,6 +97,7 @@ Map<String, Object?> snapshotPayload({
   int capacity = 2,
   int version = 1,
   String inviteCode = 'K7M2QX',
+  String? scenarioId,
   Map<String, Object?>? game,
 }) => {
   'server_time': '2026-11-04T10:00:00Z',
@@ -107,6 +108,7 @@ Map<String, Object?> snapshotPayload({
     'status': status,
     'host_user_id': host ?? members.first['user_id'],
     'capacity': capacity,
+    'scenario_id': scenarioId,
     'current_game_id': null,
     'version': version,
     'members': members,

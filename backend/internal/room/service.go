@@ -371,16 +371,37 @@ func (s *Service) SetReady(ctx context.Context, p auth.Principal, roomID string,
 
 // ChangeCapacity, oda sahibinin kapasiteyi değiştirmesidir (ROOM-008).
 func (s *Service) ChangeCapacity(ctx context.Context, p auth.Principal, roomID string, capacity int) (View, error) {
+	return s.ChangeSettings(ctx, p, roomID, SettingsChange{Capacity: &capacity})
+}
+
+// ChangeSettings, oda sahibinin lobi ayarlarını (kapasite, senaryo)
+// değiştirmesidir. Olay her zaman ayarların tamamını taşır.
+func (s *Service) ChangeSettings(ctx context.Context, p auth.Principal, roomID string, c SettingsChange) (View, error) {
 	r, err := s.mutate(ctx, p, roomID, func(tx pgx.Tx, r *Room) (change, error) {
-		changed, err := ChangeCapacity(*r, p.UserID, capacity)
+		changed, err := ChangeSettings(*r, p.UserID, c)
 		if err != nil || !changed {
 			return change{}, err
 		}
-		if err := setCapacity(ctx, tx, r.ID, capacity); err != nil {
+		if c.Scenario != nil && c.Scenario.ID != nil {
+			ok, err := activeScenario(ctx, tx, *c.Scenario.ID)
+			if err != nil {
+				return change{}, err
+			}
+			if !ok {
+				return change{}, apperr.Field("scenario_id", apperr.FieldNotAllowed)
+			}
+		}
+		if c.Capacity != nil {
+			r.Capacity = *c.Capacity
+		}
+		if c.Scenario != nil {
+			r.ScenarioID = c.Scenario.ID
+		}
+		if err := setSettings(ctx, tx, r.ID, r.Capacity, r.ScenarioID); err != nil {
 			return change{}, err
 		}
-		r.Capacity = capacity
-		return change{events: []Event{{Type: EventSettingsChanged, Payload: map[string]any{"capacity": capacity}}}}, nil
+		return change{events: []Event{{Type: EventSettingsChanged,
+			Payload: map[string]any{"capacity": r.Capacity, "scenario_id": r.ScenarioID}}}}, nil
 	})
 	if err != nil {
 		return View{}, err

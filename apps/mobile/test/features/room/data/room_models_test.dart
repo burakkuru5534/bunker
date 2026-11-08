@@ -37,6 +37,11 @@ void main() {
     expect(room.capacity, 1);
     expect(room.version, 7);
     expect(room.currentGameId, isNull);
+    expect(room.scenarioId, isNull); // alan yok → rastgele
+    expect(
+      RoomView.fromJson({...roomJson(), 'scenario_id': 'meteor'}).scenarioId,
+      'meteor',
+    );
     expect(room.members, hasLength(2));
     expect(room.members[0].isReady, isTrue);
     expect(room.members[1].role, MemberRole.spectator);
@@ -49,6 +54,7 @@ void main() {
       {...roomJson(), 'capacity': '2'},
       {...roomJson(), 'members': null},
       {...roomJson(), 'current_game_id': 5},
+      {...roomJson(), 'scenario_id': 7},
       {
         ...roomJson(),
         'members': [
@@ -67,6 +73,39 @@ void main() {
           ),
         ),
         reason: '$json',
+      );
+    }
+  });
+
+  test('ScenarioOption listesi çözülür; bozuksa invalidResponse', () {
+    final list = ScenarioOption.listFromJson({
+      'scenarios': [
+        {'id': 'meteor', 'title': 'Göktaşı'},
+        {'id': 'red_cough', 'title': 'Kızıl Öksürük'},
+      ],
+    });
+    expect(list, const [
+      ScenarioOption(id: 'meteor', title: 'Göktaşı'),
+      ScenarioOption(id: 'red_cough', title: 'Kızıl Öksürük'),
+    ]);
+    for (final bad in <Object?>[
+      null,
+      {'scenarios': null},
+      {
+        'scenarios': [
+          {'id': 'x'},
+        ],
+      },
+    ]) {
+      expect(
+        () => ScenarioOption.listFromJson(bad),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.kind,
+            'kind',
+            ApiErrorKind.invalidResponse,
+          ),
+        ),
       );
     }
   });

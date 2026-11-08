@@ -19,16 +19,6 @@ abstract class IntroAudio {
   Future<void> dispose();
 }
 
-/// Ses kapalı mı? Uygulama açık kaldıkça hatırlanır.
-final introMutedProvider = NotifierProvider<IntroMuted, bool>(IntroMuted.new);
-
-class IntroMuted extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void toggle() => state = !state;
-}
-
 /// Her tanıtım için yeni ses örneği üretir (testlerde sahtesiyle değişir).
 final introAudioFactoryProvider = Provider<IntroAudio Function()>(
   (ref) => JustAudioIntroAudio.new,

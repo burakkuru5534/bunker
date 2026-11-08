@@ -184,3 +184,14 @@ func (s *Service) Result(ctx context.Context, p auth.Principal, gameID string) (
 	})
 	return r, err
 }
+
+// Scenarios, aktif senaryoların seçim listesidir (lobide oda sahibi seçer).
+func (s *Service) Scenarios(ctx context.Context) ([]ScenarioOption, error) {
+	var out []ScenarioOption
+	err := s.db.Read(ctx, func(q persistence.Querier) error {
+		var err error
+		out, err = loadScenarioOptions(ctx, q)
+		return err
+	})
+	return out, err
+}

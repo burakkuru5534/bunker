@@ -57,6 +57,7 @@ type Room struct {
 	InviteCode    string
 	HostUserID    string
 	Capacity      int
+	ScenarioID    *string // lobide seçilen senaryo; nil = rastgele
 	Status        Status
 	CurrentGameID *string
 	Version       int64
@@ -230,9 +231,26 @@ func SetReady(r Room, userID string, ready bool) (changed bool, err error) {
 	return m.Ready != ready, nil
 }
 
-// ChangeCapacity, oda sahibinin kapasiteyi (1 veya 2) değiştirmesine karar verir.
-func ChangeCapacity(r Room, actorID string, capacity int) (changed bool, err error) {
-	if capacity != 1 && capacity != 2 {
+// SettingsChange, lobi ayarlarında istenen değişikliktir; nil alan
+// değişmez. Scenario verilmişse ID nil → rastgele.
+type SettingsChange struct {
+	Capacity *int
+	Scenario *ScenarioChoice
+}
+
+// ScenarioChoice, oda sahibinin senaryo seçimidir (nil ID = rastgele).
+type ScenarioChoice struct {
+	ID *string
+}
+
+// ChangeSettings, oda sahibinin lobi ayarlarını (kapasite 1 veya 2, senaryo)
+// değiştirmesine karar verir. Senaryonun katalogda aktif olduğunu servis
+// denetler (veritabanı gerekir).
+func ChangeSettings(r Room, actorID string, c SettingsChange) (changed bool, err error) {
+	if c.Capacity == nil && c.Scenario == nil {
+		return false, apperr.Field("capacity", apperr.FieldRequired)
+	}
+	if c.Capacity != nil && *c.Capacity != 1 && *c.Capacity != 2 {
 		return false, apperr.Field("capacity", apperr.FieldNotAllowed)
 	}
 	if err := requireHost(r, actorID); err != nil {
@@ -241,7 +259,25 @@ func ChangeCapacity(r Room, actorID string, capacity int) (changed bool, err err
 	if err := requireLobby(r); err != nil {
 		return false, err
 	}
-	return r.Capacity != capacity, nil
+	if c.Capacity != nil && *c.Capacity != r.Capacity {
+		changed = true
+	}
+	if c.Scenario != nil && !sameScenario(c.Scenario.ID, r.ScenarioID) {
+		changed = true
+	}
+	return changed, nil
+}
+
+// ChangeCapacity, yalnızca kapasite değişikliğidir.
+func ChangeCapacity(r Room, actorID string, capacity int) (bool, error) {
+	return ChangeSettings(r, actorID, SettingsChange{Capacity: &capacity})
+}
+
+func sameScenario(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // Kick, oda sahibinin bir üyeyi lobiden atmasına karar verir. Atılan aynı

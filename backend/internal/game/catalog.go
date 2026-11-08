@@ -3,6 +3,8 @@ package game
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/burakkuru5534/bunker/backend/internal/game/engine"
 	"github.com/burakkuru5534/bunker/backend/internal/persistence"
 )
@@ -55,6 +57,25 @@ type Scenario struct {
 	Duration string   `json:"duration"`
 	Bunker   []string `json:"bunker"`
 	Outside  string   `json:"outside"`
+}
+
+// ScenarioOption, lobideki senaryo seçimi listesinin bir satırıdır.
+type ScenarioOption struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// loadScenarioOptions, aktif senaryoları başlığa göre sıralı döndürür.
+func loadScenarioOptions(ctx context.Context, q persistence.Querier) ([]ScenarioOption, error) {
+	rows, err := q.Query(ctx, `select id, title from scenarios where active order by title collate "C", id`)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (ScenarioOption, error) {
+		var o ScenarioOption
+		err := row.Scan(&o.ID, &o.Title)
+		return o, err
+	})
 }
 
 func loadScenario(ctx context.Context, q persistence.Querier, id string) (Scenario, error) {

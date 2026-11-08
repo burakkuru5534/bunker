@@ -157,6 +157,7 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
   "status": "lobby | in_game | finished",
   "host_user_id": "uuid",
   "capacity": 2,
+  "scenario_id": "meteor | null",
   "current_game_id": "uuid | null",
   "version": 0,
   "members": [
@@ -173,7 +174,8 @@ Uygulama açılışında aktif odaya geri dönmek için kullanılır.
 | GET | `/v1/rooms/{roomId}` | — | Aktif üye | `200 RoomView` | `NOT_FOUND` (üye olmayan, olmayan oda ve bozuk kimlik aynı yanıtı alır; varlık sızdırılmaz) |
 | POST | `/v1/rooms/{roomId}/leave` | — | Üye | `204` | — (**idempotent**: üye olmayan, zaten ayrılmış veya olmayan oda da `204`, değişiklik yok) |
 | POST | `/v1/rooms/{roomId}/ready` | `{ "ready": true }` | Oyuncu, `lobby` | `204` (aynı değer: değişiklik/olay yok) | `INVALID_PHASE`, `FORBIDDEN` (izleyici) |
-| PATCH | `/v1/rooms/{roomId}/settings` | `{ "capacity": 1 }` | Oda sahibi, `lobby` | `200 RoomView` (aynı değer: değişiklik/olay yok) | `FORBIDDEN`, `INVALID_PHASE`, `VALIDATION_FAILED` |
+| PATCH | `/v1/rooms/{roomId}/settings` | `{ "capacity": 1, "scenario_id": "meteor" }` — iki alan da isteğe bağlı (en az biri); verilmeyen değişmez; `"scenario_id": null` = rastgele | Oda sahibi, `lobby` | `200 RoomView` (aynı değer: değişiklik/olay yok) | `FORBIDDEN`, `INVALID_PHASE`, `VALIDATION_FAILED` (`fields.capacity = required` (ikisi de yok) / `not_allowed`; `fields.scenario_id = not_allowed` (katalogda yok ya da pasif) / `invalid_type`) |
+| GET | `/v1/scenarios` | — | Oturum | `200 { "scenarios": [ { "id", "title" } ] }` — aktif senaryolar, başlığa göre; `Cache-Control: private, max-age=300` | — |
 | POST | `/v1/rooms/{roomId}/kick` | `{ "user_id": "uuid" }` | Oda sahibi, `lobby` | `204` | `FORBIDDEN`, `INVALID_PHASE`, `NOT_FOUND` (hedef aktif üye değil), `VALIDATION_FAILED` (kendini / bozuk kimlik) |
 | POST | `/v1/rooms/{roomId}/start` | — | Oda sahibi, `lobby`, 4–10 oyuncu, herkes hazır | `201 { "game_id" }` | `START_CONDITIONS_NOT_MET` |
 | POST | `/v1/rooms/{roomId}/rematch` | — | Oda sahibi, `finished` | `200 RoomView` (`lobby`, hazırlar sıfırlanır) | `FORBIDDEN`, `INVALID_PHASE` |
@@ -366,7 +368,7 @@ Yanıt: yeni `session.snapshot`. Başka mesaj kabul edilmez (gelirse yok sayıl�
 | `room.member_left` | `{ "user_id" }` |
 | `room.member_kicked` | `{ "user_id" }` (atılan kullanıcıya ayrıca 4003 ile kapanış) |
 | `room.ready_changed` | `{ "user_id", "is_ready" }` |
-| `room.settings_changed` | `{ "capacity" }` |
+| `room.settings_changed` | `{ "capacity", "scenario_id" }` (ayarların tamamı; `scenario_id` null = rastgele) |
 | `room.host_changed` | `{ "host_user_id" }` |
 | `room.returned_to_lobby` | `{ "room": RoomView }` |
 | `chat.message` | `{ "id", "user_id", "nickname", "text", "created_at" }` — engelleyen alıcılara gönderilmez |

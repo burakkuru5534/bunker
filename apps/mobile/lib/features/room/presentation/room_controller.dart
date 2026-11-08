@@ -193,6 +193,9 @@ class RoomController extends Notifier<RoomState> {
 
   Future<void> setCapacity(int capacity) => _repo.setCapacity(roomId, capacity);
 
+  Future<void> setScenario(String? scenarioId) =>
+      _repo.setScenario(roomId, scenarioId);
+
   Future<void> kick(String userId) => _repo.kick(roomId, userId);
 
   Future<void> start() => _repo.start(roomId);
@@ -436,7 +439,15 @@ class RoomController extends Notifier<RoomState> {
       case 'room.settings_changed':
         final capacity = p['capacity'];
         if (capacity is! int) return;
-        next = room.copyWith(capacity: capacity);
+        final scenario = p['scenario_id'];
+        if (scenario != null && scenario is! String) return;
+        next = room.copyWith(
+          capacity: capacity,
+          // Eski sunucu alanı göndermezse seçim korunur.
+          scenarioId: p.containsKey('scenario_id')
+              ? () => scenario as String?
+              : null,
+        );
       case 'room.host_changed':
         final host = p['host_user_id'];
         if (host is! String) return;

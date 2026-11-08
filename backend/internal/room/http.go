@@ -1,6 +1,7 @@
 package room
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -76,19 +77,28 @@ func (h *HTTP) ready(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// PATCH /v1/rooms/{roomId}/settings {"capacity": 1} → 200 RoomView
+// PATCH /v1/rooms/{roomId}/settings {"capacity": 1, "scenario_id": "meteor" | null} → 200 RoomView
+//
+// Alanların ikisi de isteğe bağlıdır (en az biri gerekir); verilmeyen alan
+// değişmez. "scenario_id": null rastgele demektir.
 func (h *HTTP) settings(w http.ResponseWriter, r *http.Request) error {
 	var req struct {
-		Capacity *int `json:"capacity"`
+		Capacity   *int            `json:"capacity"`
+		ScenarioID json.RawMessage `json:"scenario_id"`
 	}
 	if err := httpapi.DecodeJSON(r, &req); err != nil {
 		return err
 	}
-	if req.Capacity == nil {
-		return apperr.Field("capacity", apperr.FieldRequired)
+	c := SettingsChange{Capacity: req.Capacity}
+	if len(req.ScenarioID) > 0 {
+		var id *string
+		if err := json.Unmarshal(req.ScenarioID, &id); err != nil {
+			return apperr.Field("scenario_id", apperr.FieldInvalidType)
+		}
+		c.Scenario = &ScenarioChoice{ID: id}
 	}
 	p, _ := auth.PrincipalFrom(r.Context())
-	view, err := h.svc.ChangeCapacity(r.Context(), p, r.PathValue("roomId"), *req.Capacity)
+	view, err := h.svc.ChangeSettings(r.Context(), p, r.PathValue("roomId"), c)
 	if err != nil {
 		return err
 	}

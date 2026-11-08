@@ -72,6 +72,7 @@ class RoomView {
     required this.currentGameId,
     required this.version,
     required this.members,
+    this.scenarioId,
   });
 
   final String id;
@@ -79,6 +80,9 @@ class RoomView {
   final RoomStatus status;
   final String hostUserId;
   final int capacity;
+
+  /// Oda sahibinin lobide seçtiği senaryo; `null` = rastgele.
+  final String? scenarioId;
   final String? currentGameId;
 
   /// Lobi olaylarının sürümü (WS `state_version` ile aynı sayaç).
@@ -102,6 +106,7 @@ class RoomView {
     RoomStatus? status,
     String? hostUserId,
     int? capacity,
+    String? Function()? scenarioId,
     String? Function()? currentGameId,
     int? version,
     List<RoomMember>? members,
@@ -111,6 +116,7 @@ class RoomView {
     status: status ?? this.status,
     hostUserId: hostUserId ?? this.hostUserId,
     capacity: capacity ?? this.capacity,
+    scenarioId: scenarioId != null ? scenarioId() : this.scenarioId,
     currentGameId: currentGameId != null ? currentGameId() : this.currentGameId,
     version: version ?? this.version,
     members: members != null ? List.unmodifiable(members) : this.members,
@@ -123,6 +129,8 @@ class RoomView {
     if (members is! List<Object?>) throw _invalid('members');
     final game = m['current_game_id'];
     if (game != null && game is! String) throw _invalid('current_game_id');
+    final scenario = m['scenario_id'];
+    if (scenario != null && scenario is! String) throw _invalid('scenario_id');
     return RoomView(
       id: _string(m, 'id'),
       inviteCode: _string(m, 'invite_code'),
@@ -134,11 +142,40 @@ class RoomView {
       },
       hostUserId: _string(m, 'host_user_id'),
       capacity: _int(m, 'capacity'),
+      scenarioId: scenario as String?,
       currentGameId: game as String?,
       version: _int(m, 'version'),
       members: List.unmodifiable(members.map(RoomMember.fromJson)),
     );
   }
+}
+
+/// Lobideki senaryo seçeneği (`GET /v1/scenarios`).
+@immutable
+class ScenarioOption {
+  const ScenarioOption({required this.id, required this.title});
+
+  final String id;
+  final String title;
+
+  static List<ScenarioOption> listFromJson(Object? json) {
+    final m = _map(json);
+    final list = m['scenarios'];
+    if (list is! List<Object?>) throw _invalid('scenarios');
+    return List.unmodifiable(
+      list.map((e) {
+        final o = _map(e);
+        return ScenarioOption(id: _string(o, 'id'), title: _string(o, 'title'));
+      }),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ScenarioOption && other.id == id && other.title == title;
+
+  @override
+  int get hashCode => Object.hash(id, title);
 }
 
 Map<String, Object?> _map(Object? v) {

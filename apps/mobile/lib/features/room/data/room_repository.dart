@@ -36,6 +36,19 @@ class RoomRepository {
         ),
       );
 
+  /// Senaryo seçimi (oda sahibi, lobide); `null` = rastgele.
+  Future<RoomView> setScenario(String roomId, String? scenarioId) async =>
+      RoomView.fromJson(
+        await _api.patch(
+          '/v1/rooms/$roomId/settings',
+          body: {'scenario_id': scenarioId},
+        ),
+      );
+
+  /// Seçilebilir senaryolar (aktif katalog).
+  Future<List<ScenarioOption>> scenarios() async =>
+      ScenarioOption.listFromJson(await _api.get('/v1/scenarios'));
+
   /// Üyeyi odadan atar (oda sahibi, lobide).
   Future<void> kick(String roomId, String userId) async {
     await _api.post('/v1/rooms/$roomId/kick', body: {'user_id': userId});
@@ -58,4 +71,10 @@ class RoomRepository {
 
 final roomRepositoryProvider = Provider<RoomRepository>(
   (ref) => RoomRepository(ref.watch(apiClientProvider)),
+);
+
+/// Lobideki senaryo listesi (oturum boyunca bir kez yüklenir; hata olursa
+/// yeniden denenir).
+final scenarioOptionsProvider = FutureProvider<List<ScenarioOption>>(
+  (ref) => ref.watch(roomRepositoryProvider).scenarios(),
 );

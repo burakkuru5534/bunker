@@ -282,7 +282,7 @@ void main() {
 
     testWidgets('ses düğmesi sessize alır ve geri açar', (tester) async {
       await pump(tester, game(phase: 'SCENARIO_INTRO', turn: null));
-      final mute = find.byKey(const ValueKey('intro-mute'));
+      final mute = find.byKey(const ValueKey('sound-toggle'));
       expect(find.byTooltip('Sesi kapat'), findsOneWidget);
 
       await tester.tap(mute);

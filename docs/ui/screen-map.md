@@ -73,6 +73,8 @@ Tüm görünümlerde ortak:
 #### a) Lobi görünümü
 - Davet kodu (büyük) + **Kopyala** düğmesi.
 - Kapasite seçici (1 / 2) — yalnızca oda sahibi değiştirebilir, diğerleri görür.
+- Felaket senaryosu kartı — oda sahibi alt pencereden "Rastgele" veya bir senaryo seçer; diğerleri seçimi görür. Liste yüklenemezse oda sahibine "Tekrar dene".
+- Lobi müziği (döngü, kısık) — çubuktaki ses düğmesiyle kapatılır; uygulama arka plandayken durur, oyun başlayınca biter.
 - Oyuncu listesi (4–10): avatar, takma ad, hazır işareti, oda sahibi tacı, bağlantı durumu. Oda sahibinde her satırda "At" menüsü.
 - **Hazırım** anahtarı.
 - Oda sahibinde **Başlat** (4–10 oyuncu ve herkes hazırsa etkin; değilse nedeni yazılı).

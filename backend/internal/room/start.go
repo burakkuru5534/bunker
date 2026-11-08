@@ -26,9 +26,10 @@ type GameStarter interface {
 
 // GameStart, başlatılacak oyunun oda tarafındaki girdisidir.
 type GameStart struct {
-	RoomID   string
-	Capacity int
-	Players  []Member // katılma sırasıyla; koltukları oyun modülü karıştırır
+	RoomID     string
+	Capacity   int
+	ScenarioID *string  // oda sahibinin seçimi; nil = rastgele
+	Players    []Member // katılma sırasıyla; koltukları oyun modülü karıştırır
 }
 
 // GameStarted, kurulan oyun ve commit sonrası yayınlanacak olaylardır.
@@ -61,7 +62,7 @@ func (s *Service) Start(ctx context.Context, p auth.Principal, roomID string) (s
 		if s.games == nil {
 			return change{}, errNoGames
 		}
-		started, err := s.games.StartGame(ctx, tx, GameStart{RoomID: r.ID, Capacity: r.Capacity, Players: r.Players()})
+		started, err := s.games.StartGame(ctx, tx, GameStart{RoomID: r.ID, Capacity: r.Capacity, ScenarioID: r.ScenarioID, Players: r.Players()})
 		if err != nil {
 			return change{}, err
 		}

@@ -16,6 +16,7 @@ import 'package:siginak/features/session/session.dart';
 import '../../../helpers/chat.dart';
 import '../../../helpers/fake_backend.dart';
 import '../../../helpers/fake_http_adapter.dart';
+import '../../../helpers/fake_intro_audio.dart';
 import '../../../helpers/fake_ws.dart';
 import '../../../helpers/pump_app.dart';
 import '../../../helpers/small_screen.dart';
@@ -26,8 +27,14 @@ void main() {
   late FakeWsConnector ws;
   late int exits;
   late List<String> requests;
+  late List<FakeLoopingMusic> music;
+  late bool scenariosFail;
+  late int scenarioCalls;
 
   setUp(() {
+    music = [];
+    scenariosFail = false;
+    scenarioCalls = 0;
     backend = FakeBackend()..activeRoomId = roomId;
     ws = FakeWsConnector();
     exits = 0;
@@ -43,6 +50,16 @@ void main() {
         return ResponseBodyNoContent.value;
       });
     }
+    backend.on('GET', '/v1/scenarios', (r) async {
+      scenarioCalls++;
+      if (scenariosFail) return jsonResponse(apiError('INTERNAL'), 500);
+      return jsonOk({
+        'scenarios': [
+          {'id': 'meteor', 'title': 'Göktaşı'},
+          {'id': 'nuclear_winter', 'title': 'Nükleer Kış'},
+        ],
+      });
+    });
     backend.on('PATCH', '/v1/rooms/$roomId/settings', (r) async {
       requests.add('settings ${jsonEncode(r.data)}');
       return jsonOk(
@@ -80,6 +97,7 @@ void main() {
       tester,
       RoomScreen(roomId: roomId, onExit: () => exits++),
       secureStore: store,
+      lobbyMusic: () => FakeLoopingMusic(music),
       overrides: [
         apiHttpAdapterProvider.overrideWithValue(backend.adapter),
         wsConnectorProvider.overrideWithValue(ws.call),
@@ -95,6 +113,7 @@ void main() {
     List<Map<String, Object?>>? members,
     String host = 'u-guest',
     int capacity = 2,
+    String? scenarioId,
   }) async {
     ws.last.serverSend(
       'session.snapshot',
@@ -103,6 +122,7 @@ void main() {
         me: 'u-guest',
         host: host,
         capacity: capacity,
+        scenarioId: scenarioId,
         version: 5,
         members:
             members ??
@@ -244,6 +264,122 @@ void main() {
     await frames(tester);
 
     expect(requests, ['settings {"capacity":1}']);
+  });
+
+  group('Senaryo seçimi', () {
+    final picker = find.byKey(const ValueKey('scenario-picker'));
+
+    testWidgets('sahip listeden seçer; olayla güncellenir', (tester) async {
+      await pump(tester);
+      await snapshot(tester);
+      expect(find.text('Felaket senaryosu'), findsOneWidget);
+      expect(
+        find.descendant(of: picker, matching: find.text('Rastgele')),
+        findsOneWidget,
+      );
+
+      await tester.tap(picker);
+      await frames(tester);
+      expect(find.text('Senaryo seç'), findsOneWidget);
+      expect(find.text('Nükleer Kış'), findsOneWidget);
+      await tester.tap(find.text('Göktaşı'));
+      await frames(tester);
+      expect(requests.last, 'settings {"scenario_id":"meteor"}');
+
+      ws.last.serverSend(
+        'room.settings_changed',
+        stateVersion: 6,
+        payload: {'capacity': 2, 'scenario_id': 'meteor'},
+      );
+      await frames(tester);
+      expect(
+        find.descendant(of: picker, matching: find.text('Göktaşı')),
+        findsOneWidget,
+      );
+
+      // Rastgeleye dönüş.
+      await tester.tap(picker);
+      await frames(tester);
+      await tester.tap(find.byKey(const ValueKey('scenario-option-random')));
+      await frames(tester);
+      expect(requests.last, 'settings {"scenario_id":null}');
+
+      // Aynı seçeneğe dokunmak istek göndermez.
+      final n = requests.length;
+      await tester.tap(picker);
+      await frames(tester);
+      await tester.tap(find.byKey(const ValueKey('scenario-option-meteor')));
+      await frames(tester);
+      expect(requests, hasLength(n));
+    });
+
+    testWidgets('oda sahibi değilse yalnızca seçimi görür', (tester) async {
+      await pump(tester);
+      await snapshot(tester, host: 'u2', scenarioId: 'nuclear_winter');
+      expect(
+        find.descendant(of: picker, matching: find.text('Nükleer Kış')),
+        findsOneWidget,
+      );
+      expect(tester.widget<OutlinedButton>(picker).onPressed, isNull);
+    });
+
+    testWidgets('liste yüklenemezse sahip tekrar deneyebilir', (tester) async {
+      scenariosFail = true;
+      await pump(tester);
+      await snapshot(tester);
+      expect(find.text('Senaryolar yüklenemedi.'), findsOneWidget);
+
+      scenariosFail = false;
+      final before = scenarioCalls;
+      await tester.tap(find.text('Tekrar dene'));
+      await frames(tester);
+      expect(find.text('Senaryolar yüklenemedi.'), findsNothing);
+      expect(picker, findsOneWidget);
+      expect(scenarioCalls, greaterThan(before));
+    });
+  });
+
+  group('Lobi müziği', () {
+    testWidgets('lobide çalar; ses düğmesi sessize alır', (tester) async {
+      await pump(tester);
+      await snapshot(tester);
+      expect(music.single.calls, ['muted:false', 'play']);
+
+      await tester.tap(find.byKey(const ValueKey('sound-toggle')));
+      await frames(tester);
+      expect(music.single.calls.last, 'muted:true');
+      expect(find.byTooltip('Sesi aç'), findsOneWidget);
+
+      // Uygulama arka planda duraklar, öne gelince sürer.
+      final binding = tester.binding;
+      for (final s in [AppLifecycleState.inactive, AppLifecycleState.hidden]) {
+        binding.handleAppLifecycleStateChanged(s);
+      }
+      expect(music.single.calls.last, 'pause');
+      for (final s in [AppLifecycleState.inactive, AppLifecycleState.resumed]) {
+        binding.handleAppLifecycleStateChanged(s);
+      }
+      expect(music.single.calls.last, 'play');
+    });
+
+    testWidgets('oyun başlayınca durur', (tester) async {
+      await pump(tester);
+      await snapshot(tester, members: fourReady());
+      expect(music, hasLength(1));
+      ws.last.serverSend(
+        'game.started',
+        stateVersion: 1,
+        payload: gameStartedPayload([
+          ('u-guest', 'Ayşe'),
+          ('u2', 'Oyuncu 2'),
+          ('u3', 'Oyuncu 3'),
+          ('u4', 'Oyuncu 4'),
+        ]),
+      );
+      await frames(tester);
+      expect(music.single.disposed, isTrue);
+      expect(find.byKey(const ValueKey('sound-toggle')), findsNothing);
+    });
   });
 
   testWidgets('Sahip oyuncu atar (onaylı)', (tester) async {

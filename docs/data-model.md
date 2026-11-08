@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | `users` | Misafir kullanıcı | `id`, `nickname`, `created_at`, `last_seen_at`, `deleted_at` (silinince takma ad "Silinmiş oyuncu" olarak anonimleştirilir) | Sahibi; takma ad oda üyelerine görünür | Hesap silinene kadar (SAFE-009) |
 | `sessions` | Oturumlar | `user_id`, `token_hash`, `expires_at`, `revoked_at` | Yalnızca sunucu | Süresi dolunca temizlenir (AUTH-001) |
-| `rooms` | Oda | `invite_code` (aktif odalarda tekil), `host_user_id`, `capacity` ∈ {1,2}, `status` (lobby/in_game/finished/closed), `current_game_id`; kullanıcı aynı anda tek aktif odada | Oda üyeleri | Kapanınca temizlik (ROOM-010) |
+| `rooms` | Oda | `invite_code` (aktif odalarda tekil), `host_user_id`, `capacity` ∈ {1,2}, `scenario_id` (lobide seçilen senaryo, null = rastgele; FK `scenarios`, silinince null; 0009), `status` (lobby/in_game/finished/closed), `current_game_id`; kullanıcı aynı anda tek aktif odada | Oda üyeleri | Kapanınca temizlik (ROOM-010) |
 | `room_members` | Üyelik | PK `(room_id, user_id)`; `role` (player/spectator), `is_ready`, `joined_at`, `left_at`, `kicked_at` (atılan tekrar katılamaz) | Oda üyeleri | Oda ile |
 | `card_definitions` | Kart kataloğu | `category`, `text`, `balance` (+/0/−), `active` | Yalnızca sunucu (metin açılınca gönderilir) | Kalıcı; migration ile yüklenir |
 | `scenarios` | Senaryolar | başlık, felaket, süre, sığınak, dış dünya | Herkese (oyun başlayınca) | Kalıcı |

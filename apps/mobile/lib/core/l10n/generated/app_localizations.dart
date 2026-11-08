@@ -670,6 +670,42 @@ abstract class AppLocalizations {
   /// **'Oyun sonunda sığınağa girecek kişi sayısı'**
   String get roomCapacityHelp;
 
+  /// No description provided for @roomScenario.
+  ///
+  /// In tr, this message translates to:
+  /// **'Felaket senaryosu'**
+  String get roomScenario;
+
+  /// No description provided for @roomScenarioHelp.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oda sahibi seçer. Seçilmezse her oyunda rastgele gelir.'**
+  String get roomScenarioHelp;
+
+  /// No description provided for @roomScenarioRandom.
+  ///
+  /// In tr, this message translates to:
+  /// **'Rastgele'**
+  String get roomScenarioRandom;
+
+  /// No description provided for @roomScenarioChoose.
+  ///
+  /// In tr, this message translates to:
+  /// **'Senaryo seç'**
+  String get roomScenarioChoose;
+
+  /// No description provided for @roomScenarioLoading.
+  ///
+  /// In tr, this message translates to:
+  /// **'Senaryolar yükleniyor…'**
+  String get roomScenarioLoading;
+
+  /// No description provided for @roomScenarioLoadFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Senaryolar yüklenemedi.'**
+  String get roomScenarioLoadFailed;
+
   /// No description provided for @roomCapacityValue.
   ///
   /// In tr, this message translates to:

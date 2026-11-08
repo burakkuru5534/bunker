@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:siginak/core/audio/sound.dart';
 import 'package:siginak/core/config/app_config.dart';
 import 'package:siginak/core/config/app_config_provider.dart';
 import 'package:siginak/core/l10n/l10n.dart';
@@ -29,6 +30,7 @@ Future<void> pumpWithProviders(
   List<Override> overrides = const [],
   SecureStore? secureStore,
   IntroAudio Function()? introAudio,
+  LoopingMusic Function()? lobbyMusic,
   bool wrapInMaterialApp = true,
 }) {
   return tester.pumpWidget(
@@ -42,6 +44,9 @@ Future<void> pumpWithProviders(
         // Testlerde ses eklentisi yok: tanıtım sesi sessiz sahte.
         introAudioFactoryProvider.overrideWithValue(
           introAudio ?? FakeIntroAudio.new,
+        ),
+        lobbyMusicFactoryProvider.overrideWithValue(
+          lobbyMusic ?? FakeLoopingMusic.new,
         ),
         ...overrides,
       ],

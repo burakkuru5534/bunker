@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/theme/app_spacing.dart';
@@ -26,6 +27,9 @@ class LobbyView extends StatefulWidget {
     required this.onCapacity,
     required this.onKick,
     required this.onStart,
+    this.scenarios = const AsyncValue.data([]),
+    this.onScenario,
+    this.onRetryScenarios,
     this.onMemberMenu,
     this.online = true,
     super.key,
@@ -36,6 +40,13 @@ class LobbyView extends StatefulWidget {
   final Future<void> Function(int capacity) onCapacity;
   final Future<void> Function(String userId) onKick;
   final Future<void> Function() onStart;
+
+  /// Seçilebilir senaryolar (`GET /v1/scenarios`).
+  final AsyncValue<List<ScenarioOption>> scenarios;
+
+  /// Oda sahibinin senaryo seçimi; `null` = rastgele.
+  final Future<void> Function(String? scenarioId)? onScenario;
+  final VoidCallback? onRetryScenarios;
 
   /// Başka bir üyeye dokunulunca: oyuncu menüsü (Raporla / Engelle).
   final ValueChanged<RoomMember>? onMemberMenu;
@@ -120,6 +131,15 @@ class _LobbyViewState extends State<LobbyView> {
                 editable: isHost && _idle,
                 onChanged: (c) =>
                     unawaited(_guard('capacity', () => widget.onCapacity(c))),
+              ),
+              const SizedBox(height: AppSpacing.s4),
+              _ScenarioCard(
+                selected: room.scenarioId,
+                options: widget.scenarios,
+                editable: isHost && _idle && widget.onScenario != null,
+                onChanged: (id) =>
+                    unawaited(_guard('scenario', () => widget.onScenario!(id))),
+                onRetry: widget.onRetryScenarios,
               ),
               const SizedBox(height: AppSpacing.s5),
               Text(
@@ -290,6 +310,125 @@ class _CapacityCard extends StatelessWidget {
                     }
                   : null,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Senaryo seçimi: oda sahibi listeden seçer, diğerleri yalnızca görür.
+class _ScenarioCard extends StatelessWidget {
+  const _ScenarioCard({
+    required this.selected,
+    required this.options,
+    required this.editable,
+    required this.onChanged,
+    required this.onRetry,
+  });
+
+  final String? selected;
+  final AsyncValue<List<ScenarioOption>> options;
+  final bool editable;
+  final ValueChanged<String?> onChanged;
+  final VoidCallback? onRetry;
+
+  String _label(AppLocalizations l) {
+    final id = selected;
+    if (id == null) return l.roomScenarioRandom;
+    for (final o in options.value ?? const <ScenarioOption>[]) {
+      if (o.id == id) return o.title;
+    }
+    return options.isLoading ? l.roomScenarioLoading : id;
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final list = options.value;
+    if (list == null) return;
+    final l = context.l10n;
+    // İç içe nullable: dış `null` = vazgeçti, iç `null` = rastgele.
+    final choice = await showModalBottomSheet<({String? id})>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screen,
+                ),
+                child: Text(
+                  l.roomScenarioChoose,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s2),
+              for (final (id, title) in [
+                (null, l.roomScenarioRandom),
+                for (final o in list) (o.id, o.title),
+              ])
+                ListTile(
+                  key: ValueKey('scenario-option-${id ?? 'random'}'),
+                  leading: Icon(
+                    id == selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                  ),
+                  title: Text(title),
+                  selected: id == selected,
+                  onTap: () => Navigator.of(context).pop((id: id)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice != null && choice.id != selected) onChanged(choice.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final failed = options.hasError && options.value == null;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.s4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l.roomScenario, style: theme.textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.s1),
+            Text(l.roomScenarioHelp, style: theme.textTheme.bodySmall),
+            const SizedBox(height: AppSpacing.s3),
+            if (editable && failed)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.roomScenarioLoadFailed,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  TextButton(onPressed: onRetry, child: Text(l.actionRetry)),
+                ],
+              )
+            else
+              OutlinedButton.icon(
+                key: const ValueKey('scenario-picker'),
+                onPressed: editable && options.value != null
+                    ? () => unawaited(_pick(context))
+                    : null,
+                icon: const Icon(Icons.public_rounded),
+                label: Text(
+                  _label(l),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
           ],
         ),
       ),

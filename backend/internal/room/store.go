@@ -30,13 +30,13 @@ func loadForUpdate(ctx context.Context, tx pgx.Tx, roomID string) (Room, error) 
 func loadRoom(ctx context.Context, q persistence.Querier, roomID string, lock bool) (Room, error) {
 	r := Room{ID: roomID}
 	var status string
-	sql := `select invite_code, coalesce(host_user_id::text, ''), capacity, status, current_game_id::text, version
+	sql := `select invite_code, coalesce(host_user_id::text, ''), capacity, scenario_id, status, current_game_id::text, version
 		  from rooms where id = $1`
 	if lock {
 		sql += " for update"
 	}
 	err := q.QueryRow(ctx, sql, roomID).
-		Scan(&r.InviteCode, &r.HostUserID, &r.Capacity, &status, &r.CurrentGameID, &r.Version)
+		Scan(&r.InviteCode, &r.HostUserID, &r.Capacity, &r.ScenarioID, &status, &r.CurrentGameID, &r.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Room{}, errRoomNotFound
 	}
@@ -165,9 +165,16 @@ func setReady(ctx context.Context, tx pgx.Tx, roomID, userID string, ready bool)
 	return err
 }
 
-func setCapacity(ctx context.Context, tx pgx.Tx, roomID string, capacity int) error {
-	_, err := tx.Exec(ctx, `update rooms set capacity = $2 where id = $1`, roomID, capacity)
+func setSettings(ctx context.Context, tx pgx.Tx, roomID string, capacity int, scenarioID *string) error {
+	_, err := tx.Exec(ctx, `update rooms set capacity = $2, scenario_id = $3 where id = $1`, roomID, capacity, scenarioID)
 	return err
+}
+
+// activeScenario, senaryonun katalogda aktif olup olmadığıdır.
+func activeScenario(ctx context.Context, tx pgx.Tx, id string) (bool, error) {
+	var ok bool
+	err := tx.QueryRow(ctx, `select exists (select 1 from scenarios where id = $1 and active)`, id).Scan(&ok)
+	return ok, err
 }
 
 // kickMember, üyeyi atar: satır kalır (atılan tekrar katılamaz, SAFE-007).
