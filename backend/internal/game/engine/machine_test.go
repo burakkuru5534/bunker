@@ -121,7 +121,7 @@ func TestNewGameValidation(t *testing.T) {
 
 func TestBeginAndGuards(t *testing.T) {
 	e, s := newGame(t, 5, 1)
-	if s.Phase != PhaseScenarioIntro || !s.Deadline.Equal(t0.Add(15*time.Second)) || s.Version != 1 {
+	if s.Phase != PhaseScenarioIntro || !s.Deadline.Equal(t0.Add(30*time.Second)) || s.Version != 1 {
 		t.Fatalf("başlangıç: %s %v v%d", s.Phase, s.Deadline, s.Version)
 	}
 	if _, _, err := e.Begin(s, t0); apperr.CodeOf(err) != apperr.InvalidPhase {

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:siginak/features/game/game.dart';
+import 'package:siginak/features/game/presentation/intro/intro_timeline.dart';
 
+import '../../../helpers/fake_intro_audio.dart';
 import '../../../helpers/fake_ws.dart';
 import '../../../helpers/pump_app.dart';
 import '../../../helpers/small_screen.dart';
@@ -41,26 +43,35 @@ void main() {
     Map<String, Object?>? state,
     Map<String, Object?>? tiebreak,
     Set<String> revealed = const {'profession'},
+    Duration left = const Duration(seconds: 75),
+    String scenarioId = 'meteor',
   }) => GameView.fromSnapshot(
-    snapshotGame(
-      participants: players,
-      phase: phase,
-      turnUserId: turn,
-      deadline: now.add(const Duration(seconds: 75)).toIso8601String(),
-      round: round,
-      myCards: myCardsJson(revealed: revealed),
-      myActionState: state,
-      tiebreak: tiebreak,
-      readyCount: readyCount,
-      voteProgress: votes,
-      lastRoundResult: last,
-    ),
+    {
+      ...snapshotGame(
+        participants: players,
+        phase: phase,
+        turnUserId: turn,
+        deadline: now.add(left).toIso8601String(),
+        round: round,
+        myCards: myCardsJson(revealed: revealed),
+        myActionState: state,
+        tiebreak: tiebreak,
+        readyCount: readyCount,
+        voteProgress: votes,
+        lastRoundResult: last,
+      ),
+      'scenario': {...testScenario, 'id': scenarioId},
+    },
     serverTime: now,
     receivedAt: now,
   );
 
   late List<GameAction> actions;
-  setUp(() => actions = []);
+  late List<FakeIntroAudio> audios;
+  setUp(() {
+    actions = [];
+    audios = [];
+  });
 
   Future<void> pump(
     WidgetTester tester,
@@ -70,6 +81,7 @@ void main() {
   }) async {
     await pumpWithProviders(
       tester,
+      introAudio: () => FakeIntroAudio(audios),
       Scaffold(
         body: GameBody(
           game: g,
@@ -160,6 +172,8 @@ void main() {
 
   testWidgets('Senaryo tanıtımı ve senaryo penceresi', (tester) async {
     await pump(tester, game(phase: 'SCENARIO_INTRO', turn: null));
+    await tester.tap(find.byKey(const ValueKey('intro-skip')));
+    await tester.pump();
     expect(find.text('Sığınakta neler var?'), findsOneWidget);
     expect(find.text('Teknik kütüphane'), findsOneWidget);
     expect(find.text('Sığınağa yalnızca 2 kişi girebilir.'), findsOneWidget);
@@ -169,6 +183,129 @@ void main() {
     await tester.tap(find.text('Göktaşı'));
     await tester.pumpAndSettle();
     expect(find.text('Sığınakta neler var?'), findsOneWidget);
+  });
+
+  group('Senaryo tanıtımı animasyonu', () {
+    final cinematic = find.byKey(const ValueKey('scenario-cinematic'));
+    final subtitle = find.byKey(const ValueKey('intro-subtitle'));
+
+    String? subtitleText(WidgetTester tester) =>
+        subtitle.evaluate().isEmpty ? null : tester.widget<Text>(subtitle).data;
+
+    testWidgets('baştan oynar: başlık, altyazı, ses; Geç ile kapanır', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        game(phase: 'SCENARIO_INTRO', turn: null, left: kIntroLength),
+      );
+      expect(cinematic, findsOneWidget);
+      expect(audios.single.scenarioId, 'meteor');
+      expect(audios.single.startedAt, 0);
+      expect(audios.single.muted, [false]);
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      expect(find.text('GÖKTAŞI'), findsOneWidget);
+      expect(subtitleText(tester), isNull);
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(subtitleText(tester), 'O gece gökyüzü bir anda aydınlandı.');
+
+      await tester.tap(find.byKey(const ValueKey('intro-skip')));
+      await tester.pump();
+      expect(cinematic, findsNothing);
+      expect(audios.single.disposed, isTrue);
+      expect(find.text('Sığınakta neler var?'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('sonradan katılan ortadan başlar', (tester) async {
+      await pump(
+        tester,
+        game(
+          phase: 'SCENARIO_INTRO',
+          turn: null,
+          left: const Duration(seconds: 8),
+        ),
+      );
+      expect(audios.single.startedAt, 22);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(subtitleText(tester), contains('Kim içeri girecek?'));
+    });
+
+    testWidgets('süre bitmek üzereyse gösterilmez', (tester) async {
+      await pump(
+        tester,
+        game(
+          phase: 'SCENARIO_INTRO',
+          turn: null,
+          left: const Duration(seconds: 1),
+        ),
+      );
+      expect(cinematic, findsNothing);
+      expect(audios, isEmpty);
+    });
+
+    testWidgets('bilinmeyen senaryoda metin tanıtımı görünür', (tester) async {
+      await pump(
+        tester,
+        game(phase: 'SCENARIO_INTRO', turn: null, scenarioId: 'yeni'),
+      );
+      expect(cinematic, findsNothing);
+      expect(find.text('Sığınakta neler var?'), findsOneWidget);
+      expect(audios, isEmpty);
+    });
+
+    testWidgets('aşama bitince kapanır; süre azaldı diye erken kapanmaz', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        game(phase: 'SCENARIO_INTRO', turn: null, left: kIntroLength),
+      );
+      // Aynı oyun, aynı aşama; kalan süre 1 sn → animasyon sürer.
+      await pump(
+        tester,
+        game(
+          phase: 'SCENARIO_INTRO',
+          turn: null,
+          left: const Duration(seconds: 1),
+        ),
+      );
+      expect(cinematic, findsOneWidget);
+      expect(audios, hasLength(1));
+
+      await pump(tester, game());
+      expect(cinematic, findsNothing);
+      expect(audios.single.disposed, isTrue);
+    });
+
+    testWidgets('ses düğmesi sessize alır ve geri açar', (tester) async {
+      await pump(tester, game(phase: 'SCENARIO_INTRO', turn: null));
+      final mute = find.byKey(const ValueKey('intro-mute'));
+      expect(find.byTooltip('Sesi kapat'), findsOneWidget);
+
+      await tester.tap(mute);
+      await tester.pump();
+      expect(audios.single.muted, [false, true]);
+      expect(find.byTooltip('Sesi aç'), findsOneWidget);
+
+      await tester.tap(mute);
+      await tester.pump();
+      expect(audios.single.muted, [false, true, false]);
+    });
+
+    testWidgets('320 dp ve %200 yazıda her anda taşma yok', (tester) async {
+      useSmallScreen(tester);
+      await pump(
+        tester,
+        game(phase: 'SCENARIO_INTRO', turn: null, left: kIntroLength),
+      );
+      for (var t = 0; t < 30; t++) {
+        await tester.pump(const Duration(seconds: 1));
+        expect(tester.takeException(), isNull, reason: 't=$t');
+      }
+    });
   });
 
   testWidgets('Kartlarım: 5 kart, açık/kapalı', (tester) async {

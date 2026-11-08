@@ -16,7 +16,7 @@ type Durations struct {
 
 // DefaultDurations, game-design §8 tablosu.
 var DefaultDurations = Durations{
-	ScenarioIntro:     15 * time.Second,
+	ScenarioIntro:     30 * time.Second, // anlatımlı tanıtım animasyonu (docs/ui/scenario-intro-assets.md)
 	RevealPerPlayer:   20 * time.Second,
 	DiscussionSmall:   90 * time.Second,
 	DiscussionLarge:   120 * time.Second,

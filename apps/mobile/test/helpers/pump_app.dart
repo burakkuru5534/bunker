@@ -9,7 +9,9 @@ import 'package:siginak/core/l10n/l10n.dart';
 import 'package:siginak/core/storage/secure_store.dart';
 import 'package:siginak/core/storage/storage_providers.dart';
 import 'package:siginak/core/theme/app_theme.dart';
+import 'package:siginak/features/game/presentation/intro/intro_audio.dart';
 
+import 'fake_intro_audio.dart';
 import 'pump_themed.dart' show testLocalizationsDelegates;
 
 /// Testlerde kullanılan varsayılan yapılandırma (local ortam).
@@ -26,6 +28,7 @@ Future<void> pumpWithProviders(
   AppConfig? config,
   List<Override> overrides = const [],
   SecureStore? secureStore,
+  IntroAudio Function()? introAudio,
   bool wrapInMaterialApp = true,
 }) {
   return tester.pumpWidget(
@@ -35,6 +38,10 @@ Future<void> pumpWithProviders(
         // Testlerde platform eklentisi yok: bellek içi güvenli depo.
         secureStoreProvider.overrideWithValue(
           secureStore ?? InMemorySecureStore(),
+        ),
+        // Testlerde ses eklentisi yok: tanıtım sesi sessiz sahte.
+        introAudioFactoryProvider.overrideWithValue(
+          introAudio ?? FakeIntroAudio.new,
         ),
         ...overrides,
       ],

@@ -137,7 +137,7 @@ Kesin metinler migration 0007'dedir (CARD-007).
 
 | Aşama | Süre | Erken bitiş |
 |---|---|---|
-| SCENARIO_INTRO | 15 sn | — |
+| SCENARIO_INTRO | 30 sn | Anlatımlı tanıtım animasyonu (2026-11-08; önceden 15 sn) |
 | REVEAL (tur 1–5) | Oyuncu başına 20 sn, sırayla | Oyuncu kartını açınca sıra geçer |
 | DISCUSSION | Hayatta ≤6 ise 90 sn; ≥7 ise 120 sn | Hayattaki herkes "Hazırım" derse |
 | VOTING | 30 sn | Hayattaki herkes oy verince |

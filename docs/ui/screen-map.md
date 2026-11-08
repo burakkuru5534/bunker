@@ -77,7 +77,7 @@ Tüm görünümlerde ortak:
 - **Hazırım** anahtarı.
 - Oda sahibinde **Başlat** (4–10 oyuncu ve herkes hazırsa etkin; değilse nedeni yazılı).
 
-#### b) Senaryo görünümü (15 sn)
+#### b) Senaryo görünümü (30 sn; anlatımlı animasyon, bkz. [scenario-intro-assets.md](scenario-intro-assets.md))
 - Senaryo başlığı, felaket metni, kalış süresi, sığınak özellikleri, dış dünya.
 - Sayaç. Ardından oyun görünümüne geçer; senaryo, oyun görünümünde üstteki çipten tekrar açılabilir.
 

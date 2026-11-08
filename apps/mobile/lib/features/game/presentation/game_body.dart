@@ -11,6 +11,8 @@ import 'package:siginak/features/game/data/game_repository.dart';
 import 'package:siginak/features/game/domain/game_models.dart';
 import 'package:siginak/features/game/presentation/elimination_panel.dart';
 import 'package:siginak/features/game/presentation/game_widgets.dart';
+import 'package:siginak/features/game/presentation/intro/intro_timeline.dart';
+import 'package:siginak/features/game/presentation/intro/scenario_cinematic.dart';
 
 /// Oyun görünümü (docs/ui/screen-map.md §3.4b–c): üst çubuk, senaryo
 /// tanıtımı veya oyuncu ızgarası + eylem alanı, "Kartlarım".
@@ -54,6 +56,13 @@ class _GameBodyState extends State<GameBody> {
   bool _busy = false;
   bool _doorClosed = false;
   Timer? _doorTimer;
+
+  // Senaryo tanıtımı animasyonu: oyun başına bir kez karar verilir (aşama
+  // sonunda kalan süre azaldı diye kapanmasın).
+  String? _introGameId;
+  IntroTimeline? _introTimeline;
+  double _introStartAt = 0;
+  bool _introSkipped = false;
 
   GameView get game => widget.game;
 
@@ -139,9 +148,29 @@ class _GameBodyState extends State<GameBody> {
     await _send(tiebreak ? TiebreakVote(target.userId) : Vote(target.userId));
   }
 
+  /// Bu oyunun tanıtım animasyonu (gösterilmeyecekse `null`).
+  IntroTimeline? _cinematic(AppLocalizations l) {
+    if (game.phase != GamePhase.scenarioIntro) return null;
+    if (_introGameId != game.id) {
+      _introGameId = game.id;
+      _introSkipped = false;
+      final scenario = game.scenario;
+      final script = scenario == null ? null : introScripts[scenario.id];
+      final text = script == null ? null : introNarration(l, script.id);
+      final remaining = game.remaining(widget.clock());
+      final enough = remaining == null || remaining >= kIntroMinRemaining;
+      _introTimeline = script != null && text != null && enough
+          ? IntroTimeline(script, text)
+          : null;
+      _introStartAt = introStartAt(remaining);
+    }
+    return _introSkipped ? null : _introTimeline;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final cinematic = _cinematic(l);
     final me = game.participantOf(widget.myUserId);
     final spectator = me == null || !me.isAlive;
     final intro =
@@ -210,7 +239,20 @@ class _GameBodyState extends State<GameBody> {
       ],
     );
     return Stack(
-      children: [column, if (_doorClosed) const DoorClosedOverlay()],
+      children: [
+        column,
+        if (cinematic != null)
+          Positioned.fill(
+            child: ScenarioCinematic(
+              key: ValueKey('intro-${game.id}'),
+              timeline: cinematic,
+              title: game.scenario?.title ?? '',
+              startAt: _introStartAt,
+              onSkip: () => setState(() => _introSkipped = true),
+            ),
+          ),
+        if (_doorClosed) const DoorClosedOverlay(),
+      ],
     );
   }
 }

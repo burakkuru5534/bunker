@@ -12,9 +12,9 @@ Oda sahibi "Başlat" dedikten sonraki **senaryo tanıtımı** aşamasında oynay
 | 8–15 | **Felaket sürüyor:** parçacıklar (kül, sis, toz, kıvılcım), katmanlar farklı hızda kayar | Anlatım 2. bölüm |
 | 15–20 | **Sığınak:** ön katman, ışık sıcaklaşır | Anlatım 3. bölüm (sığınağın durumu) |
 | 20–24 | **Kapı:** ortak sığınak kapısı, yakınlaşma | Kapanış sorusu: "Kim içeri girecek?" |
-| 24–28 | Kapı kararır → oyun ekranına geçiş | Sessizlik / tek vuruş |
+| 27–30 | Kapı kararır → oyun ekranına geçiş | Sessizlik / tek vuruş |
 
-Sunucudaki tanıtım süresi 15 sn'den **28 sn**'ye çıkar. Anlatım **en fazla 22 sn** sürmeli. Aşağıdaki saniye işaretleri yaklaşıktır. Sesler gelince her senaryonun animasyon zamanlaması gerçek ses süresine göre ayarlanır.
+Sunucudaki tanıtım süresi **30 sn** (önceden 15 sn). Anlatım 2. saniyede başlar ve **en fazla 24 sn** sürer. Çarpma, sığınak ve kapı anları sabit saniyeler değildir: anlatım metninin dört bölümünün (`\n` ile ayrılır) sesteki konuşma uzunluğuna oranla hesaplanan başlangıçlarıdır (`IntroTimeline`). Bu yüzden altyazı metni (`app_tr.arb` → `introNarration…`) ses kaydıyla aynı olmalı ve `IntroScript.narration` süresi `narration.ogg` ile eşleşmelidir.
 
 ## Görseller
 
@@ -56,9 +56,9 @@ Kar, kül, sis, toz, kıvılcım, yağmur ve tarama çizgileri gibi parçacıkla
 
 | Dosya | Adet | Biçim | Not |
 |---|---|---|---|
-| `narration.wav` (her senaryo klasöründe) | **5** | WAV veya yüksek kaliteli MP3, 44,1/48 kHz, **mono** | ≤ 22 sn, başta ve sonda 0,3 sn sessizlik, ses düzeyi yaklaşık −16 LUFS, müzik ve efekt **eklenmemiş** (yalnızca ses) |
+| `narration.wav` (her senaryo klasöründe) | **5** | WAV veya yüksek kaliteli MP3, 44,1/48 kHz, **mono** | ≤ 24 sn, başta ve sonda 0,3 sn sessizlik, ses düzeyi yaklaşık −16 LUFS, müzik ve efekt **eklenmemiş** (yalnızca ses) |
 | `impact.wav` (her senaryo klasöründe) | 5 (isteğe bağlı) | aynı | Felaket anındaki vurgu efekti; ≤ 2 sn |
-| `music_loop.wav` (ortak) | 1 (isteğe bağlı) | stereo | 28 sn ya da kesintisiz döngü; gerilimli ve sakin arka plan |
+| `music_loop.wav` (ortak) | 1 (isteğe bağlı) | stereo | 30 sn ya da kesintisiz döngü; gerilimli ve sakin arka plan |
 
 Uygulamaya eklerken sıkıştırmayı ben yaparım (OGG/AAC). Müzik ve efektlerin lisansı ticari kullanıma açık olmalı.
 
@@ -114,3 +114,10 @@ branding/scenarios/
 ```
 
 Hepsi gelmeden de başlanabilir. Bir senaryo tamamlanınca o senaryoyu bağlarım; eksik olanlar geçici görsellerle çalışır.
+
+## Uygulamadaki karşılığı (2026-11-08)
+
+- Varlıklar: `apps/mobile/assets/scenarios/` (WebP + Ogg/Opus, toplam ~2,6 MB), `branding/scenarios/process_scenarios.py` ile kaynak dosyalardan üretilir (yeşil zemin silme, ses düzeyi eşitleme). Kaynak değişince betik yeniden çalıştırılır; anlatım süresi değiştiyse `intro_timeline.dart` → `introScripts[…].narration` güncellenir.
+- Kod: `lib/features/game/presentation/intro/` — `intro_timeline.dart` (zaman çizelgesi, saf fonksiyonlar), `intro_particles.dart` (kül, kızıl sis, kor, tarama, kıvılcım), `intro_audio.dart` (`just_audio`; müzik, anlatım, efekt), `scenario_cinematic.dart` (ekran). `GameBody` `SCENARIO_INTRO` aşamasında üst katman olarak gösterir.
+- Davranış: oyun başına bir kez karar verilir; sonradan katılan kalan süreye göre ortadan başlar; 2 sn'den az kaldıysa veya senaryo uygulamada tanımlı değilse metin tanıtımı görünür. "Geç" yalnızca o oyuncunun ekranını kapatır; ses düğmesi uygulama açık kaldıkça hatırlanır. Hareketi azalt ayarında parlama ve sarsıntı yoktur.
+

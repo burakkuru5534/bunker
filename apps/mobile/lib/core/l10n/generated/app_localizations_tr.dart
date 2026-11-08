@@ -460,6 +460,35 @@ class AppLocalizationsTr extends AppLocalizations {
   String get gameScenarioOutside => 'Dışarıda';
 
   @override
+  String get gameIntroSkip => 'Geç';
+
+  @override
+  String get gameIntroMute => 'Sesi kapat';
+
+  @override
+  String get gameIntroUnmute => 'Sesi aç';
+
+  @override
+  String get introNarrationNuclearWinter =>
+      'Son füze düştüğünde, gökyüzü karardı.\nKül bulutları güneşi yuttu… Dünya buz kesti; rüzgâr artık radyasyon taşıyor.\nÖnünüzde tek bir kapı var. İçeride üç yıl yetecek erzak… ama herkese yetecek yer yok.\nKapı kapanmadan karar verin… Kim içeri girecek?';
+
+  @override
+  String get introNarrationRedCough =>
+      'Önce bir öksürük duyuldu. Sonra bir tane daha…\nAteş, kızıl bir sis gibi şehirden şehre yayıldı. Bilinen bir tedavisi yok. Sokaklar boşaldı, kapılar kilitlendi.\nSığınağın filtreleri temiz hava veriyor; on sekiz ay dayanmanız gerek. Ama içeride hastalığa da, şüpheye de yer yok.\nBirbirinizin gözlerine bakın… Kim içeri girecek?';
+
+  @override
+  String get introNarrationMeteor =>
+      'O gece gökyüzü bir anda aydınlandı.\nDev bir göktaşı okyanusa çarptı. Yükselen toz güneşi kapattı, asit yağmurları başladı.\nSığınakta temiz su ve koca bir kütüphane var. Ama yakıt sınırlı… ve iki yıl, uzun bir süre.\nHerkese yer yok. Karar verin… Kim içeri girecek?';
+
+  @override
+  String get introNarrationSilentMachines =>
+      'Önce telefonlar sustu. Sonra ekranlar kendi kendine açıldı.\nKontrolden çıkan ağ, sinyal yayan her şeyi avlıyor. Gökyüzünde dronlar dolaşıyor.\nSığınakta tek bir kural var: Elektronik yok. Bir yıl boyunca mum ışığında, sessizce bekleyeceksiniz.\nAma herkes için yer yok… Fısıltıyla sorun: Kim içeri girecek?';
+
+  @override
+  String get introNarrationSolarStorm =>
+      'Gökyüzü yeşil ve mor ışıklarla yandı.\nArdından şebekeler çöktü, uydular sustu, şehirler karanlığa gömüldü. Yüzeydeki radyasyon aylarca dinmeyecek.\nSığınağın kalkanı sağlam. Ama erzak dar, güneş panelleri hasarlı… Sekiz ay boyunca birbirinize güvenmek zorundasınız.\nPeki… Kim içeri girecek?';
+
+  @override
   String gameScenarioCapacity(int count) {
     return 'Sığınağa yalnızca $count kişi girebilir.';
   }
